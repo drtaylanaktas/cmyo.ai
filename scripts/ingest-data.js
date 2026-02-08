@@ -3,6 +3,8 @@ const path = require('path');
 const mammoth = require('mammoth');
 const XLSX = require('xlsx');
 
+const pdf = require('pdf-parse');
+
 const dataDir = path.join(__dirname, '../src/data');
 const outputFile = path.join(dataDir, 'knowledge_base.json');
 
@@ -12,6 +14,17 @@ async function extractTextFromDocx(filePath) {
         return result.value;
     } catch (error) {
         console.error(`Error reading DOCX ${filePath}:`, error);
+        return '';
+    }
+}
+
+async function extractTextFromPdf(filePath) {
+    try {
+        const dataBuffer = fs.readFileSync(filePath);
+        const data = await pdf(dataBuffer);
+        return data.text;
+    } catch (error) {
+        console.error(`Error reading PDF ${filePath}:`, error);
         return '';
     }
 }
@@ -48,6 +61,8 @@ async function main() {
             content = await extractTextFromDocx(filePath);
         } else if (ext === '.xlsx') {
             content = extractTextFromXlsx(filePath);
+        } else if (ext === '.pdf') {
+            content = await extractTextFromPdf(filePath);
         } else {
             console.log(`Skipping unsupported file type: ${file}`);
             continue;
