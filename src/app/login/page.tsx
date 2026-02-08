@@ -51,7 +51,7 @@ export default function LoginPage() {
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
@@ -66,20 +66,28 @@ export default function LoginPage() {
             return;
         }
 
-        // Mock Authentication Logic
+        // Authentication Logic
         if (isLogin) {
             // Login Logic
-            const storedUser = localStorage.getItem(`user_${email}`);
-            if (storedUser) {
-                const parsedUser = JSON.parse(storedUser);
-                if (parsedUser.password === password) {
-                    localStorage.setItem('cmyo_user', JSON.stringify(parsedUser));
-                    router.push('/');
-                } else {
-                    setError('Hatalı şifre.');
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    setError(data.error || 'Giriş başarısız.');
+                    return;
                 }
-            } else {
-                setError('Kullanıcı bulunamadı. Lütfen önce kayıt olun.');
+
+                // Login successful
+                localStorage.setItem('cmyo_user', JSON.stringify(data.user));
+                router.push('/');
+            } catch (err) {
+                setError('Bir hata oluştu. Lütfen tekrar deneyin.');
             }
         } else {
             // Register Logic
@@ -88,12 +96,6 @@ export default function LoginPage() {
 
             if (!hasUpperCase || !hasSpecialChar) {
                 setError('Şifreniz en az bir büyük harf ve bir noktalama işareti içermelidir.');
-                return;
-            }
-
-            const storedUser = localStorage.getItem(`user_${email}`);
-            if (storedUser) {
-                setError('Bu mail adresi zaten kayıtlı.');
                 return;
             }
 
@@ -112,24 +114,37 @@ export default function LoginPage() {
                 return;
             }
 
+            try {
+                const newUser = {
+                    email,
+                    password,
+                    name,
+                    surname,
+                    role,
+                    title: role === 'academic' ? title : '',
+                    academicUnit,
+                    avatar: avatar || ''
+                };
 
-            const newUser = {
-                email,
-                password,
-                name,
-                surname,
-                role,
-                title: role === 'academic' ? title : '',
-                academicUnit, // Save academic unit
-                avatar: avatar || '' // Store avatar
-            };
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newUser),
+                });
 
+                const data = await res.json();
 
-            // Save new user
-            localStorage.setItem(`user_${email}`, JSON.stringify(newUser));
-            setSuccess('Kayıt başarılı! Şimdi giriş yapabilirsiniz.');
-            setIsLogin(true); // Switch to login view
-            setPassword('');
+                if (!res.ok) {
+                    setError(data.error || 'Kayıt başarısız.');
+                    return;
+                }
+
+                setSuccess('Kayıt başarılı! Şimdi giriş yapabilirsiniz.');
+                setIsLogin(true); // Switch to login view
+                setPassword('');
+            } catch (err) {
+                setError('Bir hata oluştu. Lütfen tekrar deneyin.');
+            }
         }
     };
 
