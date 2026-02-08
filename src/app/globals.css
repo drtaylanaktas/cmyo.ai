@@ -1,26 +1,82 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+@theme {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --background: #050a14;
+  /* Deep Dark Blue */
+  --foreground: #f8fafc;
+
+  /* KAEU Inspired Neon Colors */
+  --ahi-blue: #0047AB;
+  /* Official-ish Blue */
+  --ahi-green: #4C9F38;
+  /* Official-ish Green */
+  --ahi-gold: #FDB913;
+  /* Official-ish Gold */
+
+  --neon-blue: #0080ff;
+  /* Glowing Blue */
+  --neon-green: #39ff14;
+  /* Glowing Green */
+  --neon-gold: #ffd700;
+  /* Glowing Gold */
+
+  --primary: var(--neon-blue);
+  --secondary: #111827;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), sans-serif;
+}
+
+/* Glassmorphism & Neon Effects */
+.glass {
+  background: rgba(10, 20, 40, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 128, 255, 0.2);
+  box-shadow: 0 0 15px rgba(0, 128, 255, 0.1);
+}
+
+.glass-card {
+  background: rgba(10, 15, 30, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.neon-border {
+  border: 1px solid transparent;
+  box-shadow: 0 0 5px var(--neon-blue), inset 0 0 5px var(--neon-blue);
+}
+
+.neon-text-blue {
+  text-shadow: 0 0 10px var(--neon-blue);
+}
+
+.neon-text-green {
+  text-shadow: 0 0 10px var(--neon-green);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e3a8a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-blue);
 }

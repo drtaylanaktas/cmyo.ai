@@ -1,0 +1,291 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import NeuralBackground from '@/components/NeuralBackground';
+import { motion } from 'framer-motion';
+import { Mail, Lock, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
+import Image from 'next/image';
+
+export default function LoginPage() {
+    const [isLogin, setIsLogin] = useState(true);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [name, setName] = useState('');
+    const [surname, setSurname] = useState('');
+    const [title, setTitle] = useState('');
+    const [avatar, setAvatar] = useState('');
+    const [role, setRole] = useState<'student' | 'academic'>('student');
+
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const router = useRouter();
+
+    useEffect(() => {
+        // Check if already logged in
+        const user = localStorage.getItem('cmyo_user');
+        if (user) {
+            router.push('/');
+        }
+    }, [router]);
+
+    const validateEmail = (email: string) => {
+        return email.endsWith('@ahievran.edu.tr');
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                setError("Dosya boyutu 2MB'dan küçük olmalıdır.");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setAvatar(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+
+        if (!validateEmail(email)) {
+            setError('Sadece @ahievran.edu.tr uzantılı mail adresleri ile giriş yapabilirsiniz.');
+            return;
+        }
+
+        if (password.length < 6) {
+            setError('Şifre en az 6 karakter olmalıdır.');
+            return;
+        }
+
+        // Mock Authentication Logic
+        if (isLogin) {
+            // Login Logic
+            const storedUser = localStorage.getItem(`user_${email}`);
+            if (storedUser) {
+                const parsedUser = JSON.parse(storedUser);
+                if (parsedUser.password === password) {
+                    localStorage.setItem('cmyo_user', JSON.stringify(parsedUser));
+                    router.push('/');
+                } else {
+                    setError('Hatalı şifre.');
+                }
+            } else {
+                setError('Kullanıcı bulunamadı. Lütfen önce kayıt olun.');
+            }
+        } else {
+            // Register Logic
+            const hasUpperCase = /[A-Z]/.test(password);
+            const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+            if (!hasUpperCase || !hasSpecialChar) {
+                setError('Şifreniz en az bir büyük harf ve bir noktalama işareti içermelidir.');
+                return;
+            }
+
+            const storedUser = localStorage.getItem(`user_${email}`);
+            if (storedUser) {
+                setError('Bu mail adresi zaten kayıtlı.');
+                return;
+            }
+
+            if (!name || !surname) {
+                setError('Lütfen ad ve soyad giriniz.');
+                return;
+            }
+
+            if (role === 'academic' && !title) {
+                setError('Lütfen ünvanınızı giriniz.');
+                return;
+            }
+
+            const newUser = {
+                email,
+                password,
+                name,
+                surname,
+                role,
+                title: role === 'academic' ? title : '',
+                avatar: avatar || '' // Store avatar
+            };
+
+            // Save new user
+            localStorage.setItem(`user_${email}`, JSON.stringify(newUser));
+            setSuccess('Kayıt başarılı! Şimdi giriş yapabilirsiniz.');
+            setIsLogin(true); // Switch to login view
+            setPassword('');
+        }
+    };
+
+    return (
+        <main className="relative w-full h-screen flex items-center justify-center overflow-hidden">
+            <NeuralBackground />
+
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+                className="relative z-10 w-full max-w-md p-8 bg-[#050a14]/80 backdrop-blur-2xl rounded-3xl border border-blue-500/30 shadow-[0_0_50px_rgba(0,128,255,0.2)] max-h-[90vh] overflow-y-auto"
+            >
+                <div className="flex flex-col items-center mb-6">
+                    <div className="w-16 h-16 relative mb-3 rounded-full overflow-hidden border-2 border-blue-500/50 shadow-[0_0_20px_rgba(0,128,255,0.4)]">
+                        <Image src="/logo.png" alt="Logo" fill className="object-cover" />
+                    </div>
+                    <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-green-400 to-blue-400 tracking-tight">
+                        ÇMYO.AI
+                    </h1>
+                </div>
+
+                <div className="flex gap-4 mb-6 bg-slate-900/50 p-1 rounded-xl">
+                    <button
+                        onClick={() => { setIsLogin(true); setError(''); setSuccess(''); }}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${isLogin ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Giriş Yap
+                    </button>
+                    <button
+                        onClick={() => { setIsLogin(false); setError(''); setSuccess(''); }}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${!isLogin ? 'bg-green-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Kayıt Ol
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-3">
+
+                    {!isLogin && (
+                        <div className="flex gap-2 mb-2 p-1 bg-slate-900/50 rounded-lg">
+                            <button
+                                type="button"
+                                onClick={() => setRole('student')}
+                                className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${role === 'student' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}
+                            >
+                                Öğrenci
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setRole('academic')}
+                                className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${role === 'academic' ? 'bg-green-600 text-white' : 'text-slate-400'}`}
+                            >
+                                Akademisyen
+                            </button>
+                        </div>
+                    )}
+
+                    {!isLogin && (
+                        <div className="grid grid-cols-2 gap-3">
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Adınız"
+                                className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-3 px-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 transition-all"
+                            />
+                            <input
+                                type="text"
+                                value={surname}
+                                onChange={(e) => setSurname(e.target.value)}
+                                placeholder="Soyadınız"
+                                className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-3 px-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 transition-all"
+                            />
+                        </div>
+                    )}
+
+                    {!isLogin && (
+                        <div className="relative group">
+                            <label className="block text-xs text-slate-400 mb-1 ml-1">Profil Fotoğrafı (Opsiyonel)</label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleFileChange}
+                                className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-2 px-4 text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 transition-all"
+                            />
+                        </div>
+                    )}
+
+                    {!isLogin && role === 'academic' && (
+                        <div className="relative">
+                            <select
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                className="w-full bg-slate-900/50 border border-green-500/20 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-green-500/50 transition-all"
+                            >
+                                <option value="" disabled>Ünvan Seçiniz</option>
+                                <option value="Araş. Gör.">Araş. Gör.</option>
+                                <option value="Araş. Gör. Dr.">Araş. Gör. Dr.</option>
+                                <option value="Öğr. Gör.">Öğr. Gör.</option>
+                                <option value="Öğr. Gör. Dr.">Öğr. Gör. Dr.</option>
+                                <option value="Dr. Öğr. Üyesi">Dr. Öğr. Üyesi</option>
+                                <option value="Doç. Dr.">Doç. Dr.</option>
+                                <option value="Prof. Dr.">Prof. Dr.</option>
+                            </select>
+                            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="relative group">
+                        <Mail className="absolute left-4 top-3.5 w-5 h-5 text-blue-400/50 group-focus-within:text-blue-400 transition-colors" />
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="kurumsal@ahievran.edu.tr"
+                            required
+                            className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-3 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all"
+                        />
+                    </div>
+
+                    <div className="relative group">
+                        <Lock className="absolute left-4 top-3.5 w-5 h-5 text-blue-400/50 group-focus-within:text-blue-400 transition-colors" />
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Şifreniz"
+                            required
+                            className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-3 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all"
+                        />
+                    </div>
+
+                    {error && (
+                        <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            {error}
+                        </div>
+                    )}
+
+                    {success && (
+                        <div className="flex items-center gap-2 text-green-400 text-sm bg-green-500/10 p-3 rounded-lg border border-green-500/20">
+                            <CheckCircle className="w-4 h-4 shrink-0" />
+                            {success}
+                        </div>
+                    )}
+
+                    <button
+                        type="submit"
+                        className={`w-full py-3.5 rounded-xl font-bold text-white transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg flex items-center justify-center gap-2 ${isLogin
+                            ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 shadow-blue-500/25'
+                            : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 shadow-green-500/25'
+                            }`}
+                    >
+                        {isLogin ? 'Giriş Yap' : 'Kayıt Ol'}
+                        <ArrowRight className="w-5 h-5" />
+                    </button>
+                </form>
+
+                <p className="mt-6 text-center text-xs text-slate-500">
+                    &copy; {new Date().getFullYear()} Çiçekdağı MYO - Yapay Zeka Desteği
+                </p>
+            </motion.div>
+        </main>
+    );
+}
