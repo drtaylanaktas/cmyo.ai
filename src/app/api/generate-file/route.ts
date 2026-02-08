@@ -4,10 +4,10 @@ import fs from 'fs';
 import path from 'path';
 
 // Helper to write debug logs
+// Helper to write debug logs (Console only for Vercel)
 function logDebug(message: string) {
-    const logPath = path.join(process.cwd(), 'debug_log.txt');
     const timestamp = new Date().toISOString();
-    fs.appendFileSync(logPath, `[${timestamp}] ${message}\n`);
+    console.log(`[${timestamp}] ${message}`);
 }
 
 export async function POST(req: Request) {
