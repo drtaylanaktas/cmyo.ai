@@ -160,10 +160,10 @@ async function generateWithFallback(message: string, history: any[] = []) {
 }
 
 // Helper to write debug logs
+// Helper to write debug logs (Console only for Vercel)
 function logChatDebug(message: string) {
-    const logPath = path.join(process.cwd(), 'chat_debug_log.txt');
     const timestamp = new Date().toISOString();
-    fs.appendFileSync(logPath, `[${timestamp}] ${message}\n`);
+    console.log(`[${timestamp}] ${message}`);
 }
 
 export async function POST(req: Request) {
