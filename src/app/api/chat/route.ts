@@ -4,7 +4,9 @@ import fs from 'fs';
 import path from 'path';
 
 // Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
+// Try both standard and Next.js public env vars
+const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
+const genAI = new GoogleGenerativeAI(apiKey);
 
 // Load Knowledge Base
 const kbPath = path.join(process.cwd(), 'src/data/knowledge_base.json');
@@ -329,7 +331,10 @@ export async function POST(req: Request) {
             if (error.response) {
                 logChatDebug(`Response blocked: ${JSON.stringify(error.response)}`);
             }
-            return NextResponse.json({ error: "Sistem şu anda çok yoğun, lütfen biraz sonra tekrar deneyin." }, { status: 503 });
+            // Return ACTUAL error for debugging
+            return NextResponse.json({
+                error: `API Error: ${error.message || 'Unknown error'}. Key Status: ${apiKey ? 'Present (' + apiKey.length + ' chars)' : 'MISSING'}`
+            }, { status: 503 });
         }
 
         return NextResponse.json({ reply });
