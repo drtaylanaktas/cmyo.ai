@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import NeuralBackground from '@/components/NeuralBackground';
 import { motion } from 'framer-motion';
-import { Mail, Lock, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { Mail, Lock, ArrowRight, CheckCircle, AlertCircle, Briefcase } from 'lucide-react';
+
 import Image from 'next/image';
 
 export default function LoginPage() {
@@ -16,6 +17,8 @@ export default function LoginPage() {
     const [title, setTitle] = useState('');
     const [avatar, setAvatar] = useState('');
     const [role, setRole] = useState<'student' | 'academic'>('student');
+    const [academicUnit, setAcademicUnit] = useState('');
+
 
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -104,6 +107,12 @@ export default function LoginPage() {
                 return;
             }
 
+            if (!academicUnit) {
+                setError('Lütfen bağlı olduğunuz birimi (Fakülte/MYO) seçiniz.');
+                return;
+            }
+
+
             const newUser = {
                 email,
                 password,
@@ -111,8 +120,10 @@ export default function LoginPage() {
                 surname,
                 role,
                 title: role === 'academic' ? title : '',
+                academicUnit, // Save academic unit
                 avatar: avatar || '' // Store avatar
             };
+
 
             // Save new user
             localStorage.setItem(`user_${email}`, JSON.stringify(newUser));
@@ -231,6 +242,68 @@ export default function LoginPage() {
                             </div>
                         </div>
                     )}
+
+                    {/* Academic Unit Selection */}
+                    {!isLogin && (
+                        <div className="relative group">
+                            <Briefcase className="absolute left-4 top-3.5 w-5 h-5 text-blue-400/50 group-focus-within:text-blue-400 transition-colors pointer-events-none z-10" />
+                            <select
+                                value={academicUnit}
+                                onChange={(e) => setAcademicUnit(e.target.value)}
+                                className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-3 pl-12 pr-4 text-white appearance-none focus:outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all cursor-pointer"
+                                required
+                            >
+                                <option value="" disabled className="text-slate-500">Bağlı Olduğunuz Birimi Seçiniz</option>
+
+                                <optgroup label="Enstitüler">
+                                    <option value="Fen Bilimleri Enstitüsü">Fen Bilimleri Enstitüsü</option>
+                                    <option value="Sağlık Bilimleri Enstitüsü">Sağlık Bilimleri Enstitüsü</option>
+                                    <option value="Sosyal Bilimler Enstitüsü">Sosyal Bilimler Enstitüsü</option>
+                                </optgroup>
+
+                                <optgroup label="Fakülteler">
+                                    <option value="Eğitim Fakültesi">Eğitim Fakültesi</option>
+                                    <option value="Fen Edebiyat Fakültesi">Fen Edebiyat Fakültesi</option>
+                                    <option value="İktisadi ve İdari Bilimler Fakültesi">İktisadi ve İdari Bilimler Fakültesi</option>
+                                    <option value="İlahiyat Fakültesi">İlahiyat Fakültesi</option>
+                                    <option value="Mühendislik Mimarlık Fakültesi">Mühendislik Mimarlık Fakültesi</option>
+                                    <option value="Neşet Ertaş Güzel Sanatlar Fakültesi">Neşet Ertaş Güzel Sanatlar Fakültesi</option>
+                                    <option value="Sağlık Bilimleri Fakültesi">Sağlık Bilimleri Fakültesi</option>
+                                    <option value="Spor Bilimleri Fakültesi">Spor Bilimleri Fakültesi</option>
+                                    <option value="Tıp Fakültesi">Tıp Fakültesi</option>
+                                    <option value="Ziraat Fakültesi">Ziraat Fakültesi</option>
+                                </optgroup>
+
+                                <optgroup label="Yüksekokullar">
+                                    <option value="Fizik Tedavi ve Rehabilitasyon Yüksekokulu">Fizik Tedavi ve Rehabilitasyon Yüksekokulu</option>
+                                    <option value="Kaman Uygulamalı Bilimler Yüksekokulu">Kaman Uygulamalı Bilimler Yüksekokulu</option>
+                                    <option value="Yabancı Diller Yüksekokulu">Yabancı Diller Yüksekokulu</option>
+                                </optgroup>
+
+                                <optgroup label="Meslek Yüksekokulları">
+                                    <option value="Çiçekdağı MYO">Çiçekdağı MYO</option>
+                                    <option value="Kaman MYO">Kaman MYO</option>
+                                    <option value="Mucur MYO">Mucur MYO</option>
+                                    <option value="Mucur Sağlık Hizmetleri MYO">Mucur Sağlık Hizmetleri MYO</option>
+                                    <option value="Sağlık Hizmetleri MYO">Sağlık Hizmetleri MYO</option>
+                                    <option value="Sosyal Bilimler MYO">Sosyal Bilimler MYO</option>
+                                    <option value="Teknik Bilimler MYO">Teknik Bilimler MYO</option>
+                                </optgroup>
+
+                                <optgroup label="Rektörlüğe Bağlı Bölümler">
+                                    <option value="Atatürk İlkeleri ve İnkılap Tarihi Bölümü">Atatürk İlkeleri ve İnkılap Tarihi Bölümü</option>
+                                    <option value="Enformatik Bölümü">Enformatik Bölümü</option>
+                                    <option value="Türk Dili Bölümü">Türk Dili Bölümü</option>
+                                </optgroup>
+                            </select>
+                            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none text-slate-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                    )}
+
 
                     <div className="relative group">
                         <Mail className="absolute left-4 top-3.5 w-5 h-5 text-blue-400/50 group-focus-within:text-blue-400 transition-colors" />
