@@ -105,10 +105,25 @@ export default function Home() {
         body: JSON.stringify({ message: input, history: history, user: currentUser }),
       });
 
-      const data = await response.json();
-
-      let botContent = data.reply || 'Bir sorun oluştu.';
+      let botContent = '';
       let attachment = null;
+
+      // Try to parse JSON, but handle HTML errors (Vercel crashes) too
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        // Non-JSON response (likely Vercel 500/504 HTML error)
+        const text = await response.text();
+        throw new Error(`Server Error (${response.status}): ${text.substring(0, 100)}...`);
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || `API Error: ${response.statusText}`);
+      }
+
+      botContent = data.reply || 'Cevap alınamadı.';
 
       // Check for JSON block (PDF Generation Trigger)
       const jsonMatch = botContent.match(/JSON_START\s*([\s\S]*?)\s*JSON_END/);
@@ -162,12 +177,12 @@ export default function Home() {
         attachments: attachment ? [attachment] : undefined
       }]);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Üzgünüm, şu anda yanıt veremiyorum.',
+        content: `⚠️ Bir hata oluştu: ${error.message || 'Bilinmeyen hata'}`, // Show REAL error
       }]);
     } finally {
       setIsLoading(false);
