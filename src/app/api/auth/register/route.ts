@@ -11,6 +11,22 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Sadece @ahievran.edu.tr uzantılı mail adresleri ile kayıt olabilirsiniz.' }, { status: 400 });
         }
 
+        // Ensure users table exists (Auto-Fix for "relation does not exist")
+        await sql`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                surname VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                role VARCHAR(50) NOT NULL,
+                title VARCHAR(100),
+                academic_unit VARCHAR(255),
+                avatar TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+        `;
+
         // Check if user exists
         const existingUser = await sql`SELECT * FROM users WHERE email = ${email}`;
         if (existingUser.rows.length > 0) {
