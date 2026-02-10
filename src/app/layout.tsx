@@ -1,6 +1,7 @@
 // Redeploy trigger: Neon DB should be linked now (v2)
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,6 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
       >
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
