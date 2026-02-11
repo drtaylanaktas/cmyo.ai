@@ -45,7 +45,7 @@ export default function ProfilePage() {
         }
     };
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setMessage(null);
 
@@ -67,16 +67,26 @@ export default function ProfilePage() {
             avatar
         };
 
-        // Update current session
-        localStorage.setItem('cmyo_user', JSON.stringify(updatedUser));
+        try {
+            const res = await fetch('/api/auth/update-profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedUser)
+            });
 
-        // Update permanent storage
-        localStorage.setItem(`user_${user.email}`, JSON.stringify(updatedUser));
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Güncelleme başarısız.');
+            }
 
-        setMessage({ type: 'success', text: 'Profiliniz başarıyla güncellendi!' });
+            // Update local session only after successful DB update
+            localStorage.setItem('cmyo_user', JSON.stringify(updatedUser)); // For persistent login
+            setUser(updatedUser);
+            setMessage({ type: 'success', text: 'Profiliniz başarıyla güncellendi!' });
 
-        // Update state to reflect changes immediately
-        setUser(updatedUser);
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message });
+        }
     };
 
     if (!user) return null;
