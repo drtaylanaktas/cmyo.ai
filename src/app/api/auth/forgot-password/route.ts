@@ -63,7 +63,7 @@ export async function POST(request: Request) {
             });
         }
 
-        return NextResponse.json({ message: 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. (Geliştirme ortamındaysanız sunucu konsolunu kontrol edin.)' }, { status: 200 });
+        return NextResponse.json({ message: 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.' }, { status: 200 });
 
     } catch (error: any) {
         console.error('Forgot password error:', error);
