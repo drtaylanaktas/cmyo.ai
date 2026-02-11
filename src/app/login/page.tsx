@@ -346,7 +346,7 @@ export default function LoginPage() {
                     </div>
 
                     {isLogin && (
-                        <div className="flex justify-end -mt-2 mb-4">
+                        <div className="flex justify-end mt-2 mb-4 relative z-10">
                             <Link
                                 href="/forgot-password"
                                 className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
