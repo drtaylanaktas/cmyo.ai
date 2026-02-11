@@ -24,6 +24,8 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   const { isListening, transcript, startListening, stopListening, resetTranscript, hasSupport } = useVoiceInput();
+  const [weatherData, setWeatherData] = useState<any>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // We keep track of the input value when listening starts so we can append to it
   const inputRef = useRef(input);
@@ -44,6 +46,53 @@ export default function Home() {
       setUserRole(user.role);
     }
   }, [router]);
+
+  // Weather & Location Logic
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        let locationName = "Bilinmeyen Konum";
+
+        // 1. Get readable address (Reverse Geocoding)
+        try {
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`, {
+            headers: {
+              'User-Agent': 'CMYO-AI-Web/1.0'
+            }
+          });
+          if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            // Prioritize District/City/Town
+            locationName = geoData.address.town || geoData.address.city || geoData.address.province || geoData.address.district || "Bilinmeyen Bölge";
+            if (geoData.address.suburb) locationName += `, ${geoData.address.suburb}`;
+          }
+        } catch (e) {
+          console.error("Reverse geocoding failed", e);
+        }
+
+        // 2. Get Weather
+        try {
+          const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&timezone=auto`);
+          if (response.ok) {
+            const data = await response.json();
+            setWeatherData({
+              temp: data.current.temperature_2m,
+              code: data.current.weather_code,
+              unit: data.current_units.temperature_2m,
+              lat: latitude,
+              lon: longitude,
+              locationName: locationName // Add the readable name
+            });
+          }
+        } catch (e) {
+          console.error("Failed to fetch weather", e);
+        }
+      }, (error) => {
+        console.log("Location access denied or error:", error);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -126,7 +175,7 @@ export default function Home() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input, history: history, user: currentUser }),
+        body: JSON.stringify({ message: input, history: history, user: currentUser, weather: weatherData }),
       });
 
       let botContent = '';

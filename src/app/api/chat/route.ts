@@ -170,7 +170,7 @@ async function generateWithClaude(message: string, systemPrompt: string, history
 
 export async function POST(req: Request) {
     try {
-        const { message, history, user } = await req.json();
+        const { message, history, user, weather } = await req.json();
         const role = user?.role || 'student'; // Fallback to student
 
         logChatDebug(`--- Chat Request Started (Claude) ---`);
@@ -197,6 +197,27 @@ export async function POST(req: Request) {
     ŞU ANKİ TARİH VE SAAT: ${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', dateStyle: 'full', timeStyle: 'short' })}
     BUGÜN GÜNLERDEN: ${new Intl.DateTimeFormat('tr-TR', { timeZone: 'Europe/Istanbul', weekday: 'long' }).format(new Date())}
     Bu bilgiyi kullanarak sana sorulan "bugün günlerden ne", "saat kaç" gibi sorulara %100 doğru cevap ver. Asla başka bir tarih uydurma.
+
+    ${weather ? `
+    KULLANICI KONUM VE ORTAM BİLGİSİ:
+    Tespit Edilen Konum: ${weather.locationName} (${weather.lat}, ${weather.lon})
+    Sıcaklık: ${weather.temp}${weather.unit}
+    Hava Durumu Kodu: ${weather.code} (WMO Code)
+    
+    WMO KODU ANLAMLARI:
+    0: Açık
+    1, 2, 3: Parçalı Bulutlu
+    45, 48: Sisli
+    51, 53, 55: Çiseleme
+    61, 63, 65: Yağmurlu
+    71, 73, 75: Karlı
+    95, 96, 99: Fırtınalı
+    
+    ÖNEMLİ KONUM KURALLARI:
+    1. Kullanıcı "Hava nasıl?" diye sorarsa: "Şu an bulunduğunuz ${weather.locationName} konumunda hava [DURUM] ve sıcaklık ${weather.temp}${weather.unit}" şeklinde cevap ver. ASLA "Çiçekdağı" deme (eğer tespit edilen konum Çiçekdağı değilse).
+    2. Kullanıcı "Neredeyim?", "Konumum neresi?" diye sorarsa: "Şu an ${weather.locationName} konumunda görünüyorsunuz." şeklinde cevap ver.
+    3. Senin okulun (Çiçekdağı MYO) ile kullanıcının konumu farklı olabilir. Bunu karıştırma.
+    ` : 'Konum bilgisi alınamadı. Eğer kullanıcı hava durumu veya konum sorarsa "Konum izni verirseniz size yardımcı olabilirim." de.'}
 
     GENEL KURAL (SÜRE VE TOKEN OPTİMİZASYONU): Cevapların MÜMKÜN OLDUĞUNCA KISA, ÖZ ve NET olsun. Gereksiz kibarlık cümleleri, uzun giriş-gelişme paragrafları kullanma. Kullanıcının sorusuna doğrudan odaklan. Sadece gerekli bilgiyi ver.
     
