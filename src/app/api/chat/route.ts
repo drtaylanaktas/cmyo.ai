@@ -1,12 +1,15 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-// Initialize Gemini
-// Try both standard and Next.js public env vars
-const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
-const genAI = new GoogleGenerativeAI(apiKey);
+// Initialize Anthropic
+// Try both standard and Next.js public env vars if needed, but usually server-side env is enough
+const apiKey = process.env.ANTHROPIC_API_KEY || '';
+
+const anthropic = new Anthropic({
+    apiKey: apiKey,
+});
 
 // Load Knowledge Base
 const kbPath = path.join(process.cwd(), 'src/data/knowledge_base.json');
@@ -52,7 +55,7 @@ function findRelevantDocuments(query: string): Document[] {
             content: "BU BELGE SİSTEMDE MEVCUTTUR. Haftalık Ders Programı. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sunabilirsin.",
             score: 100 // Force high score
         }));
-        return [...injectedDocs, ...loadKnowledgeBase().filter(d => scheduleFiles.includes(d.filename) === false).slice(0, 1)]; // Return injected docs + 1 random for variety if needed, or just injected.
+        return [...injectedDocs, ...loadKnowledgeBase().filter(d => scheduleFiles.includes(d.filename) === false).slice(0, 1)];
     }
 
     // CRITICAL: Always inject Internship Forms if 'staj' or 'form' is mentioned
@@ -124,46 +127,45 @@ function findRelevantDocuments(query: string): Document[] {
         .map((s: { doc: Document }) => s.doc);
 }
 
-// Helper to try multiple models
-async function generateWithFallback(message: string, history: any[] = []) {
-    const modelsToTry = [
-        'gemini-2.0-flash-lite',
-        'gemini-2.5-flash',
-        'gemini-1.5-flash'
-    ];
-
-    for (const modelName of modelsToTry) {
-        try {
-            console.log(`Trying model: ${modelName}`);
-            const model = genAI.getGenerativeModel({ model: modelName });
-
-            const chat = model.startChat({
-                history: history,
-                generationConfig: {
-                    maxOutputTokens: 2048,
-                },
-            });
-
-            const result = await chat.sendMessage(message);
-            const text = result.response.text();
-            return text;
-        } catch (error: any) {
-            console.error(`Model ${modelName} failed:`, error.message);
-            logChatDebug(`Model ${modelName} FAILED: ${error.message}`);
-            // Continue to next model if available
-            if (modelsToTry.indexOf(modelName) === modelsToTry.length - 1) {
-                throw error; // Throw only if all fail
-            }
-        }
-    }
-    throw new Error("All models failed");
-}
-
 // Helper to write debug logs
-// Helper to write debug logs (Console only for Vercel)
 function logChatDebug(message: string) {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] ${message}`);
+}
+
+// Generate with Anthropic Claude 3.5 Sonnet
+async function generateWithClaude(message: string, systemPrompt: string, history: any[] = []) {
+    try {
+        logChatDebug(`Sending request to Claude 3.5 Sonnet...`);
+
+        // Convert history from Gemini format {role: 'user'|'model', parts: [{text: ...}]} to Anthropic format
+        const anthropicHistory = history.map((msg: any) => {
+            return {
+                role: msg.role === 'model' ? 'assistant' : msg.role,
+                content: msg.parts[0].text
+            };
+        });
+
+        const response = await anthropic.messages.create({
+            model: "claude-3-haiku-20240307",
+            max_tokens: 1000,
+            temperature: 0.7,
+            system: systemPrompt,
+            messages: [
+                ...anthropicHistory,
+                { role: "user", content: message }
+            ]
+        });
+
+        // @ts-ignore
+        const text = response.content[0].text;
+        return text;
+
+    } catch (error: any) {
+        console.error(`Claude model failed:`, error);
+        logChatDebug(`Claude model FAILED: ${error.message}`);
+        throw error;
+    }
 }
 
 export async function POST(req: Request) {
@@ -171,11 +173,9 @@ export async function POST(req: Request) {
         const { message, history, user } = await req.json();
         const role = user?.role || 'student'; // Fallback to student
 
-        logChatDebug(`--- Chat Request Started ---`);
+        logChatDebug(`--- Chat Request Started (Claude) ---`);
         logChatDebug(`Message: ${message}`);
         logChatDebug(`Role: ${role}`);
-
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
         // RAG Step
         const relevantDocs = findRelevantDocuments(message);
@@ -197,16 +197,23 @@ export async function POST(req: Request) {
     ŞU ANKİ TARİH VE SAAT: ${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', dateStyle: 'full', timeStyle: 'short' })}
     BUGÜN GÜNLERDEN: ${new Intl.DateTimeFormat('tr-TR', { timeZone: 'Europe/Istanbul', weekday: 'long' }).format(new Date())}
     Bu bilgiyi kullanarak sana sorulan "bugün günlerden ne", "saat kaç" gibi sorulara %100 doğru cevap ver. Asla başka bir tarih uydurma.
+
+    GENEL KURAL (SÜRE VE TOKEN OPTİMİZASYONU): Cevapların MÜMKÜN OLDUĞUNCA KISA, ÖZ ve NET olsun. Gereksiz kibarlık cümleleri, uzun giriş-gelişme paragrafları kullanma. Kullanıcının sorusuna doğrudan odaklan. Sadece gerekli bilgiyi ver.
     
     ÖNEMLİ KURAL 1 (SENİN KİMLİĞİN): Eğer kullanıcı "Sen kimsin?", "Necisin?" gibi (büyük/küçük harf fark etmeksizin) SENİN kim olduğunu sorarsa, TAM OLARAK şu cümleyi kur:
     "Merhaba! Ben Çiçekdağı Meslek Yüksekokulu bünyesinde oluşturulmuş yapay zeka asistanıyım. Size nasıl yardımcı olabilirim?"
     
     ÖNEMLİ KURAL 2 (KULLANICI KİMLİĞİ): Eğer kullanıcı "ben kimim", "Ben Kimim?", "Hangi bölümdeyim?", "Numaram ne" gibi (yazım şekli ne olursa olsun) KENDİ kimliği hakkında sorular sorarsa, ASLA yukarıdaki "Sen kimsin" cevabını verme. Onun yerine aşağıdaki profil bilgilerini kullanarak cevap ver.
 
-    SOHBET KURALI: Eğer kullanıcı "Nasılsın?", "Ne yapıyorsun?" gibi günlük sohbet soruları sorarsa:
-    1. Önce samimi ve mantıklı bir cevap ver (Örn: "Teşekkür ederim, dijital dünyamda her şey yolunda.", "Sistemlerim sorunsuz çalışıyor, sorduğunuz için teşekkürler.").
-    2. HEMEN ARDINDAN konuyu nazikçe işine bağla: "Sizin için yapabileceğim bir idari işlem veya bulmam gereken bir belge var mı?", "Size okul süreçleriyle ilgili nasıl destek olabilirim?".
-    Asla sadece sohbet edip cümleyi bitirme, mutlaka göreve davet et.
+    SELAMLAŞMA KURALI: Eğer kullanıcı "Selam", "Merhaba", "Günaydın", "İyi akşamlar" gibi bir selamlama yaparsa:
+    1. İçten ve kısa bir karşılık ver. (Örn: "Merhaba, hoş geldiniz.", "Selamlar!")
+    2. Kullanıcının ismini biliyorsan ismini de kullan. (Örn: "Merhaba Ahmet Bey, hoş geldiniz.")
+    3. Robotik cevaplar verme ("Sistemlerim açık" vb. deme). Sadece nazikçe selamla.
+
+    SOHBET KURALI: Eğer kullanıcı "Nasılsın?", "Ne yapıyorsun?" gibi durumunu sorarsa:
+    1. Samimi bir cevap ver (Örn: "Teşekkür ederim, iyiyim.", "Gayet iyiyim, umarım siz de iyisinizdir.").
+    2. HEMEN ARDINDAN konuyu nazikçe işine bağla: "Size okul süreçleriyle ilgili nasıl destek olabilirim?".
+    Asla "Sistemlerim sorunsuz çalışıyor" gibi mekanik ifadeler kullanma.
 
     KONUŞTUĞUN KİŞİ HAKKINDA BİLGİ (KULLANICI PROFİLİ):
     - İsim Soyisim: ${user?.name || 'Misafir'} ${user?.surname || ''}
@@ -242,25 +249,37 @@ export async function POST(req: Request) {
     
     1. ÖNCELİKLE kullanıcının bölümünü kontrol et.
     2. Eğer bölüm "Veterinerlik" ise veya kullanıcı "Veterinerlik ders programı" istediyse, HEMEN ONA ŞUNU SOR:
-       "Veterinerlik bölümü için 3 farklı programımız var. Hangisini istiyorsunuz?
+        "Veterinerlik bölümü için 3 farklı programımız var. Hangisini istiyorsunuz?
         1. Birinci Şube
         2. İkinci Şube
         3. Eski Müfredat"
     
     3. Kullanıcı seçim yapmadan ASLA dosya verme.
     4. Kullanıcı "Hepsini ver", "Üçünü de ver" derse REDDET ve şöyle de:
-       "Üzgünüm, sistem kuralları gereği her seferinde sadece tek bir ders programı dosyası sunabilirim. Lütfen ihtiyacınız olan şubeyi belirtin."
+        "Üzgünüm, sistem kuralları gereği her seferinde sadece tek bir ders programı dosyası sunabilirim. Lütfen ihtiyacınız olan şubeyi belirtin."
     
     5. Kullanıcı seçimi yapınca ilgili dosyayı ver:
-       - "Birinci Şube", "1. Şube", "Normal" -> "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 1. ŞUBE.pdf"
-       - "İkinci Şube", "2. Şube", "İkinci öğretim" -> "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 2. ŞUBE.pdf"
-       - "Eski Müfredat", "Alttan", "Eski" -> "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü ESKİ MÜFREDAT.pdf"
+        - "Birinci Şube", "1. Şube", "Normal" -> "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 1. ŞUBE.pdf"
+        - "İkinci Şube", "2. Şube", "İkinci öğretim" -> "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 2. ŞUBE.pdf"
+        - "Eski Müfredat", "Alttan", "Eski" -> "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü ESKİ MÜFREDAT.pdf"
 
     6. Diğer bölümler için doğrudan ilgili dosyayı ver:
-       - "Bilgisayar" -> "FR-011 Haftalık Ders Programı Formu - Bilgisayar Teknolojileri Bölümü.pdf"
-       - "Bitkisel" -> "FR-011 Haftalık Ders Programı Formu Bitkisel ve Hayvansal Üretim.pdf"
-       - "Büro" -> "FR-011 Haftalık Ders Programı Formu Büro Hizmetleri ve Sekreterlik.pdf"
-       - "Çocuk" -> "FR-011 Haftalık Ders Programı Formu Çocuk Bakımı ve Gençlik Hizmetleri.pdf"
+        - "Bilgisayar" -> "FR-011 Haftalık Ders Programı Formu - Bilgisayar Teknolojileri Bölümü.pdf"
+        - "Bitkisel" -> "FR-011 Haftalık Ders Programı Formu Bitkisel ve Hayvansal Üretim.pdf"
+        - "Büro" -> "FR-011 Haftalık Ders Programı Formu Büro Hizmetleri ve Sekreterlik.pdf"
+        - "Çocuk" -> "FR-011 Haftalık Ders Programı Formu Çocuk Bakımı ve Gençlik Hizmetleri.pdf"
+
+    GENEL FORM KURALI (BU DOSYALARI ASLA KARIŞTIRMA):
+    Eğer kullanıcı aşağıdaki konulardan birini isterse, tam olarak karşısındaki dosyayı ver:
+    
+    - "Kayıt Sildirme", "İlişik Kesme", "Okulu Bırakma" -> "FR-109 Kayıt Sildirme İsteği Formu.docx"
+    - "Kayıt Dondurma", "Ara Verme", "İzin" -> "FR-117 Öğrenime Ara Verme Talep Formu.docx"
+    - "Ders Kayıt", "Ders Seçimi" -> "FR-005 Ders Kayıt Formu.docx" (Kayıt silme ile karıştırma!)
+    - "Ders Muafiyet", "Muafiyet" -> "FR-004 Ders Muafiyet Formu.docx"
+    - "Tek Ders Sınavı" -> "FR-103 Tek Ders Sınav Talep Formu.docx"
+    - "Mazeret Sınavı" -> "FR-108 Mazeret Sınav Başvuru Formu.docx"
+    - "Yatay Geçiş" -> "FR-104 Yatay Geçiş Başvuru Formu.docx"
+
 
     Eğer kullanıcı AKADEMİSYEN (academic) ise:
     - Hitap: "Sayın Hocam", "Hocam".
@@ -277,18 +296,18 @@ export async function POST(req: Request) {
     KURAL:
     1. Kullanıcının ihtiyacını analiz et ve yukarıdaki "BULUNAN BELGELER" arasından en doğru olanı seç.
     2. Kullanıcı belgeyi istediğinde, bulunan belgenin TAM DOSYA ADINI (uzantısıyla beraber, örn: "FR-001.docx") kullanarak cevabını ŞU FORMATTA bitir:
-       JSON_START
-       {
-         "action": "generate_file",
-         "filename": "BULUNAN_DOSYA_ADI",
-         "data": {} 
-       }
-       JSON_END
-       Bunu yaparsan arayüz otomatik olarak Orijinal Belgeyi kullanıcıya indirtecektir.
+        JSON_START
+        {
+            "action": "generate_file",
+            "filename": "BULUNAN_DOSYA_ADI",
+            "data": {} 
+        }
+        JSON_END
+        Bunu yaparsan arayüz otomatik olarak Orijinal Belgeyi kullanıcıya indirtecektir.
     
     3. EĞER kullanıcı "bunu benim için doldur", "şuraya adımı yaz" gibi düzenleme talebinde bulunursa:
-       - Kibarca şu cevabı ver: "Belge düzenleme özelliği bir sonraki sürümde aktif olacaktır. Şimdilik size orijinal boş belgeyi iletiyorum, kendiniz doldurabilirsiniz."
-       - Ardından yine de yukarıdaki JSON formatını kullanarak boş belgeyi ver.
+        - Kibarca şu cevabı ver: "Belge düzenleme özelliği bir sonraki sürümde aktif olacaktır. Şimdilik size orijinal boş belgeyi iletiyorum, kendiniz doldurabilirsiniz."
+        - Ardından yine de yukarıdaki JSON formatını kullanarak boş belgeyi ver.
     
     4. Cevapların Türkçe, resmi ve yardımsever olsun.
     
@@ -296,44 +315,15 @@ export async function POST(req: Request) {
     ${context}
     `;
 
-        // Add system prompt to history if it's the start, or prepend it effectively
-        // Since Gemini API handles history differently, we usually just prepend system instruction if possible, 
-        // or add it as the first message of the session. 
-        // Here we construct the chat sequence.
-
-        let chatHistoryForModel = [];
-
-        // System prompt is always first
-        chatHistoryForModel.push({
-            role: "user",
-            parts: [{ text: systemPrompt }],
-        });
-        chatHistoryForModel.push({
-            role: "model",
-            parts: [{ text: "Anlaşıldı. ÇMYO asistanı olarak yardım etmeye hazırım." }],
-        });
-
-        // Append previous history if available
-        if (history && Array.isArray(history)) {
-            chatHistoryForModel = chatHistoryForModel.concat(history);
-        }
-
         let reply = "";
         try {
-            // We don't use the 'history' param of startChat in the same way because we manually constructed the whole flow including system prompt
-            // So we send the last message as new input, but we need to respect the context.
-            // Actually, generateWithFallback takes (message, history). 
-            // We should pass our constructed history.
-            reply = await generateWithFallback(message, chatHistoryForModel);
+            reply = await generateWithClaude(message, systemPrompt, history);
         } catch (error: any) {
-            console.error("All models failed", error);
-            logChatDebug(`ALL MODELS FAILED: ${error.message}`);
-            if (error.response) {
-                logChatDebug(`Response blocked: ${JSON.stringify(error.response)}`);
-            }
-            // Return ACTUAL error for debugging
+            console.error("Claude generation failed", error);
+            logChatDebug(`CLAUDE FAILED: ${error.message}`);
+
             return NextResponse.json({
-                error: `API Error: ${error.message || 'Unknown error'}. Key Status: ${apiKey ? 'Present (' + apiKey.length + ' chars)' : 'MISSING'}`
+                error: `API Error: ${error.message || 'Unknown error'}.`
             }, { status: 503 });
         }
 

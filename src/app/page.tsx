@@ -2,10 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, FileText, User, Sparkles, Copy, Check } from 'lucide-react';
+import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import NeuralBackground from '@/components/NeuralBackground';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { checkProfanity } from '@/lib/badwords';
 
 type Message = {
@@ -22,7 +23,10 @@ export default function Home() {
   const [userRole, setUserRole] = useState<'student' | 'academic'>('student'); // Keep for API compatibility but derive from user
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  const { isListening, transcript, startListening, stopListening, resetTranscript, hasSupport } = useVoiceInput();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // We keep track of the input value when listening starts so we can append to it
+  const inputRef = useRef(input);
   const router = useRouter(); // Initialize useRouter
 
   const scrollToBottom = () => {
@@ -44,6 +48,26 @@ export default function Home() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Update input when transcript changes
+  useEffect(() => {
+    if (isListening && transcript) {
+      // Append transcript to the input value captured when listening started
+      const prefix = inputRef.current ? inputRef.current.trim() + ' ' : '';
+      setInput(prefix + transcript);
+    }
+  }, [transcript, isListening]);
+
+  // Capture input state when starting to listen
+  const handleMicClick = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      inputRef.current = input; // Capture current input
+      resetTranscript();
+      startListening();
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('cmyo_user');
@@ -189,6 +213,29 @@ export default function Home() {
     }
   };
 
+  const copyToClipboard = (text: string) => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(err => {
+        console.error('Async: Could not copy text: ', err);
+      });
+    } else {
+      // Fallback for insecure contexts (like HTTP emulator)
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+      } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   return (
     <main className="flex-1 flex flex-col h-screen max-h-screen relative overflow-hidden bg-transparent text-white">
 
@@ -280,7 +327,7 @@ export default function Home() {
                   {/* Copy Button */}
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(msg.content);
+                      copyToClipboard(msg.content);
                     }}
                     className={`absolute top-2 right-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${msg.role === 'user' ? 'text-blue-100 hover:bg-white/10' : 'text-slate-400 hover:bg-slate-700'
                       }`}
@@ -324,40 +371,58 @@ export default function Home() {
           <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-green-500 to-blue-500 rounded-xl opacity-20 blur group-hover:opacity-40 transition duration-1000 animate-tilt"></div>
 
 
-          <form
-            onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-            className="flex-1 flex gap-3 relative z-10"
-          >
-            <textarea
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                  // Reset height
-                  if (e.currentTarget) {
-                    e.currentTarget.style.height = 'auto';
-                  }
-                }
-              }}
-              placeholder={isBlocked ? `Sohbet kilitlendi. ${blockTimer} saniye sonra tekrar yazabilirsiniz.` : "Merhaba! Ben ÇMYO.AI. Size nasıl yardımcı olabilirim?"}
-              rows={1}
-              disabled={isBlocked}
-              className={`flex-1 bg-[#0f172a] border border-blue-500/30 rounded-xl px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 shadow-inner transition-all hover:border-blue-500/50 resize-none min-h-[46px] max-h-[150px] overflow-y-auto ${isBlocked ? 'opacity-50 cursor-not-allowed border-red-500/50' : ''}`}
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className="p-3 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-all shadow-[0_0_20px_rgba(0,128,255,0.3)] active:scale-95 flex items-center justify-center w-14 border border-blue-400/20"
+
+          <div className="flex-1 flex gap-3 relative z-10">
+            {/* Mic Button */}
+            {hasSupport && (
+              <button
+                type="button"
+                onClick={handleMicClick}
+                className={`p-3 rounded-xl transition-all shadow-[0_0_20px_rgba(0,128,255,0.3)] active:scale-95 flex items-center justify-center w-14 border ${isListening
+                  ? 'bg-red-600 hover:bg-red-500 border-red-400/20 animate-pulse text-white'
+                  : 'bg-[#0f172a] hover:bg-[#1e293b] border-blue-500/30 text-slate-400 hover:text-white'
+                  }`}
+                title={isListening ? "Dinlemeyi Durdur" : "Sesle Yaz"}
+              >
+                {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+              </button>
+            )}
+
+            <form
+              onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+              className="flex-1 flex gap-3 relative z-10"
             >
-              <Send className="w-6 h-6" />
-            </button>
-          </form>
+              <textarea
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                    // Reset height
+                    if (e.currentTarget) {
+                      e.currentTarget.style.height = 'auto';
+                    }
+                  }
+                }}
+                placeholder={isBlocked ? `Sohbet kilitlendi. ${blockTimer} saniye sonra tekrar yazabilirsiniz.` : "Merhaba! Ben ÇMYO.AI. Size nasıl yardımcı olabilirim?"}
+                rows={1}
+                disabled={isBlocked}
+                className={`flex-1 bg-[#0f172a] border border-blue-500/30 rounded-xl px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 shadow-inner transition-all hover:border-blue-500/50 resize-none min-h-[46px] max-h-[150px] overflow-y-auto ${isBlocked ? 'opacity-50 cursor-not-allowed border-red-500/50' : ''}`}
+              />
+              <button
+                type="submit"
+                disabled={!input.trim() || isLoading}
+                className="p-3 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-all shadow-[0_0_20px_rgba(0,128,255,0.3)] active:scale-95 flex items-center justify-center w-14 border border-blue-400/20"
+              >
+                <Send className="w-6 h-6" />
+              </button>
+            </form>
+          </div>
         </div>
         <div className="text-center mt-2 flex justify-center items-center gap-2 opacity-50">
           <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_lime]"></div>

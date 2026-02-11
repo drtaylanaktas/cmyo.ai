@@ -6,33 +6,28 @@ export const BAD_WORDS = [
     'mal',
     'şerefsiz',
     'pislik',
-    'lan',
-    'nah',
     'siktir',
     'amk',
     'aq',
     'oç',
     'piç',
     'yavşak',
-    'dangalak',
-    'eşşek',
-    'it',
-    'köpek',
-    'hıyar',
-    'haysiyetsiz',
-    'adilik',
-    'kaltak',
     'yosma',
-    'ahmak',
-    'angut',
-    'davar',
     'dalyarak',
     'sürtük',
     'pezevenk',
-    'gavat'
+    'gavat',
+    'ananı',
+    'bacını',
+    'sik',
+    'yarrak'
 ];
 
 export const checkProfanity = (text: string): boolean => {
     const lowerText = text.toLocaleLowerCase('tr-TR');
-    return BAD_WORDS.some(word => lowerText.includes(word));
+    // Use regex to look for full words only, preventing "plan" triggering "lan"
+    return BAD_WORDS.some(word => {
+        const regex = new RegExp(`\\b${word}\\b`, 'i');
+        return regex.test(lowerText);
+    });
 };
