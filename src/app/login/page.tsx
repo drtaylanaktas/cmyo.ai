@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import NeuralBackground from '@/components/NeuralBackground';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, CheckCircle, AlertCircle, Briefcase } from 'lucide-react';
@@ -343,6 +344,17 @@ export default function LoginPage() {
                             className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-3 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all"
                         />
                     </div>
+
+                    {isLogin && (
+                        <div className="flex justify-end -mt-2 mb-4">
+                            <Link
+                                href="/forgot-password"
+                                className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                            >
+                                Şifremi Unuttum
+                            </Link>
+                        </div>
+                    )}
 
                     {error && (
                         <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 p-3 rounded-lg border border-red-500/20">
