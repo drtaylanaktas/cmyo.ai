@@ -299,7 +299,7 @@ export default function Home() {
           </div>
           <div>
             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#0080ff] via-[#39ff14] to-[#lld700] drop-shadow-[0_0_10px_rgba(0,128,255,0.5)]">
-              ÇMYO.AI
+              ÇMYO.AI v1.0 (beta)
             </h1>
             <p className="text-xs text-blue-300/80">Kırşehir Ahi Evran Üniversitesi</p>
           </div>
@@ -458,7 +458,7 @@ export default function Home() {
                     }
                   }
                 }}
-                placeholder={isBlocked ? `Sohbet kilitlendi. ${blockTimer} saniye sonra tekrar yazabilirsiniz.` : "Merhaba! Ben ÇMYO.AI. Size nasıl yardımcı olabilirim?"}
+                placeholder={isBlocked ? `Sohbet kilitlendi. ${blockTimer} saniye sonra tekrar yazabilirsiniz.` : "Merhaba! Ben ÇMYO.AI v1.0 (beta). Size nasıl yardımcı olabilirim?"}
                 rows={1}
                 disabled={isBlocked}
                 className={`flex-1 bg-[#0f172a] border border-blue-500/30 rounded-xl px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 shadow-inner transition-all hover:border-blue-500/50 resize-none min-h-[46px] max-h-[150px] overflow-y-auto ${isBlocked ? 'opacity-50 cursor-not-allowed border-red-500/50' : ''}`}

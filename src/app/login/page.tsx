@@ -163,7 +163,7 @@ export default function LoginPage() {
                         <Image src="/logo.png" alt="Logo" fill className="object-cover" />
                     </div>
                     <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-green-400 to-blue-400 tracking-tight">
-                        ÇMYO.AI
+                        ÇMYO.AI v1.0 (beta)
                     </h1>
                 </div>
 

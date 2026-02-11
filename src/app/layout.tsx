@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ÇMYO.AI | Yapay Zeka Asistanı",
+  title: "ÇMYO.AI v1.0 (beta) | Yapay Zeka Asistanı",
   description: "Çiçekdağı Meslek Yüksekokulu Belge ve Bilgi Asistanı",
 };
 
