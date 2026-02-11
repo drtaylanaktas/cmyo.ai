@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus } from 'lucide-react';
+import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import NeuralBackground from '@/components/NeuralBackground';
@@ -347,259 +347,251 @@ export default function Home() {
   };
 
   return (
-    <main className="flex-1 flex flex-col h-screen max-h-screen relative overflow-hidden bg-transparent text-white">
-
-      {/* Background Ambience (Neon Glows) */}
+    <div className="flex h-screen max-h-screen overflow-hidden bg-[#050a14] text-white relative">
       <NeuralBackground />
 
-      {/* Header */}
-      <header className="h-20 border-b border-blue-500/20 glass flex items-center justify-between px-6 fixed top-0 w-full z-50 bg-[#050a14]/80 backdrop-blur-xl transition-all duration-300">
-        <div className="flex items-center gap-3">
-          <div className="relative w-12 h-12 rounded-full border-2 border-blue-400/50 shadow-[0_0_15px_rgba(0,128,255,0.4)] overflow-hidden bg-white/10 p-0.5">
-            <Image src="/logo.png" alt="Logo" width={48} height={48} className="object-cover w-full h-full rounded-full" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#0080ff] via-[#39ff14] to-[#lld700] drop-shadow-[0_0_10px_rgba(0,128,255,0.5)]">
-              KAEU.AI v1.0 (beta)
-            </h1>
-            <p className="text-xs text-blue-300/80">Kırşehir Ahi Evran Üniversitesi</p>
+      {/* Sidebar - Desktop (Permanent) & Mobile (Drawer) */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-72 bg-[#050a14]/95 backdrop-blur-xl border-r border-blue-500/20 transform transition-transform duration-300 ease-in-out
+        md:relative md:translate-x-0 md:bg-transparent md:backdrop-blur-none
+        ${showHistory ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="flex flex-col h-full p-4">
+          {/* Sidebar Header */}
+          <div className="flex items-center gap-3 mb-6 px-2">
+            <div className="w-8 h-8 rounded-full border border-blue-400/30 overflow-hidden">
+              <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-cover" />
+            </div>
+            <span className="font-bold text-lg tracking-tight">KAEU.AI</span>
+            <button
+              onClick={() => setShowHistory(false)}
+              className="md:hidden ml-auto text-slate-400"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
           </div>
 
-        </div>
+          {/* New Chat Button */}
+          <button
+            onClick={() => {
+              startNewChat();
+              if (window.innerWidth < 768) setShowHistory(false);
+            }}
+            className="flex items-center gap-3 w-full p-3 mb-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-lg shadow-blue-500/20 group"
+          >
+            <Plus className="w-5 h-5" />
+            <span className="font-medium">Yeni Sohbet</span>
+          </button>
 
-        <div className="flex items-center gap-4 bg-slate-900/50 p-2 rounded-full border border-blue-500/20 backdrop-blur-md px-4">
-          {currentUser && (
-            <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => router.push('/profile')}>
-              <div className="flex flex-col items-end">
-                <span className="text-sm font-bold text-white">
-                  {currentUser.role === 'academic' && currentUser.title ? `${currentUser.title} ` : ''}
-                  {currentUser.name} {currentUser.surname}
-                </span>
-                <span className={`text-[10px] uppercase tracking-wider font-semibold ${currentUser.role === 'academic' ? 'text-green-400' : 'text-blue-400'
-                  }`}>
-                  {currentUser.role === 'academic' ? 'Akademisyen' : 'Öğrenci'}
-                </span>
+          {/* History List */}
+          <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Geçmiş</h3>
+            {history.length === 0 ? (
+              <div className="text-slate-500 text-sm p-4 text-center border border-dashed border-slate-800 rounded-xl">
+                Henüz sohbet yok.
               </div>
-              <div className="w-10 h-10 rounded-full border border-blue-500/30 overflow-hidden bg-slate-800 relative">
-                {currentUser.avatar ? (
-                  <Image src={currentUser.avatar} alt="Profile" fill className="object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-400">
-                    <User className="w-6 h-6" />
-                  </div>
-                )}
+            ) : (
+              history.map((chat) => (
+                <button
+                  key={chat.id}
+                  onClick={() => {
+                    loadChat(chat.id);
+                    if (window.innerWidth < 768) setShowHistory(false);
+                  }}
+                  className={`w-full text-left p-3 rounded-lg transition-all text-sm flex items-start gap-2 group ${conversationId === chat.id
+                    ? 'bg-blue-900/40 text-blue-100 border border-blue-500/30'
+                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                    }`}
+                >
+                  <MessageSquare className="w-4 h-4 mt-0.5 shrink-0 opacity-70" />
+                  <span className="truncate flex-1">{chat.title}</span>
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* User Profile (Sidebar Footer) */}
+          {currentUser && (
+            <div className="mt-4 pt-4 border-t border-slate-800">
+              <div
+                onClick={() => router.push('/profile')}
+                className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800/50 cursor-pointer transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full border border-slate-700 overflow-hidden bg-slate-800 relative shrink-0">
+                  {currentUser.avatar ? (
+                    <Image src={currentUser.avatar} alt="Profile" fill className="object-cover" />
+                  ) : (
+                    <User className="w-5 h-5 text-slate-400 m-auto mt-2" />
+                  )}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-sm font-medium text-white truncate">{currentUser.name} {currentUser.surname}</p>
+                  <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
+                </div>
               </div>
             </div>
           )}
-          <button
-            onClick={handleLogout}
-            className="p-2 rounded-full text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all border border-red-500/20"
-            title="Çıkış Yap"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></svg>
-          </button>
         </div>
-      </header>
+      </aside>
 
-      {/* History Sidebar */}
-      <AnimatePresence>
-        {showHistory && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowHistory(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-            />
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 20 }}
-              className="fixed left-0 top-0 bottom-0 w-72 bg-[#050a14] border-r border-blue-500/20 z-50 p-6 pt-24 overflow-y-auto shadow-2xl"
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col relative w-full md:w-auto overflow-hidden">
+
+        {/* Watermark Logo */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+          <div className="relative w-[20rem] h-[20rem] md:w-[30rem] md:h-[30rem] opacity-[0.03]">
+            <Image src="/logo.png" alt="Watermark" fill className="object-contain" />
+          </div>
+        </div>
+
+        {/* Header (Simplified) */}
+        <header className="h-16 flex items-center justify-between px-4 md:px-8 border-b border-white/5 bg-[#050a14]/50 backdrop-blur-sm z-10 shrink-0">
+          <div className="flex items-center gap-2">
+            {/* Mobile Menu Toggle */}
+            <button
+              onClick={() => setShowHistory(true)}
+              className="md:hidden p-2 -ml-2 text-slate-400 hover:text-white"
             >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <History className="w-5 h-5 text-blue-400" />
-                  Geçmiş
-                </h2>
-                <button onClick={startNewChat} className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
-                  <Plus className="w-3 h-3" /> Yeni
-                </button>
-              </div>
+              <History className="w-6 h-6" />
+            </button>
+            <div className="md:hidden font-bold">KAEU.AI</div>
+          </div>
 
-              <div className="space-y-3">
-                {history.length === 0 ? (
-                  <div className="text-slate-500 text-sm text-center py-10">
-                    Henüz geçmiş sohbet bulunmuyor.
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleLogout}
+              className="p-2 text-slate-400 hover:text-red-400 transition-colors"
+              title="Çıkış Yap"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></svg>
+            </button>
+          </div>
+        </header>
+
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth relative z-10">
+          <AnimatePresence initial={false}>
+            {messages.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center text-center opacity-80 mt-[-50px] relative z-10">
+                <div className="relative w-32 h-32 mb-6 animate-float">
+                  <Image
+                    src="/logo.png"
+                    alt="KAEU Logo"
+                    fill
+                    className="object-contain drop-shadow-[0_0_25px_rgba(0,128,255,0.3)]"
+                  />
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2">KAEU.AI Asistan</h2>
+                <p className="text-slate-400 max-w-md">
+                  Kırşehir Ahi Evran Üniversitesi hakkında merak ettiklerinizi sorabilir, akademik ve idari süreçler hakkında yardım alabilirsiniz.
+                </p>
+              </div>
+            )}
+
+            {messages.map((msg) => (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`flex max-w-[85%] md:max-w-[75%] gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 border overflow-hidden mt-1 ${msg.role === 'assistant'
+                    ? 'border-blue-500/30 bg-slate-900'
+                    : 'border-slate-600 bg-slate-800'
+                    }`}>
+                    {msg.role === 'assistant' ? (
+                      <Image src="/logo.png" alt="Bot" width={40} height={40} className="w-full h-full object-cover" />
+                    ) : (
+                      currentUser?.avatar ? (
+                        <div className="relative w-full h-full">
+                          <Image src={currentUser.avatar} alt="User" fill className="object-cover" />
+                        </div>
+                      ) : <User className="w-5 h-5 text-slate-300" />
+                    )}
                   </div>
-                ) : (
-                  history.map((chat) => (
+
+                  {/* Bubble */}
+                  <div className={`p-4 md:p-5 rounded-2xl relative overflow-hidden group ${msg.role === 'user'
+                    ? 'bg-blue-600 text-white rounded-tr-none'
+                    : 'bg-slate-800/80 text-blue-50 rounded-tl-none border border-white/5'
+                    }`}>
+
+                    {/* Copy Button */}
                     <button
-                      key={chat.id}
-                      onClick={() => loadChat(chat.id)}
-                      className={`w-full text-left p-3 rounded-xl border transition-all group ${conversationId === chat.id
-                          ? 'bg-blue-600/20 border-blue-500/50 text-white'
-                          : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800 hover:border-slate-700 hover:text-white'
+                      onClick={() => copyToClipboard(msg.content)}
+                      className={`absolute top-2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === 'user' ? 'text-blue-200 hover:bg-blue-500' : 'text-slate-400 hover:bg-slate-700'
                         }`}
                     >
-                      <div className="flex items-start gap-3">
-                        <MessageSquare className={`w-4 h-4 mt-1 shrink-0 ${conversationId === chat.id ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400'}`} />
-                        <div className="overflow-hidden">
-                          <p className="text-sm font-medium truncate">{chat.title}</p>
-                          <p className="text-[10px] opacity-60 mt-1">
-                            {new Date(chat.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                      </div>
+                      <Copy className="w-3.5 h-3.5" />
                     </button>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
-      {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 pt-28 space-y-6 md:p-8 md:pt-32 scroll-smooth z-0 relative">
-        <AnimatePresence initial={false}>
-          {messages.map((msg) => (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`flex max-w-[85%] md:max-w-[75%] gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                {/* Icon */}
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 border-2 overflow-hidden ${msg.role === 'assistant'
-                  ? 'border-blue-500/50 bg-slate-900 shadow-[0_0_10px_rgba(0,128,255,0.3)]'
-                  : 'border-slate-600 bg-slate-800'
-                  }`}>
-                  {msg.role === 'assistant' ? (
-                    <Image src="/logo.png" alt="Bot" width={48} height={48} className="w-full h-full object-cover" />
-                  ) : (
-                    currentUser?.avatar ? (
-                      <div className="relative w-full h-full">
-                        <Image src={currentUser.avatar} alt="User" fill className="object-cover" />
-                      </div>
-                    ) : <User className="w-6 h-6 text-slate-300" />
-                  )}
+                    <div className="prose prose-invert prose-sm max-w-none">
+                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    </div>
+                  </div>
                 </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
 
-                {/* Bubble */}
-                <div className={`p-5 rounded-2xl relative overflow-hidden backdrop-blur-md group ${msg.role === 'user'
-                  ? 'bg-gradient-to-br from-blue-600/90 to-blue-800/90 text-white rounded-tr-none border border-blue-400/20 shadow-[0_4px_20px_rgba(0,0,0,0.3)]'
-                  : 'bg-[#111827]/80 text-blue-50 rounded-tl-none border border-green-500/20 shadow-[0_4px_20px_rgba(0,255,100,0.05)]'
-                  }`}>
-
-                  {/* Copy Button */}
-                  <button
-                    onClick={() => {
-                      copyToClipboard(msg.content);
-                    }}
-                    className={`absolute top-2 right-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${msg.role === 'user' ? 'text-blue-100 hover:bg-white/10' : 'text-slate-400 hover:bg-slate-700'
-                      }`}
-                    title="Metni Kopyala"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Glow effect for bot messages */}
-                  {msg.role === 'assistant' && (
-                    <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-green-500 to-blue-500 opacity-50" />
-                  )}
-                  <p className="whitespace-pre-wrap leading-relaxed text-[15px]">{msg.content}</p>
-                </div>
+          {isLoading && (
+            <div className="flex justify-start w-full gap-4 pl-2">
+              <div className="w-8 h-8 rounded-full bg-slate-900 border border-blue-500/30 flex items-center justify-center shrink-0 overflow-hidden">
+                <Image src="/logo.png" alt="Loading" width={32} height={32} className="w-full h-full object-cover animate-pulse" />
               </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {isLoading && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start w-full pl-2">
-            <div className="flex max-w-[80%] gap-4">
-              <div className="w-12 h-12 rounded-full bg-slate-900 border-2 border-blue-500/50 flex items-center justify-center shrink-0 overflow-hidden shadow-[0_0_15px_rgba(0,128,255,0.3)]">
-                <Image src="/logo.png" alt="Loading" width={48} height={48} className="w-full h-full object-cover animate-pulse" />
-              </div>
-              <div className="glass-card px-6 py-4 rounded-2xl rounded-tl-none flex items-center gap-2 border border-blue-500/30">
-                <span className="w-2.5 h-2.5 bg-[#0080ff] rounded-full animate-[bounce_1s_infinite_-0.3s] shadow-[0_0_10px_#0080ff]"></span>
-                <span className="w-2.5 h-2.5 bg-[#39ff14] rounded-full animate-[bounce_1s_infinite_-0.15s] shadow-[0_0_10px_#39ff14]"></span>
-                <span className="w-2.5 h-2.5 bg-[#ffd700] rounded-full animate-[bounce_1s_infinite] shadow-[0_0_10px_#ffd700]"></span>
+              <div className="bg-slate-800/50 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-700/50 flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span>
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-100"></span>
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-200"></span>
               </div>
             </div>
-          </motion.div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          )}
+          <div ref={messagesEndRef} className="h-4" />
+        </div>
 
-      {/* Input Area */}
-      <div className="p-3 md:p-4 bg-[#050a14]/90 backdrop-blur-xl border-t border-blue-500/20 z-20 shrink-0 pb-6">
-        <div className="max-w-4xl mx-auto flex gap-3 relative">
-          {/* Input Glow */}
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-green-500 to-blue-500 rounded-xl opacity-20 blur group-hover:opacity-40 transition duration-1000 animate-tilt"></div>
-
-
-
-          <div className="flex-1 flex gap-3 relative z-10">
-            {/* Mic Button */}
+        {/* Input Area */}
+        <div className="p-4 bg-[#050a14] border-t border-white/5 shrink-0 z-20">
+          <div className="max-w-3xl mx-auto relative flex gap-3">
             {hasSupport && (
               <button
                 type="button"
                 onClick={handleMicClick}
-                className={`p-3 rounded-xl transition-all shadow-[0_0_20px_rgba(0,128,255,0.3)] active:scale-95 flex items-center justify-center w-14 border ${isListening
-                  ? 'bg-red-600 hover:bg-red-500 border-red-400/20 animate-pulse text-white'
-                  : 'bg-[#0f172a] hover:bg-[#1e293b] border-blue-500/30 text-slate-400 hover:text-white'
+                className={`p-3 rounded-xl transition-all flex items-center justify-center shrink-0 ${isListening
+                  ? 'bg-red-500/20 text-red-400 animate-pulse border border-red-500/30'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
                   }`}
-                title={isListening ? "Dinlemeyi Durdur" : "Sesle Yaz"}
               >
-                {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
             )}
 
             <form
               onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-              className="flex-1 flex gap-3 relative z-10"
+              className="flex-1 relative"
             >
-              <textarea
+              <input
                 value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                    // Reset height
-                    if (e.currentTarget) {
-                      e.currentTarget.style.height = 'auto';
-                    }
-                  }
-                }}
-                placeholder={isBlocked ? `Sohbet kilitlendi. ${blockTimer} saniye sonra tekrar yazabilirsiniz.` : "Merhaba! Ben KAEU.AI v1.0 (beta). Size nasıl yardımcı olabilirim?"}
-                rows={1}
+                onChange={(e) => setInput(e.target.value)}
                 disabled={isBlocked}
-                className={`flex-1 bg-[#0f172a] border border-blue-500/30 rounded-xl px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 shadow-inner transition-all hover:border-blue-500/50 resize-none min-h-[46px] max-h-[150px] overflow-y-auto ${isBlocked ? 'opacity-50 cursor-not-allowed border-red-500/50' : ''}`}
+                placeholder={isBlocked ? `Kısıtlandı: ${blockTimer}s` : "Bir şeyler yazın..."}
+                className="w-full bg-slate-800 border-0 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:bg-slate-800/80 transition-all pr-12"
               />
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="p-3 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-all shadow-[0_0_20px_rgba(0,128,255,0.3)] active:scale-95 flex items-center justify-center w-14 border border-blue-400/20"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-600 rounded-lg text-white hover:bg-blue-500 disabled:opacity-50 disabled:bg-transparent disabled:text-slate-500 transition-all"
               >
-                <Send className="w-6 h-6" />
+                <Send className="w-4 h-4" />
               </button>
             </form>
           </div>
+          <div className="text-center mt-2">
+            <p className="text-[10px] text-slate-600">KAEU.AI v1.0 (beta) - Hatalar olabilir.</p>
+          </div>
         </div>
-        <div className="text-center mt-2 flex justify-center items-center gap-2 opacity-50">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_lime]"></div>
-          <p className="text-[10px] text-blue-200 tracking-wider font-light uppercase">KAEU.AI SİSTEMİ AKTİF</p>
-        </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
