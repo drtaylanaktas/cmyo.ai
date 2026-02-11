@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { sql } from '@vercel/postgres';
 
 // Initialize Anthropic
 // Try both standard and Next.js public env vars if needed, but usually server-side env is enough
@@ -170,12 +171,44 @@ async function generateWithClaude(message: string, systemPrompt: string, history
 
 export async function POST(req: Request) {
     try {
-        const { message, history, user, weather } = await req.json();
+        const { message, history, user, weather, conversationId } = await req.json();
         const role = user?.role || 'student'; // Fallback to student
 
         logChatDebug(`--- Chat Request Started (Claude) ---`);
         logChatDebug(`Message: ${message}`);
         logChatDebug(`Role: ${role}`);
+
+        // --- DATABASE PERSISTENCE START ---
+        let currentConversationId = conversationId;
+        const userEmail = user?.email;
+
+        try {
+            if (userEmail) {
+                if (!currentConversationId) {
+                    // Create new conversation
+                    const title = message.length > 50 ? message.substring(0, 50) + '...' : message;
+                    const result = await sql`
+                        INSERT INTO conversations (user_email, title) 
+                        VALUES (${userEmail}, ${title}) 
+                        RETURNING id;
+                    `;
+                    currentConversationId = result.rows[0].id;
+                } else {
+                    // Update updated_at timestamp
+                    await sql`UPDATE conversations SET updated_at = NOW() WHERE id = ${currentConversationId}`;
+                }
+
+                // Save User Message
+                await sql`
+                    INSERT INTO messages (conversation_id, role, content)
+                    VALUES (${currentConversationId}, 'user', ${message});
+                `;
+            }
+        } catch (dbError) {
+            console.error('Database persistence error (User):', dbError);
+            // Don't fail the request if DB fails, just log it
+        }
+        // --- DATABASE PERSISTENCE END ---
 
         // RAG Step
         const relevantDocs = findRelevantDocuments(message);
@@ -388,7 +421,20 @@ export async function POST(req: Request) {
             }, { status: 503 });
         }
 
-        return NextResponse.json({ reply });
+        // --- DATABASE PERSISTENCE (ASSISTANT) ---
+        try {
+            if (userEmail && currentConversationId) {
+                await sql`
+                    INSERT INTO messages (conversation_id, role, content)
+                    VALUES (${currentConversationId}, 'assistant', ${reply});
+                `;
+            }
+        } catch (dbError) {
+            console.error('Database persistence error (Assistant):', dbError);
+        }
+        // --- DATABASE PERSISTENCE END ---
+
+        return NextResponse.json({ reply, conversationId: currentConversationId });
 
     } catch (error: any) {
         console.error('API Error:', error);

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff } from 'lucide-react';
+import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import NeuralBackground from '@/components/NeuralBackground';
@@ -18,6 +18,9 @@ type Message = {
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [userRole, setUserRole] = useState<'student' | 'academic'>('student'); // Keep for API compatibility but derive from user
@@ -46,6 +49,59 @@ export default function Home() {
       setUserRole(user.role);
     }
   }, [router]);
+
+  // Fetch History
+  const fetchHistory = async () => {
+    if (!currentUser?.email) return;
+    try {
+      const res = await fetch(`/api/chat/history?email=${currentUser.email}`);
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data.history || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch history", e);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchHistory();
+    }
+  }, [currentUser]);
+
+  const loadChat = async (id: string) => {
+    setIsLoading(true);
+    setShowHistory(false);
+    try {
+      const res = await fetch(`/api/chat/${id}`); // Note: folder structure is [id] but nextjs handles it directly? No, wait. 
+      // Actually my route file is at app/api/chat/[id]/route.ts. 
+      // However due to how Next.js routing works, I might need to clarify the fetch URL. 
+      // If the folder is called [id], then /api/chat/123 works.
+
+      if (res.ok) {
+        const data = await res.json();
+        // Map DB messages to UI messages
+        const uiMessages = data.messages.map((m: any) => ({
+          id: m.id || Date.now().toString(),
+          role: m.role,
+          content: m.content
+        }));
+        setMessages(uiMessages);
+        setConversationId(id);
+      }
+    } catch (e) {
+      console.error("Failed to load chat", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const startNewChat = () => {
+    setMessages([]);
+    setConversationId(null);
+    setShowHistory(false);
+  };
 
   // Weather & Location Logic
   useEffect(() => {
@@ -175,7 +231,7 @@ export default function Home() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input, history: history, user: currentUser, weather: weatherData }),
+        body: JSON.stringify({ message: input, history: history, user: currentUser, weather: weatherData, conversationId }),
       });
 
       let botContent = '';
@@ -197,6 +253,11 @@ export default function Home() {
       }
 
       botContent = data.reply || 'Cevap alınamadı.';
+
+      if (data.conversationId && data.conversationId !== conversationId) {
+        setConversationId(data.conversationId);
+        fetchHistory(); // Refresh history list
+      }
 
       // Check for JSON block (PDF Generation Trigger)
       const jsonMatch = botContent.match(/JSON_START\s*([\s\S]*?)\s*JSON_END/);
@@ -339,6 +400,67 @@ export default function Home() {
           </button>
         </div>
       </header>
+
+      {/* History Sidebar */}
+      <AnimatePresence>
+        {showHistory && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowHistory(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 20 }}
+              className="fixed left-0 top-0 bottom-0 w-72 bg-[#050a14] border-r border-blue-500/20 z-50 p-6 pt-24 overflow-y-auto shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <History className="w-5 h-5 text-blue-400" />
+                  Geçmiş
+                </h2>
+                <button onClick={startNewChat} className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                  <Plus className="w-3 h-3" /> Yeni
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {history.length === 0 ? (
+                  <div className="text-slate-500 text-sm text-center py-10">
+                    Henüz geçmiş sohbet bulunmuyor.
+                  </div>
+                ) : (
+                  history.map((chat) => (
+                    <button
+                      key={chat.id}
+                      onClick={() => loadChat(chat.id)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all group ${conversationId === chat.id
+                          ? 'bg-blue-600/20 border-blue-500/50 text-white'
+                          : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800 hover:border-slate-700 hover:text-white'
+                        }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <MessageSquare className={`w-4 h-4 mt-1 shrink-0 ${conversationId === chat.id ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400'}`} />
+                        <div className="overflow-hidden">
+                          <p className="text-sm font-medium truncate">{chat.title}</p>
+                          <p className="text-[10px] opacity-60 mt-1">
+                            {new Date(chat.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 pt-28 space-y-6 md:p-8 md:pt-32 scroll-smooth z-0 relative">
