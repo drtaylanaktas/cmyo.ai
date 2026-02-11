@@ -164,7 +164,7 @@ export default function LoginPage() {
                         <Image src="/logo.png" alt="Logo" fill className="object-cover" />
                     </div>
                     <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-green-400 to-blue-400 tracking-tight">
-                        ÇMYO.AI v1.0 (beta)
+                        KAEU.AI v1.0 (beta)
                     </h1>
                 </div>
 
@@ -383,7 +383,7 @@ export default function LoginPage() {
                 </form>
 
                 <p className="mt-6 text-center text-xs text-slate-500">
-                    &copy; {new Date().getFullYear()} Çiçekdağı MYO - Yapay Zeka Desteği
+                    &copy; {new Date().getFullYear()} KAEU.AI - Çiçekdağı MYO
                 </p>
             </motion.div>
         </main>

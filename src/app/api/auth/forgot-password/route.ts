@@ -50,9 +50,9 @@ export async function POST(request: Request) {
             });
 
             await transporter.sendMail({
-                from: process.env.SMTP_FROM || '"ÇMYO.AI Asistan" <noreply@cmyo.ai>',
+                from: process.env.SMTP_FROM || '"KAEU.AI Asistan" <noreply@kaeu.ai>',
                 to: email,
-                subject: 'ÇMYO.AI Şifre Sıfırlama İsteği',
+                subject: 'KAEU.AI Şifre Sıfırlama İsteği',
                 html: `
                     <h1>Şifre Sıfırlama</h1>
                     <p>Hesabınız için şifre sıfırlama talebinde bulundunuz.</p>

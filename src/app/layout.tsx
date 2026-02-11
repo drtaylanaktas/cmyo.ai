@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ÇMYO.AI v1.0 (beta) | Yapay Zeka Asistanı",
-  description: "Çiçekdağı Meslek Yüksekokulu Belge ve Bilgi Asistanı",
+  title: "KAEU.AI v1.0 (beta) | Yapay Zeka Asistanı",
+  description: "Kırşehir Ahi Evran Üniversitesi Çiçekdağı MYO Yapay Zeka Asistanı",
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",

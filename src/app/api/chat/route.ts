@@ -193,7 +193,7 @@ export async function POST(req: Request) {
         }
 
         const systemPrompt = `
-    Sen Çiçekdağı Meslek Yüksekokulu (ÇMYO.AI v1.0 (beta)) asistanısın.
+    Sen Kırşehir Ahi Evran Üniversitesi Çiçekdağı MYO (KAEU.AI v1.0 (beta)) asistanısın.
     ŞU ANKİ TARİH VE SAAT: ${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', dateStyle: 'full', timeStyle: 'short' })}
     BUGÜN GÜNLERDEN: ${new Intl.DateTimeFormat('tr-TR', { timeZone: 'Europe/Istanbul', weekday: 'long' }).format(new Date())}
     Bu bilgiyi kullanarak sana sorulan "bugün günlerden ne", "saat kaç" gibi sorulara %100 doğru cevap ver. Asla başka bir tarih uydurma.
