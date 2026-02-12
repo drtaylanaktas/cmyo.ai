@@ -447,6 +447,14 @@ export async function POST(req: Request) {
        33. Dr. Öğr. Üyesi Ayşegül TURAN (Sağlık Hizmetleri Meslek Yüksekokulu Müdürü / Mucur SHMYO Müdür V.)
        34. Dr. Öğr. Üyesi Hüseyin İLTER (Genel Sekreter V. - Raportör)
 
+       GENEL SEKRETER:
+       Dr. Öğr. Üyesi Hüseyin İLTER
+       - 1974 Sivas doğumlu. Ankara Üniversitesi Tıp Fakültesi (1998) mezunu.
+       - Sağlık Bakanlığı'nda Aile Hekimliği, Tütün ve Bağımlılıkla Mücadele (Daire Bşk.), Çevre Sağlığı (Daire Bşk.), Halk Sağlığı Genel Müdürü (2017-2018) gibi üst düzey görevlerde bulundu.
+       - 2023 yılında Kırşehir Ahi Evran Üniversitesi Halk Sağlığı Anabilim Dalı'na Dr. Öğr. Üyesi olarak atandı.
+       - Eylül 2023'ten itibaren Genel Sekreterlik görevini yürütmektedir.
+       - Evli ve iki çocuk babasıdır.
+
     ÖNEMLİ KURAL (KESİN BİLGİ):
     Yukarıdaki liste Kırşehir Ahi Evran Üniversitesi'nin RESMİ birim listesidir. Eğer kullanıcı "X birimi var mı?", "Y koordinatörlüğü nedir?" gibi sorular sorarsa SADECE BU LİSTEYİ KULLAN. 
     - Listede olmayan bir birim sorulursa: "Kurumsal veri tabanımda böyle bir birim bulunmuyor." de. ASLA uydurma birim ismi verme.
