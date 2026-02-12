@@ -435,8 +435,8 @@ export default function Home() {
         <div className="flex flex-col h-full p-4">
           {/* Sidebar Header */}
           <div className="flex items-center gap-3 mb-6 px-2">
-            <div className="w-8 h-8 rounded-full border border-blue-400/30 overflow-hidden">
-              <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-cover" />
+            <div className="w-10 h-10 relative">
+              <Image src="/logo.png" alt="Logo" fill className="object-contain" />
             </div>
             <span className="font-bold text-lg tracking-tight">KAEU.AI</span>
             <button

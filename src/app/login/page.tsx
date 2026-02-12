@@ -160,8 +160,8 @@ export default function LoginPage() {
                 className="relative z-10 w-full max-w-md p-8 bg-[#050a14]/80 backdrop-blur-2xl rounded-3xl border border-blue-500/30 shadow-[0_0_50px_rgba(0,128,255,0.2)] max-h-[90vh] overflow-y-auto"
             >
                 <div className="flex flex-col items-center mb-6">
-                    <div className="w-16 h-16 relative mb-3 rounded-full overflow-hidden border-2 border-blue-500/50 shadow-[0_0_20px_rgba(0,128,255,0.4)]">
-                        <Image src="/logo.png" alt="Logo" fill className="object-cover" />
+                    <div className="w-24 h-24 relative mb-4">
+                        <Image src="/logo.png" alt="Logo" fill className="object-contain drop-shadow-[0_0_15px_rgba(0,128,255,0.5)]" />
                     </div>
                     <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-green-400 to-blue-400 tracking-tight">
                         KAEU.AI v1.0 (beta)
