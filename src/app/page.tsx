@@ -467,89 +467,88 @@ export default function Home() {
                 Henüz sohbet yok.
               </div>
             ) : (
-            ): (
-                history.map((chat) => (
-            <div key={chat.id} className="relative group">
-              {editingChatId === chat.id ? (
-                <form onSubmit={handleRenameChat} className="p-2 flex items-center gap-2">
-                  <input
-                    autoFocus
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    onBlur={() => setEditingChatId(null)}
-                    className="w-full bg-slate-900 border border-blue-500/50 rounded px-2 py-1 text-xs text-white focus:outline-none"
-                  />
-                  <button type="submit" className="text-green-400 hover:text-green-300"><Check className="w-4 h-4" /></button>
-                </form>
-              ) : (
-                <button
-                  onClick={() => {
-                    loadChat(chat.id);
-                    if (window.innerWidth < 768) setShowHistory(false);
-                  }}
-                  className={`w-full text-left p-3 pr-10 rounded-lg transition-all text-sm flex items-start gap-2 group relative ${conversationId === chat.id
-                    ? 'bg-blue-900/40 text-blue-100 border border-blue-500/30'
-                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
-                    }`}
-                >
-                  <div className="mt-0.5 shrink-0 relative">
-                    {chat.is_pinned ? <Pin className="w-3.5 h-3.5 text-blue-400 rotate-45" /> : <MessageSquare className="w-4 h-4 opacity-70" />}
-                  </div>
-                  <span className="truncate flex-1">{chat.title}</span>
-
-                  {/* Hover Actions */}
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-[#050a14] shadow-[-10px_0_10px_#050a14]">
-                    <div
-                      onClick={(e) => handleDeleteChat(e, chat.id)}
-                      className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded transition-colors"
-                      title="Sil"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </div>
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setHistoryMenuOpen(historyMenuOpen === chat.id ? null : chat.id);
+              history.map((chat) => (
+                <div key={chat.id} className="relative group">
+                  {editingChatId === chat.id ? (
+                    <form onSubmit={handleRenameChat} className="p-2 flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onBlur={() => setEditingChatId(null)}
+                        className="w-full bg-slate-900 border border-blue-500/50 rounded px-2 py-1 text-xs text-white focus:outline-none"
+                      />
+                      <button type="submit" className="text-green-400 hover:text-green-300"><Check className="w-4 h-4" /></button>
+                    </form>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        loadChat(chat.id);
+                        if (window.innerWidth < 768) setShowHistory(false);
                       }}
-                      className={`p-1.5 hover:bg-blue-500/20 rounded transition-colors ${historyMenuOpen === chat.id ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-blue-400'}`}
-                      title="Ayarlar"
+                      className={`w-full text-left p-3 pr-10 rounded-lg transition-all text-sm flex items-start gap-2 group relative ${conversationId === chat.id
+                        ? 'bg-blue-900/40 text-blue-100 border border-blue-500/30'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                        }`}
                     >
-                      <MoreHorizontal className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                </button>
-              )}
+                      <div className="mt-0.5 shrink-0 relative">
+                        {chat.is_pinned ? <Pin className="w-3.5 h-3.5 text-blue-400 rotate-45" /> : <MessageSquare className="w-4 h-4 opacity-70" />}
+                      </div>
+                      <span className="truncate flex-1">{chat.title}</span>
 
-              {/* Settings Menu */}
-              <AnimatePresence>
-                {historyMenuOpen === chat.id && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setHistoryMenuOpen(null)} />
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                      className="absolute right-0 top-full mt-1 w-32 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden"
-                    >
-                      <button
-                        onClick={(e) => startRenaming(e, chat)}
-                        className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2"
-                      >
-                        <Edit2 className="w-3 h-3" /> Yeniden Adlandır
-                      </button>
-                      <button
-                        onClick={(e) => handlePinChat(e, chat.id, chat.is_pinned)}
-                        className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2"
-                      >
-                        <Pin className={`w-3 h-3 ${chat.is_pinned ? 'fill-current' : ''}`} />
-                        {chat.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}
-                      </button>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-            ))
+                      {/* Hover Actions */}
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-[#050a14] shadow-[-10px_0_10px_#050a14]">
+                        <div
+                          onClick={(e) => handleDeleteChat(e, chat.id)}
+                          className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded transition-colors"
+                          title="Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </div>
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setHistoryMenuOpen(historyMenuOpen === chat.id ? null : chat.id);
+                          }}
+                          className={`p-1.5 hover:bg-blue-500/20 rounded transition-colors ${historyMenuOpen === chat.id ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-blue-400'}`}
+                          title="Ayarlar"
+                        >
+                          <MoreHorizontal className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Settings Menu */}
+                  <AnimatePresence>
+                    {historyMenuOpen === chat.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setHistoryMenuOpen(null)} />
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                          className="absolute right-0 top-full mt-1 w-32 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden"
+                        >
+                          <button
+                            onClick={(e) => startRenaming(e, chat)}
+                            className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2"
+                          >
+                            <Edit2 className="w-3 h-3" /> Yeniden Adlandır
+                          </button>
+                          <button
+                            onClick={(e) => handlePinChat(e, chat.id, chat.is_pinned)}
+                            className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2"
+                          >
+                            <Pin className={`w-3 h-3 ${chat.is_pinned ? 'fill-current' : ''}`} />
+                            {chat.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}
+                          </button>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))
             )}
           </div>
 
