@@ -478,7 +478,7 @@ export default function Home() {
                         onBlur={() => setEditingChatId(null)}
                         className="w-full bg-slate-900 border border-blue-500/50 rounded px-2 py-1 text-xs text-white focus:outline-none"
                       />
-                      <button type="submit" className="text-green-400 hover:text-green-300"><Check className="w-4 h-4" /></button>
+                      <button type="submit" onMouseDown={(e) => e.preventDefault()} className="text-green-400 hover:text-green-300"><Check className="w-4 h-4" /></button>
                     </form>
                   ) : (
                     <button
