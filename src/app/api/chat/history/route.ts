@@ -11,11 +11,11 @@ export async function GET(request: Request) {
 
     try {
         const result = await sql`
-            SELECT id, title, created_at
+            SELECT id, title, created_at, is_pinned
             FROM conversations
             WHERE user_email = ${email}
-            ORDER BY updated_at DESC
-            LIMIT 5;
+            ORDER BY is_pinned DESC, updated_at DESC
+            LIMIT 20;
         `;
         return NextResponse.json({ history: result.rows });
     } catch (error: any) {

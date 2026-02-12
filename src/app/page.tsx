@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft } from 'lucide-react';
+import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft, Trash2, Edit2, Pin, MoreHorizontal, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import NeuralBackground from '@/components/NeuralBackground';
@@ -101,6 +101,82 @@ export default function Home() {
     setMessages([]);
     setConversationId(null);
     setShowHistory(false);
+  };
+
+  // Chat Management Functions
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [historyMenuOpen, setHistoryMenuOpen] = useState<string | null>(null); // Stores ID of chat with open menu
+
+  const handleDeleteChat = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!confirm('Bu sohbeti silmek istediğinizden emin misiniz?')) return;
+
+    try {
+      const res = await fetch('/api/chat/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, email: currentUser.email })
+      });
+
+      if (res.ok) {
+        setHistory(prev => prev.filter(c => c.id !== id));
+        if (conversationId === id) startNewChat();
+      }
+    } catch (error) {
+      console.error("Delete failed", error);
+    }
+  };
+
+  const handlePinChat = async (e: React.MouseEvent, id: string, currentPinStatus: boolean) => {
+    e.stopPropagation();
+    // Optimistic update
+    setHistory(prev => {
+      const chat = prev.find(c => c.id === id);
+      if (chat) chat.is_pinned = !currentPinStatus;
+      return [...prev].sort((a, b) => (b.is_pinned === a.is_pinned ? 0 : b.is_pinned ? 1 : -1));
+    });
+    setHistoryMenuOpen(null);
+
+    try {
+      await fetch('/api/chat/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, email: currentUser.email, isPinned: !currentPinStatus })
+      });
+      fetchHistory(); // Sync with server to be sure
+    } catch (error) {
+      console.error("Pin failed", error);
+    }
+  };
+
+  const startRenaming = (e: React.MouseEvent, chat: any) => {
+    e.stopPropagation();
+    setEditingChatId(chat.id);
+    setEditTitle(chat.title);
+    setHistoryMenuOpen(null);
+  }
+
+  const handleRenameChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingChatId || !editTitle.trim()) return;
+
+    const id = editingChatId;
+    const title = editTitle.trim();
+
+    // Optimistic update
+    setHistory(prev => prev.map(c => c.id === id ? { ...c, title } : c));
+    setEditingChatId(null);
+
+    try {
+      await fetch('/api/chat/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, email: currentUser.email, title })
+      });
+    } catch (error) {
+      console.error("Rename failed", error);
+    }
   };
 
   // Weather & Location Logic
@@ -391,22 +467,89 @@ export default function Home() {
                 Henüz sohbet yok.
               </div>
             ) : (
-              history.map((chat) => (
+            ): (
+                history.map((chat) => (
+            <div key={chat.id} className="relative group">
+              {editingChatId === chat.id ? (
+                <form onSubmit={handleRenameChat} className="p-2 flex items-center gap-2">
+                  <input
+                    autoFocus
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    onBlur={() => setEditingChatId(null)}
+                    className="w-full bg-slate-900 border border-blue-500/50 rounded px-2 py-1 text-xs text-white focus:outline-none"
+                  />
+                  <button type="submit" className="text-green-400 hover:text-green-300"><Check className="w-4 h-4" /></button>
+                </form>
+              ) : (
                 <button
-                  key={chat.id}
                   onClick={() => {
                     loadChat(chat.id);
                     if (window.innerWidth < 768) setShowHistory(false);
                   }}
-                  className={`w-full text-left p-3 rounded-lg transition-all text-sm flex items-start gap-2 group ${conversationId === chat.id
+                  className={`w-full text-left p-3 pr-10 rounded-lg transition-all text-sm flex items-start gap-2 group relative ${conversationId === chat.id
                     ? 'bg-blue-900/40 text-blue-100 border border-blue-500/30'
                     : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
                     }`}
                 >
-                  <MessageSquare className="w-4 h-4 mt-0.5 shrink-0 opacity-70" />
+                  <div className="mt-0.5 shrink-0 relative">
+                    {chat.is_pinned ? <Pin className="w-3.5 h-3.5 text-blue-400 rotate-45" /> : <MessageSquare className="w-4 h-4 opacity-70" />}
+                  </div>
                   <span className="truncate flex-1">{chat.title}</span>
+
+                  {/* Hover Actions */}
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-[#050a14] shadow-[-10px_0_10px_#050a14]">
+                    <div
+                      onClick={(e) => handleDeleteChat(e, chat.id)}
+                      className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded transition-colors"
+                      title="Sil"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHistoryMenuOpen(historyMenuOpen === chat.id ? null : chat.id);
+                      }}
+                      className={`p-1.5 hover:bg-blue-500/20 rounded transition-colors ${historyMenuOpen === chat.id ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-blue-400'}`}
+                      title="Ayarlar"
+                    >
+                      <MoreHorizontal className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
                 </button>
-              ))
+              )}
+
+              {/* Settings Menu */}
+              <AnimatePresence>
+                {historyMenuOpen === chat.id && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setHistoryMenuOpen(null)} />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                      className="absolute right-0 top-full mt-1 w-32 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden"
+                    >
+                      <button
+                        onClick={(e) => startRenaming(e, chat)}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2"
+                      >
+                        <Edit2 className="w-3 h-3" /> Yeniden Adlandır
+                      </button>
+                      <button
+                        onClick={(e) => handlePinChat(e, chat.id, chat.is_pinned)}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2"
+                      >
+                        <Pin className={`w-3 h-3 ${chat.is_pinned ? 'fill-current' : ''}`} />
+                        {chat.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}
+                      </button>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+            ))
             )}
           </div>
 
