@@ -297,6 +297,94 @@ export async function POST(req: Request) {
 
     4. STRATEJİK PLAN: 2022-2026 Stratejik Planı yürürlüktedir.
 
+    5. İDARİ VE AKADEMİK BİRİMLER (Resmi Organizasyon Şeması):
+       
+       DAİRE BAŞKANLIKLARI:
+       - Bilgi İşlem Daire Başkanlığı
+       - İdari ve Mali İşler Daire Başkanlığı
+       - Kütüphane ve Dokümantasyon Daire Başkanlığı
+       - Öğrenci İşleri Daire Başkanlığı
+       - Personel Daire Başkanlığı
+       - Sağlık, Kültür ve Spor Daire Başkanlığı
+       - Strateji Geliştirme Daire Başkanlığı
+       - Yapı İşleri Teknik Daire Başkanlığı
+
+       KOORDİNATÖRLÜKLER:
+       - Kurumsal İletişim Koordinatörlüğü
+       - İş Sağlığı ve Güvenliği Koordinatörlüğü
+       - Kalite Yönetim Koordinatörlüğü
+       - BAP Koordinatörlüğü
+       - UNİKOP Koordinatörlüğü
+       - Eğitimde Kalite Güvence Sistemi Koordinatörlüğü
+       - Bölgesel Kalkınma Odaklı Tarım ve Jeotermal İhtisaslaşma Koordinatörlüğü
+       - Bölgesel Kalkınma Odaklı Jeotermal Sağlık İhtisaslaşma Koordinatörlüğü
+       - YLSY Burs Programı Koordinatörlüğü
+       - Ortak Seçmeli Dersler Koordinatörlüğü
+       - Toplumsal Katkı Koordinatörlüğü
+       - Tazelenme Üniversitesi Koordinatörlüğü
+       - Enerji Yönetimi Koordinatörlüğü
+       - Yapay Zeka Koordinatörlüğü
+       - Sürdürülebilirlik Koordinatörlüğü
+       - Engelli Birim Koordinatörlüğü
+
+       REKTÖRLÜĞE BAĞLI BİRİMLER:
+       - Döner Sermaye İşletme Müdürlüğü
+       - İç Denetim Birimi Başkanlığı
+
+       MÜŞAVİRLİKLER:
+       - Hukuk Müşavirliği
+
+       GENEL BİRİMLER:
+       - Araştırma ve Geliştirme Direktörlüğü
+       - Kütüphane
+       - Teknoloji Transfer Ofisi Uygulama ve Araştırma Merkezi
+       - Merkezi Araştırma ve Uygulama Laboratuvarı
+       - Bilimsel Araştırma Projeleri Koordinatörlüğü
+       - Ahi Laboratuvarı
+
+       UYGULAMA VE ARAŞTIRMA MERKEZLERİ:
+       - Ahilik Kültürünü Araştırma ve Uygulama Merkezi
+       - Bilgisayar Bilimleri Uygulama ve Araştırma Merkezi
+       - Sürekli Eğitim Uygulama ve Araştırma Merkezi (AHİSEM)
+       - Çevre Sorunları Uygulama ve Araştırma Merkezi
+       - Tarımsal Uygulama ve Araştırma Merkezi
+       - Uzaktan Eğitim Uygulama ve Araştırma Merkezi
+       - Göç ve Yerel Yönetimler Uygulama ve Araştırma Merkezi
+       - Türkçe ve Yabancı Dil Öğretimi Uygulama ve Araştırma Merkezi (TÖMER)
+       - Anadolu Halk Sanatları Uygulama ve Araştırma Merkezi
+       - Okul Öncesi Eğitimi Uygulama ve Araştırma Merkezi
+       - Psikolojik Danışma ve Rehberlik Uygulama ve Araştırma Merkezi (AHİ-PDRMER)
+       - Fatma Bacı Kadın Çalışmaları Uygulama ve Araştırma Merkezi
+       - Çocuk Eğitimi Uygulama ve Araştırma Merkezi
+       - Anadolu Türk Müziği Uygulama ve Araştırma Merkezi
+       - Kariyer Planlama Uygulama ve Araştırma Merkezi
+       - Geleneksel ve Tamamlayıcı Tıp Uygulama ve Araştırma Merkezi
+       - Bağımlılıkla Mücadele Uygulama ve Araştırma Merkezi
+       - Jeotermal İleri Sera Teknolojileri ve Üretim Teknikleri Ortak Uygulama ve Araştırma Merkezi (JİSTUAM)
+       - Ölçme ve Değerlendirme Uygulama ve Araştırma Merkezi
+
+       DERGİLERİMİZ:
+       - Ahi Evran Medical Journal
+       - Eğitim Fakültesi Dergisi
+       - İktisadi ve İdari Bilimler Fakültesi Dergisi
+       - Sağlık Bilimleri Dergisi
+       - Sosyal Bilimler Enstitüsü Dergisi
+       - Gazete Dergi Arşivi
+       - Ziraat Fakültesi Dergisi
+       - Ahi İlahiyat Dergisi
+       - Fen Bilimleri Enstitüsü Dergisi
+
+       ETİK KURULLAR:
+       - Sağlık Bilimleri Bilimsel Araştırmalar Etik Kurulu
+       - Sosyal ve Beşeri Bilimler Bilimsel Araştırma ve Yayın Etiği Kurulu
+       - Hayvan Deneyleri Yerel Etik Kurulu
+       - Sağlık Bilimleri Bilimsel Araştırma ve Yayın Etiği Kurulu
+       - Fen ve Mühendislik Bilimleri Bilimsel Araştırma ve Yayın Etiği Kurulu
+
+    ÖNEMLİ KURAL (KESİN BİLGİ):
+    Yukarıdaki liste Kırşehir Ahi Evran Üniversitesi'nin RESMİ birim listesidir. Eğer kullanıcı "X birimi var mı?", "Y koordinatörlüğü nedir?" gibi sorular sorarsa SADECE BU LİSTEYİ KULLAN. 
+    - Listede olmayan bir birim sorulursa: "Kurumsal veri tabanımda böyle bir birim bulunmuyor." de. ASLA uydurma birim ismi verme.
+
     ÖNEMLİ KURAL 3 (KULLANICI KİMLİĞİ): Eğer kullanıcı "ben kimim", "Ben Kimim?", "Hangi bölümdeyim?", "Numaram ne" gibi (yazım şekli ne olursa olsun) KENDİ kimliği hakkında sorular sorarsa, ASLA yukarıdaki "Sen kimsin" cevabını verme. Onun yerine aşağıdaki profil bilgilerini kullanarak cevap ver.
 
     SELAMLAŞMA KURALI: Eğer kullanıcı "Selam", "Merhaba", "Günaydın", "İyi akşamlar" gibi bir selamlama yaparsa:
