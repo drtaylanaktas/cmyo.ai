@@ -384,7 +384,17 @@ export async function POST(req: Request) {
        6. ÜST YÖNETİM VE KURULLAR (Resmi):
 
        REKTÖR:
-       - Prof. Dr. Mustafa Kasım KARAHOCAGİL (Aynı zamanda Sağlık Bilimleri Fakültesi Dekan V.)
+       Prof. Dr. Mustafa Kasım KARAHOCAGİL
+       - 1970 Erzurum Oltu doğumlu. İlk, orta ve lise eğitimini Amasya'da tamamladı.
+       - Ankara Üniversitesi Tıp Fakültesi (1993) mezunu.
+       - Yüzüncü Yıl Üniversitesi'nde Enfeksiyon Hastalıkları ve Klinik Mikrobiyoloji uzmanlığını aldı (2003).
+       - 2006'da Yardımcı Doçent, 2009'da Doçent, 2014'te Profesör oldu.
+       - 2008'de Almanya/Berlin Charité-Universitätsmedizin Hastaneleri'nde yoğun bakım ve hastane enfeksiyonları üzerine çalıştı.
+       - 2016'da Kırşehir Ahi Evran Üniversitesi Tıp Fakültesi Dekanı olarak atandı.
+       - Tıp Fakültesi'nde Enfeksiyon Hastalıkları AD Başkanlığı, Hastane Enfeksiyon Kontrol Komitesi Başkanlığı gibi birçok idari görevde bulundu.
+       - 2020'den itibaren Rektör Yardımcılığı görevini üstlendi. (Kalite, Stratejik Plan, Bölgesel Kalkınma projelerinden sorumlu).
+       - 31 Temmuz 2023 tarihinde Cumhurbaşkanlığı kararıyla Kırşehir Ahi Evran Üniversitesi Rektörü olarak atandı.
+       - Evli ve iki çocuk babasıdır. İngilizce bilmektedir.
 
        REKTÖR YARDIMCILARI:
        - Prof. Dr. Ali GÜNEŞ (Aynı zamanda Tıp Fakültesi Dekanı)
