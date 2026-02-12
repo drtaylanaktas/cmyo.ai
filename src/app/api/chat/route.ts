@@ -381,6 +381,72 @@ export async function POST(req: Request) {
        - Sağlık Bilimleri Bilimsel Araştırma ve Yayın Etiği Kurulu
        - Fen ve Mühendislik Bilimleri Bilimsel Araştırma ve Yayın Etiği Kurulu
 
+       6. ÜST YÖNETİM VE KURULLAR (Resmi):
+
+       REKTÖR:
+       - Prof. Dr. Mustafa Kasım KARAHOCAGİL (Aynı zamanda Sağlık Bilimleri Fakültesi Dekan V.)
+
+       REKTÖR YARDIMCILARI:
+       - Prof. Dr. Ali GÜNEŞ (Aynı zamanda Tıp Fakültesi Dekanı)
+       - Prof. Dr. Hüseyin ŞİMŞEK
+       - Prof. Dr. Musa ÖZATA (Aynı zamanda İ.İ.B.F. Dekan V.)
+
+       REKTÖR DANIŞMANLARI:
+       - Prof. Dr. Mustafa ÇIÇIK
+       - Mehmet Zeki KÜÇÜK
+       - Musa ÖZTÜRK
+
+       ÜNİVERSİTE YÖNETİM KURULU:
+       1. Prof. Dr. Mustafa Kasım KARAHOCAGİL (Rektör)
+       2. Prof. Dr. Musa ÖZATA (Üye)
+       3. Prof. Dr. Ali GÜNEŞ (Üye)
+       4. Prof. Dr. Hüseyin ŞİMŞEK (Üye)
+       5. Prof. Dr. Mustafa KURT (Üye)
+       6. Prof. Dr. Faruk SELÇUK (Fen Edebiyat Fakültesi Dekan V. / Üye)
+       7. Prof. Dr. Mehmet Murat KARAKAYA (İlahiyat Fakültesi Dekan V.)
+       8. Prof. Dr. Kubilay KOLUKIRIK (Neşet Ertaş Güzel Sanatlar Fak. Dekan V.)
+       9. Prof. Dr. Ertuğrul YAMAN (Eğitim Fakültesi Dekan V.)
+       10. Prof. Dr. Selahattin ÇINAR (Ziraat Fak. Dekanı)
+       11. Prof. Dr. İrfan MARANGOZ (Spor Bilimleri Fakültesi Dekan V.)
+       12. Prof. Dr. Levent URTEKİN (Müh-Mim Fak. Dekan V.)
+       13. Dr.Öğr.Üyesi Hüseyin İLTER (Genel Sekreter V. - Raportör)
+
+       ÜNİVERSİTE SENATOSU:
+       1. Prof. Dr. Mustafa Kasım KARAHOCAGİL (Rektör)
+       2. Prof. Dr. Musa ÖZATA (Rektör Yrd.)
+       3. Prof. Dr. Hüseyin ŞİMŞEK (Rektör Yrd.)
+       4. Prof. Dr. Ali GÜNEŞ (Rektör Yrd.)
+       5. Prof. Dr. Faruk SELÇUK (Fen Edebiyat Fakültesi Dekan V.)
+       6. Prof. Dr. Ertuğrul YAMAN (Eğitim Fakültesi Dekan V.)
+       7. Prof. Dr. Mehmet Murat KARAKAYA (İlahiyat Fakültesi Dekanı)
+       8. Prof. Dr. Selahattin ÇINAR (Ziraat Fakültesi Dekanı)
+       9. Prof. Dr. Kubilay KOLUKIRIK (Neşet Ertaş Güzel Sanatlar Fakültesi Dekan V.)
+       10. Prof. Dr. İrfan MARANGOZ (Spor Bilimleri Fakültesi Dekan V.)
+       11. Prof. Dr. Levent URTEKİN (Müh-Mim Fakültesi Dekan V.)
+       12. Prof. Dr. Cemalettin İPEK (Sosyal Bilimler Enstitüsü Müdür V.)
+       13. Prof. Dr. Figen TUNCAY (Fizik Tedavi ve Rehabilitasyon Y.O. Müdürü)
+       14. Prof. Dr. Ali AKBULUT (Sağlık Bilimleri Enstitüsü Müdürü)
+       15. Prof. Dr. Menderes ÜNAL (Yabancı Diller Yüksekokulu Müdürü)
+       16. Prof. Dr. Ümit DEMİRAL (Fen Bilimleri Enstitüsü Müdürü)
+       17. Prof. Dr. Ayfer ŞAHİN (Sosyal Bilimler Meslek Yüksekokulu Müdürü)
+       18. Prof. Dr. Muttalip ÇİÇEK (Tıp Fakültesi Senatör - Üye)
+       19. Prof. Dr. Mehmet GEL (Fen Edebiyat Fakültesi - Üye)
+       20. Prof. Dr. Gülbahar ÜÇLER (İ.İ.B.F. Senatör - Üye)
+       21. Prof. Dr. Rüştü HATİPOĞLU (Ziraat Fakültesi Senatör - Üye)
+       22. Prof. Dr. Hakan SEPET (Müh-Mim Fakültesi Senatör - Üye)
+       23. Prof. Dr. Murat ÇANLI (Mucur Meslek Yüksekokulu Müdürü)
+       24. Doç. Dr. Ramazan YAZICI (Çiçekdağı Meslek Yüksekokulu Müdürü)
+       25. Doç. Dr. Hakan KIR (Teknik Bilimler Meslek Yüksekokulu Müdürü)
+       26. Doç. Dr. İsa BAHAT (Kaman Uygulamalı Bilimler Yüksekokulu Müdürü)
+       27. Doç. Dr. Sadi ÖN (Spor Bil. Fak. Senatör - Üye)
+       28. Doç. Dr. Muradiye KARASU AYATA (Sağlık Bilimleri Fakültesi Senatör - Üye)
+       29. Doç. Dr. Uğur YILDIZ (Neşet Ertaş Güzel Sanatlar Fak. Senatör - Üye)
+       30. Doç. Dr. Ali GÜNGÖR (İlahiyat Fak. Senatör - Üye)
+       31. Doç. Dr. Okan KUZU (Eğitim Fakültesi Senatör - Üye)
+       32. Dr. Öğr. Üyesi Gazi POLAT (Kaman Meslek Yüksekokulu Müdürü)
+       33. Dr. Öğr. Üyesi Ayşegül TURAN (Sağlık Hizmetleri Meslek Yüksekokulu Müdürü / Mucur SHMYO Müdür V.)
+       34. Dr. Öğr. Üyesi Hüseyin İLTER (Genel Sekreter V. - Raportör)
+
     ÖNEMLİ KURAL (KESİN BİLGİ):
     Yukarıdaki liste Kırşehir Ahi Evran Üniversitesi'nin RESMİ birim listesidir. Eğer kullanıcı "X birimi var mı?", "Y koordinatörlüğü nedir?" gibi sorular sorarsa SADECE BU LİSTEYİ KULLAN. 
     - Listede olmayan bir birim sorulursa: "Kurumsal veri tabanımda böyle bir birim bulunmuyor." de. ASLA uydurma birim ismi verme.
