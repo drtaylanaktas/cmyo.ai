@@ -383,7 +383,7 @@ export default function LoginPage() {
                 </form>
 
                 <p className="mt-6 text-center text-xs text-slate-500">
-                    &copy; {new Date().getFullYear()} KAEU.AI
+                    &copy; {new Date().getFullYear()} KAEU.AI - Kırşehir Ahi Evran Üniversitesi
                 </p>
             </motion.div>
         </main>
