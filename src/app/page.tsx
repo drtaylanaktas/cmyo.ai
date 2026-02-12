@@ -567,7 +567,10 @@ export default function Home() {
                   )}
                 </div>
                 <div className="overflow-hidden">
-                  <p className="text-sm font-medium text-white truncate">{currentUser.name} {currentUser.surname}</p>
+                  <p className="text-sm font-medium text-white truncate">
+                    {currentUser.title && <span className="text-blue-400 font-normal mr-1">{currentUser.title}</span>}
+                    {currentUser.name} {currentUser.surname}
+                  </p>
                   <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
                 </div>
               </div>
