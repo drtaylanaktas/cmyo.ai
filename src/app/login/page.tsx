@@ -57,8 +57,14 @@ export default function LoginPage() {
         setError('');
         setSuccess('');
 
-        if (!validateEmail(email)) {
-            setError('Sadece @ahievran.edu.tr uzantılı mail adresleri ile giriş yapabilirsiniz.');
+        // Validate email domain based on role
+        if (role === 'academic' && !email.endsWith('@ahievran.edu.tr')) {
+            setError('Akademisyenler sadece @ahievran.edu.tr uzantılı mail adresi ile kayıt olabilir.');
+            return;
+        }
+
+        if (role === 'student' && !email.endsWith('@ogr.ahievran.edu.tr')) {
+            setError('Öğrenciler sadece @ogr.ahievran.edu.tr uzantılı mail adresi ile kayıt olabilir.');
             return;
         }
 
@@ -331,7 +337,7 @@ export default function LoginPage() {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="kurumsal@ahievran.edu.tr"
+                            placeholder={role === 'academic' ? "kurumsal@ahievran.edu.tr" : "ogrenci@ogr.ahievran.edu.tr"}
                             required
                             className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-3 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all"
                         />

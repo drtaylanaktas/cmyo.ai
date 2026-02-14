@@ -8,9 +8,13 @@ export async function POST(request: Request) {
     try {
         const { name, surname, email, password, role, title, academicUnit, avatar } = await request.json();
 
-        // Validate email domain
-        if (!email.endsWith('@ahievran.edu.tr')) {
-            return NextResponse.json({ error: 'Sadece @ahievran.edu.tr uzantılı mail adresleri ile kayıt olabilirsiniz.' }, { status: 400 });
+        // Validate email domain based on role
+        if (role === 'academic' && !email.endsWith('@ahievran.edu.tr')) {
+            return NextResponse.json({ error: 'Akademisyenler sadece @ahievran.edu.tr uzantılı mail adresi ile kayıt olabilir.' }, { status: 400 });
+        }
+
+        if (role === 'student' && !email.endsWith('@ogr.ahievran.edu.tr')) {
+            return NextResponse.json({ error: 'Öğrenciler sadece @ogr.ahievran.edu.tr uzantılı mail adresi ile kayıt olabilir.' }, { status: 400 });
         }
 
         // Ensure users table exists (Auto-Fix for "relation does not exist")
