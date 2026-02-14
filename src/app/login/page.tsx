@@ -57,20 +57,22 @@ export default function LoginPage() {
         setError('');
         setSuccess('');
 
-        // Validate email domain based on role
-        if (role === 'academic' && !email.endsWith('@ahievran.edu.tr')) {
-            setError('Akademisyenler sadece @ahievran.edu.tr uzantılı mail adresi ile kayıt olabilir.');
-            return;
-        }
-
-        if (role === 'student' && !email.endsWith('@ogr.ahievran.edu.tr')) {
-            setError('Öğrenciler sadece @ogr.ahievran.edu.tr uzantılı mail adresi ile kayıt olabilir.');
-            return;
-        }
-
         if (password.length < 6) {
             setError('Şifre en az 6 karakter olmalıdır.');
             return;
+        }
+
+        // Validate email domain based on role (Only for Registration)
+        if (!isLogin) {
+            if (role === 'academic' && !email.endsWith('@ahievran.edu.tr')) {
+                setError('Akademisyenler sadece @ahievran.edu.tr uzantılı mail adresi ile kayıt olabilir.');
+                return;
+            }
+
+            if (role === 'student' && !email.endsWith('@ogr.ahievran.edu.tr')) {
+                setError('Öğrenciler sadece @ogr.ahievran.edu.tr uzantılı mail adresi ile kayıt olabilir.');
+                return;
+            }
         }
 
         // Authentication Logic
