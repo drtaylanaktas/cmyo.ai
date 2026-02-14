@@ -9,14 +9,26 @@ export async function POST(request: Request) {
         // 1. Find user by token and check expiry
         // Using current time compared to stored expiry
         // Note: reset_token_expiry > NOW()
-        const user = await sql`
-            SELECT * FROM users 
-            WHERE reset_token = ${token} 
-            AND reset_token_expiry > NOW()
-        `;
+        console.log('Reset Password Request for token:', token);
 
-        if (user.rows.length === 0) {
-            return NextResponse.json({ error: 'Geçersiz veya süresi dolmuş bağlantı.' }, { status: 400 });
+        // 1. Find user by token (ignore expiry for debugging)
+        const userResult = await sql`SELECT * FROM users WHERE reset_token = ${token}`;
+
+        if (userResult.rows.length === 0) {
+            console.log('Token not found in database.');
+            return NextResponse.json({ error: 'Geçersiz bağlantı.' }, { status: 400 });
+        }
+
+        const user = userResult.rows[0];
+        console.log('User found:', user.email);
+        console.log('Token Expiry stored:', user.reset_token_expiry);
+        console.log('Current Time:', new Date());
+
+        // Check expiry manually
+        const expiryDate = new Date(user.reset_token_expiry);
+        if (new Date() > expiryDate) {
+            console.log('Token expired.');
+            return NextResponse.json({ error: 'Bağlantının süresi dolmuş.' }, { status: 400 });
         }
 
         const userId = user.rows[0].id;
