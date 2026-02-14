@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft, Trash2, Edit2, Pin, MoreHorizontal, X } from 'lucide-react';
+import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft, Trash2, Edit2, Pin, MoreHorizontal, X, Paperclip } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import NeuralBackground from '@/components/NeuralBackground';
@@ -23,6 +23,9 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [attachment, setAttachment] = useState<{ name: string, content: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [userRole, setUserRole] = useState<'student' | 'academic'>('student'); // Keep for API compatibility but derive from user
   const [currentUser, setCurrentUser] = useState<any>(null);
 
@@ -250,6 +253,46 @@ export default function Home() {
     }
   };
 
+  const handleAttachClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/upload-and-parse', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || 'Dosya yüklenemedi.');
+        return;
+      }
+
+      setAttachment({
+        name: data.filename,
+        content: data.text
+      });
+
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Dosya yüklenirken bir hata oluştu.');
+    } finally {
+      setIsUploading(false);
+      // Reset input so same file can be selected again if needed
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('cmyo_user');
     router.push('/login');
@@ -291,10 +334,13 @@ export default function Home() {
       id: Date.now().toString(),
       role: 'user',
       content: input,
+      attachments: attachment ? [attachment.name] : undefined
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
+    const currentAttachment = attachment; // Store ref to send
+    setAttachment(null); // Clear attachment UI immediately
     setIsLoading(true);
 
     try {
@@ -304,10 +350,16 @@ export default function Home() {
         parts: [{ text: m.content }]
       }));
 
+      // If there's an attachment, pre-pend it to the last message content or add as context
+      let messageToSend = input;
+      if (currentAttachment) {
+        messageToSend = `[BELGE İÇERİĞİ BAŞLANGICI - ${currentAttachment.name}]\n${currentAttachment.content}\n[BELGE İÇERİĞİ SONU]\n\n${input}`;
+      }
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input, history: history, user: currentUser, weather: weatherData, conversationId }),
+        body: JSON.stringify({ message: messageToSend, history: history, user: currentUser, weather: weatherData, conversationId }),
       });
 
       let botContent = '';
@@ -699,6 +751,15 @@ export default function Home() {
         {/* Input Area */}
         <div className="p-4 bg-[#050a14] border-t border-white/5 shrink-0 z-20">
           <div className="max-w-3xl mx-auto relative flex gap-3">
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept=".docx,.pdf"
+              className="hidden"
+            />
+
             {hasSupport && (
               <button
                 type="button"
@@ -712,20 +773,47 @@ export default function Home() {
               </button>
             )}
 
+            <button
+              type="button"
+              onClick={handleAttachClick}
+              disabled={isUploading}
+              className={`p-3 rounded-xl transition-all flex items-center justify-center shrink-0 ${isUploading
+                ? 'bg-blue-500/20 text-blue-400 animate-pulse border border-blue-500/30'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
+                }`}
+              title="Belge Ekle (.docx, .pdf)"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
+
             <form
               onSubmit={(e) => { e.preventDefault(); handleSend(); }}
               className="flex-1 relative"
             >
+              {attachment && (
+                <div className="absolute -top-10 left-0 bg-blue-900/50 border border-blue-500/30 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs text-blue-200 animate-in fade-in slide-in-from-bottom-2">
+                  <FileText className="w-3.5 h-3.5" />
+                  <span className="max-w-[150px] truncate">{attachment.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAttachment(null)}
+                    className="hover:text-white ml-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isBlocked}
-                placeholder={isBlocked ? `Kısıtlandı: ${blockTimer}s` : "Bir şeyler yazın..."}
+                placeholder={isBlocked ? `Kısıtlandı: ${blockTimer}s` : (attachment ? "Belge hakkında bir şeyler sorun..." : "Bir şeyler yazın...")}
                 className="w-full bg-slate-800 border-0 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:bg-slate-800/80 transition-all pr-12"
               />
               <button
                 type="submit"
-                disabled={!input.trim() || isLoading}
+                disabled={(!input.trim() && !attachment) || isLoading}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-600 rounded-lg text-white hover:bg-blue-500 disabled:opacity-50 disabled:bg-transparent disabled:text-slate-500 transition-all"
               >
                 <Send className="w-4 h-4" />
