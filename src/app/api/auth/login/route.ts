@@ -22,6 +22,13 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Hatalı şifre.' }, { status: 401 });
         }
 
+        // Check if email is verified
+        if (!user.email_verified) {
+            return NextResponse.json({
+                error: 'E-posta adresiniz doğrulanmamış. Lütfen gelen kutunuzu kontrol edin.'
+            }, { status: 403 });
+        }
+
         // Return user info (excluding password)
         // We also need to map snake_case DB columns to camelCase for frontend consistency if needed, 
         // but better to keep it consistent. Frontend expects: name, surname, role, title, academicUnit, avatar

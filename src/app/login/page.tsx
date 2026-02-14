@@ -140,7 +140,11 @@ export default function LoginPage() {
                     return;
                 }
 
-                setSuccess('Kayıt başarılı! Şimdi giriş yapabilirsiniz.');
+                if (data.requireVerification) {
+                    setSuccess('Kayıt başarılı! Lütfen e-posta adresinize gönderilen doğrulama bağlantısına tıklayarak hesabınızı aktif edin.');
+                } else {
+                    setSuccess('Kayıt başarılı! Şimdi giriş yapabilirsiniz.');
+                }
                 setIsLogin(true); // Switch to login view
                 setPassword('');
             } catch (err) {

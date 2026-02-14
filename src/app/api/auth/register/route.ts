@@ -1,6 +1,8 @@
 import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { sendVerificationEmail } from '@/lib/email';
 
 export async function POST(request: Request) {
     try {
@@ -36,13 +38,29 @@ export async function POST(request: Request) {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Generate verification token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+
         // Insert user
         await sql`
-      INSERT INTO users (name, surname, email, password, role, title, academic_unit, avatar)
-      VALUES (${name}, ${surname}, ${email}, ${hashedPassword}, ${role}, ${title}, ${academicUnit}, ${avatar})
-    `;
+            INSERT INTO users (name, surname, email, password, role, title, academic_unit, avatar, verification_token, email_verified)
+            VALUES (${name}, ${surname}, ${email}, ${hashedPassword}, ${role}, ${title}, ${academicUnit}, ${avatar}, ${verificationToken}, FALSE)
+        `;
 
-        return NextResponse.json({ message: 'Kayıt başarılı!' }, { status: 201 });
+        // Send verification email
+        try {
+            const emailSent = await sendVerificationEmail(email, verificationToken);
+            if (!emailSent) {
+                console.error("Email sending returned false");
+            }
+        } catch (emailError) {
+            console.error("Failed to send verification email:", emailError);
+        }
+
+        return NextResponse.json({
+            message: 'Kayıt başarılı! Lütfen e-posta adresinize gönderilen doğrulama bağlantısına tıklayın.',
+            requireVerification: true
+        }, { status: 201 });
     } catch (error: any) {
         console.error('Registration error:', error);
         return NextResponse.json({ error: `Kayıt oluşturulurken bir hata oluştu: ${error.message}` }, { status: 500 });
