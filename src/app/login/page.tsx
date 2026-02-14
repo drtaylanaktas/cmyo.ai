@@ -339,7 +339,7 @@ export default function LoginPage() {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder={role === 'academic' ? "kurumsal@ahievran.edu.tr" : "ogrenci@ogr.ahievran.edu.tr"}
+                            placeholder={isLogin ? "Mail adresiniz" : (role === 'academic' ? "kurumsal@ahievran.edu.tr" : "ogrenci@ogr.ahievran.edu.tr")}
                             required
                             className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-3 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all"
                         />
