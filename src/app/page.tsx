@@ -733,7 +733,7 @@ export default function Home() {
             </form>
           </div>
           <div className="text-center mt-2">
-            <p className="text-[10px] text-slate-600">KAEU.AI v1.0 (beta) - Hatalar olabilir.</p>
+            <p className="text-[10px] text-slate-600">KAEU.AI yanlış bilgiler gösterebilir. Bu nedenle, verdiği yanıtları doğrulayın.</p>
           </div>
         </div>
       </main>
