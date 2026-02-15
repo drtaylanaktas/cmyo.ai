@@ -804,7 +804,7 @@ export default function Home() {
                 </div>
               )}
 
-              <div className="relative w-full">
+              <div className="relative w-full flex items-center">
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -815,7 +815,7 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={(!input.trim() && !attachment) || isLoading}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 bg-blue-600 rounded-lg text-white hover:bg-blue-500 disabled:opacity-50 disabled:bg-transparent disabled:text-slate-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center"
+                  className="absolute right-2 p-2 bg-blue-600 rounded-lg text-white hover:bg-blue-500 disabled:opacity-50 disabled:bg-transparent disabled:text-slate-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center top-1/2 -translate-y-1/2"
                 >
                   <Send className="w-5 h-5" />
                 </button>
