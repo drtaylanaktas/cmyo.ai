@@ -814,9 +814,9 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={(!input.trim() && !attachment) || isLoading}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-600 rounded-lg text-white hover:bg-blue-500 disabled:opacity-50 disabled:bg-transparent disabled:text-slate-500 transition-all"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 rounded-xl text-white hover:bg-blue-500 disabled:opacity-50 disabled:bg-transparent disabled:text-slate-500 transition-all shadow-lg shadow-blue-600/20"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-5 h-5" />
               </button>
             </form>
           </div>
