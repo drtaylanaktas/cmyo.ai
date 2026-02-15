@@ -804,13 +804,13 @@ export default function Home() {
                 </div>
               )}
 
-              <div className="relative w-full flex items-center">
+              <div className="relative w-full flex items-center bg-slate-800 rounded-xl border border-transparent focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:bg-slate-800/80 transition-all">
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   disabled={isBlocked}
                   placeholder={isBlocked ? `Kısıtlandı: ${blockTimer}s` : (attachment ? "Belge hakkında bir şeyler sorun..." : "Bir şeyler yazın...")}
-                  className="w-full bg-slate-800 border-0 rounded-xl px-4 py-3.5 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:bg-slate-800/80 transition-all pr-14"
+                  className="w-full bg-transparent border-0 px-4 py-3.5 text-white placeholder-slate-500 focus:ring-0 focus:outline-none pr-14"
                 />
                 <button
                   type="submit"
