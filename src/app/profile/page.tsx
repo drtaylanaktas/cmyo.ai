@@ -7,6 +7,8 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Save, User, Mail, Shield, AlertCircle, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
 
+import { UploadButton } from "@/lib/uploadthing";
+
 export default function ProfilePage() {
     const router = useRouter();
     const [user, setUser] = useState<any>(null);
@@ -30,20 +32,7 @@ export default function ProfilePage() {
         setAvatar(userData.avatar || '');
     }, [router]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-                setMessage({ type: 'error', text: "Dosya boyutu 2MB'dan küçük olmalıdır." });
-                return;
-            }
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setAvatar(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
+
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -116,10 +105,29 @@ export default function ProfilePage() {
                                 <User className="w-10 h-10" />
                             </div>
                         )}
-                        <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                            <span className="text-xs text-white font-medium">Değiştir</span>
-                            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-                        </label>
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <UploadButton
+                                endpoint="imageUploader"
+                                onClientUploadComplete={(res) => {
+                                    if (res && res[0]) {
+                                        setAvatar(res[0].url);
+                                        setMessage({ type: 'success', text: 'Resim yüklendi! Kaydet butonuna basarak profilinizi güncelleyin.' });
+                                    }
+                                }}
+                                onUploadError={(error: Error) => {
+                                    console.log(error);
+                                    setMessage({ type: 'error', text: 'Resim yüklenirken hata oluştu.' });
+                                }}
+                                appearance={{
+                                    button: "bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-medium hover:bg-blue-500 transition-colors after:bg-blue-400 focus-within:ring-0",
+                                    container: "p-0 m-0",
+                                    allowedContent: "hidden"
+                                }}
+                                content={{
+                                    button: "Değiştir"
+                                }}
+                            />
+                        </div>
                     </div>
                     <div className="text-center">
                         <h1 className="text-xl font-bold text-white mb-1">Profil Düzenle</h1>
