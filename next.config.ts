@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  env: {
+    UPLOADTHING_TOKEN: process.env.UPLOADTHING_TOKEN,
+  },
 };
 
 export default nextConfig;
