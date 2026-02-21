@@ -2,8 +2,14 @@
 
 import { useEffect, useRef } from 'react';
 
-export default function NeuralBackground() {
+export default function NeuralBackground({ isSuccess = false }: { isSuccess?: boolean }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    // Track isSuccess in a ref to use inside the animation loop
+    const isSuccessRef = useRef(isSuccess);
+    useEffect(() => {
+        isSuccessRef.current = isSuccess;
+    }, [isSuccess]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -44,28 +50,47 @@ export default function NeuralBackground() {
                 if (this.x < 0 || this.x > width) this.vx *= -1;
                 if (this.y < 0 || this.y > height) this.vy *= -1;
 
-                // Mouse interaction
-                const dx = mouse.x - this.x;
-                const dy = mouse.y - this.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (isSuccessRef.current) {
+                    // Neural Sync: converge to center rapidly
+                    const centerX = width / 2;
+                    const centerY = height / 2;
+                    const dxCentre = centerX - this.x;
+                    const dyCentre = centerY - this.y;
 
-                if (distance < mouseDistance) {
-                    const forceDirectionX = dx / distance;
-                    const forceDirectionY = dy / distance;
-                    const force = (mouseDistance - distance) / mouseDistance;
-                    const directionX = forceDirectionX * force * 0.5; // Push away a bit less
-                    const directionY = forceDirectionY * force * 0.5;
+                    this.vx += dxCentre * 0.005; // Pull towards center
+                    this.vy += dyCentre * 0.005;
 
-                    // Or attract? Let's make it attract slightly for "neural connection" feel
-                    // Actually, usually it pushes. Let's make it subtle attraction.
-                    this.vx += directionX * 0.05;
-                    this.vy += directionY * 0.05;
+                    // Add friction so they don't overshoot infinitely
+                    this.vx *= 0.95;
+                    this.vy *= 0.95;
+
+                    // Make them glow brighter
+                    this.size = Math.min(this.size + 0.1, 4);
+                } else {
+                    // Mouse interaction (normal state)
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < mouseDistance) {
+                        const forceDirectionX = dx / distance;
+                        const forceDirectionY = dy / distance;
+                        const force = (mouseDistance - distance) / mouseDistance;
+                        const directionX = forceDirectionX * force * 0.5; // Push away a bit less
+                        const directionY = forceDirectionY * force * 0.5;
+
+                        // Or attract? Let's make it attract slightly for "neural connection" feel
+                        // Actually, usually it pushes. Let's make it subtle attraction.
+                        this.vx += directionX * 0.05;
+                        this.vy += directionY * 0.05;
+                    }
                 }
             }
 
             draw() {
                 if (!ctx) return;
-                ctx.fillStyle = '#0080ff'; // Blue dots
+                // If success, make them slightly greener/brighter to matrix feel
+                ctx.fillStyle = isSuccessRef.current ? '#4ade80' : '#0080ff';
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fill();
@@ -93,8 +118,15 @@ export default function NeuralBackground() {
 
                     if (distance < connectionDistance) {
                         ctx.beginPath();
-                        ctx.strokeStyle = `rgba(0, 128, 255, ${1 - distance / connectionDistance})`; // Fade out blue lines
-                        ctx.lineWidth = 1;
+
+                        if (isSuccessRef.current) {
+                            ctx.strokeStyle = `rgba(74, 222, 128, ${1 - distance / connectionDistance})`; // Green/Glow links
+                            ctx.lineWidth = 1.5;
+                        } else {
+                            ctx.strokeStyle = `rgba(0, 128, 255, ${1 - distance / connectionDistance})`; // Fade out blue lines
+                            ctx.lineWidth = 1;
+                        }
+
                         ctx.moveTo(particles[i].x, particles[i].y);
                         ctx.lineTo(particles[j].x, particles[j].y);
                         ctx.stroke();

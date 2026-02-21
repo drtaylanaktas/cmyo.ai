@@ -167,7 +167,7 @@ export default function LoginPage() {
 
     return (
         <main className="relative w-full h-screen flex items-center justify-center overflow-hidden">
-            <NeuralBackground />
+            <NeuralBackground isSuccess={isSuccessAnimation} />
 
             <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
