@@ -98,7 +98,7 @@ export default function LoginPage() {
                 setIsSuccessAnimation(true);
                 setTimeout(() => {
                     router.push('/');
-                }, 1500); // Wait for the animation before navigating
+                }, 2800); // 2.8s wait for the majestic slow animation before navigating
             } catch (err) {
                 setError('Bir hata oluştu. Lütfen tekrar deneyin.');
             }
@@ -180,7 +180,7 @@ export default function LoginPage() {
                     scale: 1,
                     filter: "blur(0px)"
                 }}
-                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
                 className={`absolute z-10 w-full max-w-md p-8 bg-[#050a14]/80 backdrop-blur-2xl rounded-3xl border border-blue-500/30 shadow-[0_0_50px_rgba(0,128,255,0.2)] max-h-[90vh] overflow-y-auto ${isSuccessAnimation ? 'pointer-events-none' : ''}`}
             >
                 <div className="flex flex-col items-center mb-6">
@@ -437,7 +437,7 @@ export default function LoginPage() {
                         filter: ["blur(0px)", "blur(0px)", "blur(5px)"]
                     } : {}}
                     transition={{
-                        duration: 1.4,
+                        duration: 2.4, // Slower overlay explosion
                         times: [0, 0.15, 1],
                         ease: [0.16, 1, 0.3, 1]
                     }}
