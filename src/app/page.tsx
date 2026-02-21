@@ -631,6 +631,19 @@ export default function Home() {
         </div>
       </aside>
 
+      {/* Mobile Sidebar Overlay (Click to close) */}
+      <AnimatePresence>
+        {showHistory && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowHistory(false)}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Main Content */}
       <main className="flex-1 flex flex-col relative w-full md:w-auto overflow-hidden">
 
