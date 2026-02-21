@@ -1,14 +1,13 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { sql } from '@vercel/postgres';
 
-// Initialize Anthropic
-// Try both standard and Next.js public env vars if needed, but usually server-side env is enough
-const apiKey = process.env.ANTHROPIC_API_KEY || '';
+// Initialize OpenAI
+const apiKey = process.env.OPENAI_API_KEY || '';
 
-const anthropic = new Anthropic({
+const openai = new OpenAI({
     apiKey: apiKey,
 });
 
@@ -134,37 +133,36 @@ function logChatDebug(message: string) {
     console.log(`[${timestamp}] ${message}`);
 }
 
-// Generate with Anthropic Claude 3.5 Sonnet
-async function generateWithClaude(message: string, systemPrompt: string, history: any[] = []) {
+// Generate with OpenAI GPT-4o Mini
+async function generateWithOpenAI(message: string, systemPrompt: string, history: any[] = []) {
     try {
-        logChatDebug(`Sending request to Claude 3.5 Sonnet...`);
+        logChatDebug(`Sending request to GPT-4o Mini...`);
 
-        // Convert history from Gemini format {role: 'user'|'model', parts: [{text: ...}]} to Anthropic format
-        const anthropicHistory = history.map((msg: any) => {
+        // Convert history from Gemini format {role: 'user'|'model', parts: [{text: ...}]} to OpenAI format
+        const openaiHistory = history.map((msg: any) => {
             return {
                 role: msg.role === 'model' ? 'assistant' : msg.role,
                 content: msg.parts[0].text
             };
         });
 
-        const response = await anthropic.messages.create({
-            model: "claude-3-haiku-20240307",
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
             max_tokens: 1000,
             temperature: 0.7,
-            system: systemPrompt,
             messages: [
-                ...anthropicHistory,
+                { role: "system", content: systemPrompt },
+                ...openaiHistory,
                 { role: "user", content: message }
             ]
         });
 
-        // @ts-ignore
-        const text = response.content[0].text;
-        return text;
+        const text = response.choices[0].message.content;
+        return text || "";
 
     } catch (error: any) {
-        console.error(`Claude model failed:`, error);
-        logChatDebug(`Claude model FAILED: ${error.message}`);
+        console.error(`OpenAI model failed:`, error);
+        logChatDebug(`OpenAI model FAILED: ${error.message}`);
         throw error;
     }
 }
@@ -174,7 +172,7 @@ export async function POST(req: Request) {
         const { message, history, user, weather, conversationId } = await req.json();
         const role = user?.role || 'student'; // Fallback to student
 
-        logChatDebug(`--- Chat Request Started (Claude) ---`);
+        logChatDebug(`--- Chat Request Started (OpenAI) ---`);
         logChatDebug(`Message: ${message}`);
         logChatDebug(`Role: ${role}`);
 
@@ -586,10 +584,10 @@ export async function POST(req: Request) {
 
         let reply = "";
         try {
-            reply = await generateWithClaude(message, systemPrompt, history);
+            reply = await generateWithOpenAI(message, systemPrompt, history);
         } catch (error: any) {
-            console.error("Claude generation failed", error);
-            logChatDebug(`CLAUDE FAILED: ${error.message}`);
+            console.error("OpenAI generation failed", error);
+            logChatDebug(`OPENAI FAILED: ${error.message}`);
 
             return NextResponse.json({
                 error: `API Error: ${error.message || 'Unknown error'}.`
