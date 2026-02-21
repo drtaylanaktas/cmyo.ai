@@ -176,17 +176,52 @@ export default function LoginPage() {
                 className={`relative z-10 w-full max-w-md p-8 rounded-3xl max-h-[90vh] transition-all duration-700 ${isSuccessAnimation ? '' : 'bg-[#050a14]/80 backdrop-blur-2xl border border-blue-500/30 shadow-[0_0_50px_rgba(0,128,255,0.2)] overflow-y-auto'}`}
             >
                 <div className="flex flex-col items-center mb-6">
-                    <motion.div
-                        className={isSuccessAnimation ? "fixed inset-0 m-auto z-[100] w-24 h-24" : "w-24 h-24 relative mb-4"}
-                        animate={isSuccessAnimation ? { scale: 100, opacity: 0 } : { scale: 1, opacity: 1 }}
-                        transition={{ duration: 1.5, ease: "easeInOut" }}
-                    >
-                        <Image src="/logo.png" alt="Logo" fill className="object-contain drop-shadow-[0_0_15px_rgba(0,128,255,0.5)]" />
-                    </motion.div>
+                    <div className="relative w-24 h-24 mb-4 flex items-center justify-center">
+                        {/* Animated glowing ring behind logo on success */}
+                        <motion.div
+                            className={`absolute inset-0 rounded-full border-2 border-blue-400/50 ${isSuccessAnimation ? 'z-[98]' : '-z-10'}`}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={isSuccessAnimation ? {
+                                scale: [1, 1.5, 30],
+                                opacity: [1, 1, 0],
+                                rotate: [0, 90, 180]
+                            } : {
+                                opacity: 1,
+                                scale: 1.1,
+                                rotate: 360
+                            }}
+                            transition={isSuccessAnimation ? {
+                                duration: 1.2,
+                                ease: [0.22, 1, 0.36, 1]
+                            } : {
+                                duration: 10,
+                                repeat: Infinity,
+                                ease: "linear"
+                            }}
+                        />
+                        <motion.div
+                            className={isSuccessAnimation ? "fixed inset-0 m-auto z-[100] w-24 h-24" : "w-full h-full relative"}
+                            animate={isSuccessAnimation ? {
+                                scale: [1, 0.9, 80],
+                                opacity: [1, 1, 0],
+                                filter: ["brightness(1)", "brightness(1.5)", "brightness(2)"]
+                            } : { scale: 1, opacity: 1 }}
+                            transition={{
+                                duration: 1.5,
+                                times: [0, 0.2, 1],
+                                ease: [0.22, 1, 0.36, 1]
+                            }}
+                        >
+                            <Image src="/logo.png" alt="Logo" fill className="object-contain drop-shadow-[0_0_15px_rgba(0,128,255,0.5)]" />
+                        </motion.div>
+                    </div>
 
                     <motion.h1
-                        animate={{ opacity: isSuccessAnimation ? 0 : 1 }}
-                        transition={{ duration: 0.3 }}
+                        animate={{
+                            opacity: isSuccessAnimation ? 0 : 1,
+                            y: isSuccessAnimation ? -20 : 0
+                        }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
                         className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-green-400 to-blue-400 tracking-tight"
                     >
                         KAEU.AI v1.0 (beta)
