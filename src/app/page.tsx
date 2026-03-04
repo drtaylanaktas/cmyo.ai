@@ -475,7 +475,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-[100dvh] w-full max-w-[100vw] overflow-hidden bg-[#050a14] text-white relative">
+    <div className="fixed inset-0 flex w-full overflow-hidden bg-[#050a14] text-white">
       <NeuralBackground />
 
       {/* Sidebar - Desktop (Permanent) & Mobile (Drawer) */}
@@ -648,7 +648,7 @@ export default function Home() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col relative w-full max-w-full overflow-hidden">
+      <main className="flex-1 flex flex-col relative w-full h-full max-w-full overflow-hidden">
 
         {/* Watermark Logo */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
@@ -682,7 +682,7 @@ export default function Home() {
         </header>
 
         {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth relative z-10">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth relative z-10 w-full min-h-0">
           <AnimatePresence initial={false}>
             {messages.length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-center opacity-80 mt-[-50px] relative z-10">
@@ -762,80 +762,81 @@ export default function Home() {
             </div>
           )}
           <div ref={messagesEndRef} className="h-4" />
-          {/* Input Area */}
-          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] w-full bg-[#050a14] border-t border-white/5 shrink-0 z-20">
-            <div className="max-w-3xl mx-auto w-full max-w-[calc(100vw-2rem)] relative flex gap-2 sm:gap-3 items-end">
-              {/* Hidden File Input */}
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                accept=".docx,.pdf"
-                className="hidden"
-              />
+        </div>
 
-              {hasSupport && (
-                <button
-                  type="button"
-                  onClick={handleMicClick}
-                  className={`p-3 rounded-xl transition-all flex items-center justify-center shrink-0 ${isListening
-                    ? 'bg-red-500/20 text-red-400 animate-pulse border border-red-500/30'
-                    : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
-                    }`}
-                >
-                  {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                </button>
-              )}
+        {/* Input Area */}
+        <div className="mt-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] w-full bg-[#050a14] border-t border-white/5 shrink-0 z-20">
+          <div className="max-w-3xl mx-auto w-full max-w-[calc(100vw-2rem)] relative flex gap-2 sm:gap-3 items-end">
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept=".docx,.pdf"
+              className="hidden"
+            />
 
+            {hasSupport && (
               <button
                 type="button"
-                onClick={handleAttachClick}
-                disabled={isUploading}
-                className={`p-3 rounded-xl transition-all flex items-center justify-center shrink-0 ${isUploading
-                  ? 'bg-blue-500/20 text-blue-400 animate-pulse border border-blue-500/30'
+                onClick={handleMicClick}
+                className={`p-3 rounded-xl transition-all flex items-center justify-center shrink-0 ${isListening
+                  ? 'bg-red-500/20 text-red-400 animate-pulse border border-red-500/30'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
                   }`}
-                title="Belge Ekle (.docx, .pdf)"
               >
-                <Paperclip className="w-5 h-5" />
+                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
+            )}
 
-              <form
-                onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-                className="flex-1 relative"
-              >
-                {attachment && (
-                  <div className="absolute -top-10 left-0 bg-blue-900/50 border border-blue-500/30 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs text-blue-200 animate-in fade-in slide-in-from-bottom-2">
-                    <FileText className="w-3.5 h-3.5" />
-                    <span className="max-w-[150px] truncate">{attachment.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => setAttachment(null)}
-                      className="hover:text-white ml-1"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
+            <button
+              type="button"
+              onClick={handleAttachClick}
+              disabled={isUploading}
+              className={`p-3 rounded-xl transition-all flex items-center justify-center shrink-0 ${isUploading
+                ? 'bg-blue-500/20 text-blue-400 animate-pulse border border-blue-500/30'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
+                }`}
+              title="Belge Ekle (.docx, .pdf)"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
 
-                <div className="relative w-full flex items-center bg-slate-800 rounded-xl border border-transparent focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:bg-slate-800/80 transition-all p-1 overflow-hidden">
-                  <input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    disabled={isBlocked}
-                    placeholder={isBlocked ? `Kısıtlandı: ${blockTimer}s` : (attachment ? "Belge hakkında bir şeyler sorun..." : "Bir şeyler yazın...")}
-                    className="flex-1 bg-transparent border-0 px-3 sm:px-4 py-2 sm:py-2.5 text-white placeholder-slate-500 focus:ring-0 focus:outline-none min-w-0 text-sm sm:text-base"
-                  />
+            <form
+              onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+              className="flex-1 relative"
+            >
+              {attachment && (
+                <div className="absolute -top-10 left-0 bg-blue-900/50 border border-blue-500/30 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs text-blue-200 animate-in fade-in slide-in-from-bottom-2">
+                  <FileText className="w-3.5 h-3.5" />
+                  <span className="max-w-[150px] truncate">{attachment.name}</span>
                   <button
-                    type="submit"
-                    disabled={(!input.trim() && !attachment) || isLoading}
-                    className="p-2 bg-blue-600 rounded-lg text-white hover:bg-blue-500 disabled:opacity-50 disabled:bg-transparent disabled:text-slate-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center shrink-0"
+                    type="button"
+                    onClick={() => setAttachment(null)}
+                    className="hover:text-white ml-1"
                   >
-                    <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              </form>
-            </div>
+              )}
+
+              <div className="relative w-full flex items-center bg-slate-800 rounded-xl border border-transparent focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:bg-slate-800/80 transition-all p-1 overflow-hidden">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  disabled={isBlocked}
+                  placeholder={isBlocked ? `Kısıtlandı: ${blockTimer}s` : (attachment ? "Belge hakkında bir şeyler sorun..." : "Bir şeyler yazın...")}
+                  className="flex-1 bg-transparent border-0 px-3 sm:px-4 py-2 sm:py-2.5 text-white placeholder-slate-500 focus:ring-0 focus:outline-none min-w-0 text-sm sm:text-base"
+                />
+                <button
+                  type="submit"
+                  disabled={(!input.trim() && !attachment) || isLoading}
+                  className="p-2 bg-blue-600 rounded-lg text-white hover:bg-blue-500 disabled:opacity-50 disabled:bg-transparent disabled:text-slate-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center shrink-0"
+                >
+                  <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+              </div>
+            </form>
           </div>
           <div className="text-center mt-2">
             <p className="text-[10px] text-slate-600">KAEU.AI yanlış bilgiler gösterebilir. Bu nedenle, verdiği yanıtları doğrulayın.</p>
