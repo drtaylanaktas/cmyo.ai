@@ -765,8 +765,8 @@ export default function Home() {
         </div>
 
         {/* Input Area */}
-        <div className="p-4 bg-[#050a14] border-t border-white/5 shrink-0 z-20">
-          <div className="max-w-3xl mx-auto relative flex gap-3">
+        <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] w-full max-w-full bg-[#050a14] border-t border-white/5 shrink-0 z-20">
+          <div className="max-w-3xl mx-auto w-full relative flex gap-3">
             {/* Hidden File Input */}
             <input
               type="file"
@@ -820,7 +820,7 @@ export default function Home() {
                 </div>
               )}
 
-              <div className="relative w-full flex items-center bg-slate-800 rounded-xl border border-transparent focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:bg-slate-800/80 transition-all p-1">
+              <div className="relative w-full max-w-full flex items-center bg-slate-800 rounded-xl border border-transparent focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:bg-slate-800/80 transition-all p-1 overflow-hidden">
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
