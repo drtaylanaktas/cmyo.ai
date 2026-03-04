@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft, Trash2, Edit2, Pin, MoreHorizontal, X, Paperclip } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import NeuralBackground from '@/components/NeuralBackground';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { checkProfanity } from '@/lib/badwords';
 
@@ -476,7 +475,6 @@ export default function Home() {
 
   return (
     <div className="fixed inset-0 flex w-full overflow-hidden bg-[#050a14] text-white">
-      <NeuralBackground />
 
       {/* Sidebar - Desktop (Permanent) & Mobile (Drawer) */}
       <aside className={`
