@@ -475,7 +475,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen max-h-screen overflow-hidden bg-[#050a14] text-white relative">
+    <div className="flex h-[100dvh] overflow-hidden bg-[#050a14] text-white relative">
       <NeuralBackground />
 
       {/* Sidebar - Desktop (Permanent) & Mobile (Drawer) */}
