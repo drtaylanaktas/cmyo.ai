@@ -475,7 +475,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-[#050a14] text-white relative">
+    <div className="flex h-[100dvh] w-full max-w-[100vw] overflow-hidden bg-[#050a14] text-white relative">
       <NeuralBackground />
 
       {/* Sidebar - Desktop (Permanent) & Mobile (Drawer) */}
@@ -648,7 +648,7 @@ export default function Home() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col relative w-full md:w-auto overflow-hidden">
+      <main className="flex-1 flex flex-col relative w-full max-w-full overflow-hidden">
 
         {/* Watermark Logo */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
@@ -765,7 +765,7 @@ export default function Home() {
         </div>
 
         {/* Input Area */}
-        <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] w-full max-w-full bg-[#050a14] border-t border-white/5 shrink-0 z-20">
+        <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] w-full bg-[#050a14] border-t border-white/5 shrink-0 z-20">
           <div className="max-w-3xl mx-auto w-full relative flex gap-3">
             {/* Hidden File Input */}
             <input
