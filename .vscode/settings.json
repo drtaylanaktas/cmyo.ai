@@ -1,0 +1,14 @@
+{
+    "java.import.exclusions": [
+        "**/android/**",
+        "**/node_modules/**"
+    ],
+    "java.project.importOnFirstTimeStartup": "disabled",
+    "java.autobuild.enabled": false,
+    "java.import.gradle.enabled": false,
+    "java.import.maven.enabled": false,
+    "java.server.launchMode": "LightWeight",
+    "css.validate": false,
+    "less.validate": false,
+    "scss.validate": false
+}

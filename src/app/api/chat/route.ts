@@ -36,7 +36,7 @@ const loadKnowledgeBase = (): Document[] => {
 
 function findRelevantDocuments(query: string): Document[] {
     const knowledgeBase = loadKnowledgeBase();
-    const queryLower = query.toLowerCase();
+    const queryLower = query.toLocaleLowerCase('tr-TR');
 
     // CRITICAL: Always inject Course Schedule Forms if 'ders programı' is mentioned
     if (queryLower.includes('ders programı') || queryLower.includes('haftalık ders')) {
@@ -79,8 +79,8 @@ function findRelevantDocuments(query: string): Document[] {
         const terms = queryLower.split(' ').filter((t: string) => t.length > 2);
         const scores = knowledgeBase.map((doc: Document) => {
             let score = 0;
-            const filename = doc.filename.toLowerCase();
-            const content = doc.content.toLowerCase();
+            const filename = doc.filename.toLocaleLowerCase('tr-TR');
+            const content = doc.content.toLocaleLowerCase('tr-TR');
 
             terms.forEach((term: string) => {
                 if (filename.includes(term)) score += 20;
@@ -101,20 +101,24 @@ function findRelevantDocuments(query: string): Document[] {
         return [...injectedDocs, ...normalDocs];
     }
 
-
     if (!query || knowledgeBase.length === 0) return [];
 
     const terms = queryLower.split(' ').filter((t: string) => t.length > 2);
     const scores = knowledgeBase.map((doc: Document) => {
         let score = 0;
-        const filename = doc.filename.toLowerCase();
-        const content = doc.content.toLowerCase();
+        const filename = doc.filename.toLocaleLowerCase('tr-TR');
+        const content = doc.content.toLocaleLowerCase('tr-TR');
 
         terms.forEach((term: string) => {
-            if (filename.includes(term)) score += 20;
-            if (content.includes(term)) score += 1;
-            if (term === 'staj' && content.includes('staj')) score += 5;
-            if (term === 'tarih' && content.includes('tarih')) score += 5;
+            // Agglutinative language prefix matching (e.g. "programcılığında" -> "programc")
+            const rootTerm = term.length > 6 ? term.substring(0, Math.min(term.length - 2, 7)) : term;
+
+            if (filename.includes(term) || (rootTerm.length > 4 && filename.includes(rootTerm))) score += 20;
+            if (content.includes(term) || (rootTerm.length > 4 && content.includes(rootTerm))) score += 1;
+
+            if (term.includes('staj') && content.includes('staj')) score += 5;
+            if (term.includes('tarih') && content.includes('tarih')) score += 5;
+            if ((term.includes('müfredat') || term.includes('ders') || term.includes('program')) && content.includes('bologna')) score += 10;
         });
 
         return { doc, score };
