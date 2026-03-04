@@ -233,6 +233,8 @@ export async function POST(req: Request) {
     BUGÜN GÜNLERDEN: ${new Intl.DateTimeFormat('tr-TR', { timeZone: 'Europe/Istanbul', weekday: 'long' }).format(new Date())}
     Bu bilgiyi kullanarak sana sorulan "bugün günlerden ne", "saat kaç" gibi sorulara %100 doğru cevap ver. Asla başka bir tarih uydurma.
 
+    ${context}
+
     ${weather ? `
     KULLANICI KONUM VE ORTAM BİLGİSİ:
     Tespit Edilen Konum: ${weather.locationName} (${weather.lat}, ${weather.lon})
