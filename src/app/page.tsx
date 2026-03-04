@@ -480,9 +480,9 @@ export default function Home() {
 
       {/* Sidebar - Desktop (Permanent) & Mobile (Drawer) */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-[#050a14]/95 backdrop-blur-xl border-r border-blue-500/20 transform transition-transform duration-300 ease-in-out
-        md:relative md:translate-x-0 md:bg-transparent md:backdrop-blur-none
-        ${showHistory ? 'translate-x-0' : '-translate-x-full'}
+        fixed inset-y-0 z-50 w-72 bg-[#050a14]/95 backdrop-blur-xl border-r border-blue-500/20 transition-all duration-300 ease-in-out
+        md:relative md:left-0 md:bg-transparent md:backdrop-blur-none
+        ${showHistory ? 'left-0 shadow-[20px_0_50px_rgba(0,0,0,0.5)]' : '-left-[100%] md:left-0'}
       `}>
         <div className="flex flex-col h-full p-4">
           {/* Sidebar Header */}
@@ -638,8 +638,11 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setShowHistory(false)}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowHistory(false);
+            }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden cursor-pointer"
           />
         )}
       </AnimatePresence>
