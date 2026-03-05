@@ -120,7 +120,7 @@ function findRelevantDocuments(query: string): Document[] {
     return scores
         .filter((s: { score: number }) => s.score > 0)
         .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-        .slice(0, 3)
+        .slice(0, 5)
         .map((s: { doc: Document }) => s.doc);
 }
 
@@ -223,9 +223,12 @@ export async function POST(req: Request) {
             context = `
       AŞAĞIDAKİ BELGELER BULUNDU. KULLANICI BU BELGELER HAKKINDA SORU SORUYOR VEYA BU BELGELERİ İSTİYOR OLABİLİR.
       
-      ${relevantDocs.map(d => `--- BELGE BAŞLANGICI: ${d.filename} ---
-      ${d.content.substring(0, 2000)}... (kısaltıldı)
-      --- BELGE SONU ---`).join('\n\n')}
+      ${relevantDocs.map(d => {
+                // Bologna müfredat belgeleri tam ders listesi içerdiğinden daha fazla içerik gönder
+                const maxLen = d.filename.includes('BOLOGNA') ? 8000 : 3000;
+                const truncated = d.content.length > maxLen ? d.content.substring(0, maxLen) + '... (kısaltıldı)' : d.content;
+                return `--- BELGE BAŞLANGICI: ${d.filename} ---\n      ${truncated}\n      --- BELGE SONU ---`;
+            }).join('\n\n')}
       `;
         }
 
