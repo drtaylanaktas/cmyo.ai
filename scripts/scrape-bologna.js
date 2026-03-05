@@ -52,6 +52,9 @@ async function scrapeAcademicUnits(type) {
     const units = [];
 
     $('.panel').each((i, panel) => {
+        // Skip wrapper panels that contain other panels to avoid duplicating and concatenating all faculties
+        if ($(panel).find('.panel').length > 0) return;
+
         let facultyName = $(panel).find('.panel-title > a').clone().children().remove().end().text().trim();
         // Fallback for faculty name: get all text and take only the first line
         if (!facultyName || facultyName === "") {
@@ -161,10 +164,18 @@ async function main() {
         allDepartments = allDepartments.concat(units);
     }
 
+    // Deduplicate departments by curSunit to avoid multiple scraping of the same department
+    const uniqueDepartmentsMap = new Map();
+    allDepartments.forEach(dept => {
+        if (!uniqueDepartmentsMap.has(dept.curSunit)) {
+            uniqueDepartmentsMap.set(dept.curSunit, dept);
+        }
+    });
+
     const outputData = [];
 
     // The --test argument bypass is removed, always run full scrape
-    const departmentsToScrape = allDepartments;
+    const departmentsToScrape = Array.from(uniqueDepartmentsMap.values());
 
     console.log(`\nStarting deep scrape of ${departmentsToScrape.length} departments. This might take a while...`);
 
