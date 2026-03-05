@@ -739,6 +739,24 @@ export default function Home() {
                         <Copy className="w-3.5 h-3.5" />
                       </button>
 
+                      {/* Attachment Badge */}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mb-2 flex flex-wrap gap-1.5">
+                          {msg.attachments.map((att, idx) => (
+                            <div
+                              key={idx}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium ${msg.role === 'user'
+                                  ? 'bg-blue-500/30 text-blue-100 border border-blue-400/20'
+                                  : 'bg-slate-700/50 text-slate-300 border border-slate-600/30'
+                                }`}
+                            >
+                              <FileText className="w-3.5 h-3.5 shrink-0" />
+                              <span className="max-w-[200px] truncate">{att}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       <div className="prose prose-invert prose-sm max-w-none">
                         <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                       </div>
