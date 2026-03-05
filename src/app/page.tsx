@@ -536,21 +536,21 @@ export default function Home() {
                         loadChat(chat.id);
                         if (window.innerWidth < 768) setShowHistory(false);
                       }}
-                      className={`w-full text-left p-3 pr-10 rounded-lg transition-all text-sm flex items-start gap-2 group relative ${conversationId === chat.id
+                      className={`w-full text-left p-3 rounded-lg transition-all text-sm flex items-center gap-2 group relative ${conversationId === chat.id
                         ? 'bg-blue-900/40 text-blue-100 border border-blue-500/30'
                         : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
                         }`}
                     >
-                      <div className="mt-0.5 shrink-0 relative">
+                      <div className="shrink-0">
                         {chat.is_pinned ? <Pin className="w-3.5 h-3.5 text-blue-400 rotate-45" /> : <MessageSquare className="w-4 h-4 opacity-70" />}
                       </div>
-                      <span className="truncate flex-1">{chat.title}</span>
+                      <span className="truncate flex-1 pr-12">{chat.title}</span>
 
                       {/* Hover Actions */}
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-[#050a14] shadow-[-10px_0_10px_#050a14]">
+                      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-md bg-slate-900/90 backdrop-blur-sm px-0.5 py-0.5">
                         <div
                           onClick={(e) => handleDeleteChat(e, chat.id)}
-                          className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded transition-colors"
+                          className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-md transition-colors cursor-pointer"
                           title="Sil"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -560,7 +560,7 @@ export default function Home() {
                             e.stopPropagation();
                             setHistoryMenuOpen(historyMenuOpen === chat.id ? null : chat.id);
                           }}
-                          className={`p-1.5 hover:bg-blue-500/20 rounded transition-colors ${historyMenuOpen === chat.id ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-blue-400'}`}
+                          className={`p-1.5 hover:bg-blue-500/20 rounded-md transition-colors cursor-pointer ${historyMenuOpen === chat.id ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-blue-400'}`}
                           title="Ayarlar"
                         >
                           <MoreHorizontal className="w-3.5 h-3.5" />
@@ -746,8 +746,8 @@ export default function Home() {
                             <div
                               key={idx}
                               className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium ${msg.role === 'user'
-                                  ? 'bg-blue-500/30 text-blue-100 border border-blue-400/20'
-                                  : 'bg-slate-700/50 text-slate-300 border border-slate-600/30'
+                                ? 'bg-blue-500/30 text-blue-100 border border-blue-400/20'
+                                : 'bg-slate-700/50 text-slate-300 border border-slate-600/30'
                                 }`}
                             >
                               <FileText className="w-3.5 h-3.5 shrink-0" />
