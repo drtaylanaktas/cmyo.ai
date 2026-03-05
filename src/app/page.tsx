@@ -531,26 +531,28 @@ export default function Home() {
                       <button type="submit" onMouseDown={(e) => e.preventDefault()} className="text-green-400 hover:text-green-300"><Check className="w-4 h-4" /></button>
                     </form>
                   ) : (
-                    <button
-                      onClick={() => {
-                        loadChat(chat.id);
-                        if (window.innerWidth < 768) setShowHistory(false);
-                      }}
-                      className={`w-full text-left p-3 rounded-lg transition-all text-sm flex items-center gap-2 group relative ${conversationId === chat.id
-                        ? 'bg-blue-900/40 text-blue-100 border border-blue-500/30'
-                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
-                        }`}
-                    >
-                      <div className="shrink-0">
-                        {chat.is_pinned ? <Pin className="w-3.5 h-3.5 text-blue-400 rotate-45" /> : <MessageSquare className="w-4 h-4 opacity-70" />}
-                      </div>
-                      <span className="truncate flex-1 pr-12">{chat.title}</span>
+                    <>
+                      <button
+                        onClick={() => {
+                          loadChat(chat.id);
+                          if (window.innerWidth < 768) setShowHistory(false);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg transition-all text-sm flex items-center gap-2 overflow-hidden ${conversationId === chat.id
+                          ? 'bg-blue-900/40 text-blue-100 border border-blue-500/30'
+                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                          }`}
+                      >
+                        <div className="shrink-0">
+                          {chat.is_pinned ? <Pin className="w-3.5 h-3.5 text-blue-400 rotate-45" /> : <MessageSquare className="w-4 h-4 opacity-70" />}
+                        </div>
+                        <span className="truncate flex-1">{chat.title}</span>
+                      </button>
 
-                      {/* Hover Actions */}
-                      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-md bg-slate-900/90 backdrop-blur-sm px-0.5 py-0.5">
+                      {/* Hover Actions - Outside button, positioned over it */}
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                         <div
                           onClick={(e) => handleDeleteChat(e, chat.id)}
-                          className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-md transition-colors cursor-pointer"
+                          className="p-1.5 bg-slate-800 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-md transition-colors cursor-pointer border border-slate-700/50"
                           title="Sil"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -560,13 +562,13 @@ export default function Home() {
                             e.stopPropagation();
                             setHistoryMenuOpen(historyMenuOpen === chat.id ? null : chat.id);
                           }}
-                          className={`p-1.5 hover:bg-blue-500/20 rounded-md transition-colors cursor-pointer ${historyMenuOpen === chat.id ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-blue-400'}`}
+                          className={`p-1.5 bg-slate-800 hover:bg-blue-500/20 rounded-md transition-colors cursor-pointer border border-slate-700/50 ${historyMenuOpen === chat.id ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-blue-400'}`}
                           title="Ayarlar"
                         >
                           <MoreHorizontal className="w-3.5 h-3.5" />
                         </div>
                       </div>
-                    </button>
+                    </>
                   )}
 
                   {/* Settings Menu */}
