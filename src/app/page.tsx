@@ -680,91 +680,93 @@ export default function Home() {
         </header>
 
         {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth relative z-10 w-full min-h-0">
-          <AnimatePresence initial={false}>
-            {messages.length === 0 && (
-              <div className="h-full flex flex-col items-center justify-center text-center opacity-80 mt-[-50px] relative z-10">
-                <div className="relative w-32 h-32 mb-6 animate-float">
-                  <Image
-                    src="/logo.png"
-                    alt="KAEU Logo"
-                    fill
-                    className="object-contain drop-shadow-[0_0_25px_rgba(0,128,255,0.3)]"
-                  />
-                </div>
-                <h2 className="text-2xl font-bold text-white mb-2">KAEU.AI Asistan</h2>
-                <p className="text-slate-400 max-w-md">
-                  Kırşehir Ahi Evran Üniversitesi hakkında merak ettiklerinizi sorabilir, akademik ve idari süreçler hakkında yardım alabilirsiniz.
-                </p>
-              </div>
-            )}
-
-            {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`flex max-w-[85%] md:max-w-[75%] gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                  {/* Avatar */}
-                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 border overflow-hidden mt-1 ${msg.role === 'assistant'
-                    ? 'border-blue-500/30 bg-slate-900'
-                    : 'border-slate-600 bg-slate-800'
-                    }`}>
-                    {msg.role === 'assistant' ? (
-                      <Image src="/logo.png" alt="Bot" width={40} height={40} className="w-full h-full object-cover" />
-                    ) : (
-                      currentUser?.avatar ? (
-                        <div className="relative w-full h-full">
-                          <Image src={currentUser.avatar} alt="User" fill className="object-cover" />
-                        </div>
-                      ) : <User className="w-5 h-5 text-slate-300" />
-                    )}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative z-10 w-full min-h-0">
+          <div className="max-w-3xl mx-auto space-y-6">
+            <AnimatePresence initial={false}>
+              {messages.length === 0 && (
+                <div className="h-full flex flex-col items-center justify-center text-center opacity-80 mt-[-50px] relative z-10">
+                  <div className="relative w-32 h-32 mb-6 animate-float">
+                    <Image
+                      src="/logo.png"
+                      alt="KAEU Logo"
+                      fill
+                      className="object-contain drop-shadow-[0_0_25px_rgba(0,128,255,0.3)]"
+                    />
                   </div>
+                  <h2 className="text-2xl font-bold text-white mb-2">KAEU.AI Asistan</h2>
+                  <p className="text-slate-400 max-w-md">
+                    Kırşehir Ahi Evran Üniversitesi hakkında merak ettiklerinizi sorabilir, akademik ve idari süreçler hakkında yardım alabilirsiniz.
+                  </p>
+                </div>
+              )}
 
-                  {/* Bubble */}
-                  <div className={`p-4 md:p-5 rounded-2xl relative overflow-hidden group ${msg.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-none'
-                    : 'bg-slate-800/80 text-blue-50 rounded-tl-none border border-white/5'
-                    }`}>
+              {messages.map((msg) => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`flex max-w-[85%] md:max-w-[75%] gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                    {/* Avatar */}
+                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 border overflow-hidden mt-1 ${msg.role === 'assistant'
+                      ? 'border-blue-500/30 bg-slate-900'
+                      : 'border-slate-600 bg-slate-800'
+                      }`}>
+                      {msg.role === 'assistant' ? (
+                        <Image src="/logo.png" alt="Bot" width={40} height={40} className="w-full h-full object-cover" />
+                      ) : (
+                        currentUser?.avatar ? (
+                          <div className="relative w-full h-full">
+                            <Image src={currentUser.avatar} alt="User" fill className="object-cover" />
+                          </div>
+                        ) : <User className="w-5 h-5 text-slate-300" />
+                      )}
+                    </div>
 
-                    {/* Copy Button */}
-                    <button
-                      onClick={() => copyToClipboard(msg.content)}
-                      className={`absolute top-2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === 'user' ? 'text-blue-200 hover:bg-blue-500' : 'text-slate-400 hover:bg-slate-700'
-                        }`}
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Bubble */}
+                    <div className={`p-4 md:p-5 rounded-2xl relative overflow-hidden group ${msg.role === 'user'
+                      ? 'bg-blue-600 text-white rounded-tr-none'
+                      : 'bg-slate-800/80 text-blue-50 rounded-tl-none border border-white/5'
+                      }`}>
 
-                    <div className="prose prose-invert prose-sm max-w-none">
-                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      {/* Copy Button */}
+                      <button
+                        onClick={() => copyToClipboard(msg.content)}
+                        className={`absolute top-2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === 'user' ? 'text-blue-200 hover:bg-blue-500' : 'text-slate-400 hover:bg-slate-700'
+                          }`}
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+
+                      <div className="prose prose-invert prose-sm max-w-none">
+                        <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+                </motion.div>
+              ))}
+            </AnimatePresence>
 
-          {isLoading && (
-            <div className="flex justify-start w-full gap-4 pl-2">
-              <div className="w-8 h-8 rounded-full bg-slate-900 border border-blue-500/30 flex items-center justify-center shrink-0 overflow-hidden">
-                <Image src="/logo.png" alt="Loading" width={32} height={32} className="w-full h-full object-cover animate-pulse" />
+            {isLoading && (
+              <div className="flex justify-start w-full gap-4 pl-2">
+                <div className="w-8 h-8 rounded-full bg-slate-900 border border-blue-500/30 flex items-center justify-center shrink-0 overflow-hidden">
+                  <Image src="/logo.png" alt="Loading" width={32} height={32} className="w-full h-full object-cover animate-pulse" />
+                </div>
+                <div className="bg-slate-800/50 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-700/50 flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span>
+                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-100"></span>
+                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-200"></span>
+                </div>
               </div>
-              <div className="bg-slate-800/50 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-700/50 flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span>
-                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-100"></span>
-                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-200"></span>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} className="h-4" />
+            )}
+            <div ref={messagesEndRef} className="h-4" />
+          </div>
         </div>
 
         {/* Input Area */}
         <div className="mt-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] w-full bg-[#050a14] border-t border-white/5 shrink-0 z-20">
-          <div className="max-w-3xl mx-auto w-full max-w-[calc(100vw-2rem)] relative flex gap-2 sm:gap-3 items-end">
+          <div className="max-w-3xl mx-auto w-full relative flex gap-2 sm:gap-3 items-end">
             {/* Hidden File Input */}
             <input
               type="file"

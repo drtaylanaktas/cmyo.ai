@@ -135,8 +135,13 @@ async function generateWithOpenAI(message: string, systemPrompt: string, history
     try {
         logChatDebug(`Sending request to GPT-4o Mini...`);
 
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error('OpenAI API anahtarı bulunamadı. Lütfen OPENAI_API_KEY ortam değişkenini kontrol edin.');
+        }
+
         const openai = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY || '',
+            apiKey: apiKey,
         });
 
         // Convert history from Gemini format {role: 'user'|'model', parts: [{text: ...}]} to OpenAI format
