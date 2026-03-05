@@ -4,13 +4,6 @@ import fs from 'fs';
 import path from 'path';
 import { sql } from '@vercel/postgres';
 
-// Initialize OpenAI
-const apiKey = process.env.OPENAI_API_KEY || '';
-
-const openai = new OpenAI({
-    apiKey: apiKey,
-});
-
 // Load Knowledge Base
 const kbPath = path.join(process.cwd(), 'src/data/knowledge_base.json');
 
@@ -141,6 +134,10 @@ function logChatDebug(message: string) {
 async function generateWithOpenAI(message: string, systemPrompt: string, history: any[] = []) {
     try {
         logChatDebug(`Sending request to GPT-4o Mini...`);
+
+        const openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY || '',
+        });
 
         // Convert history from Gemini format {role: 'user'|'model', parts: [{text: ...}]} to OpenAI format
         const openaiHistory = history.map((msg: any) => {
