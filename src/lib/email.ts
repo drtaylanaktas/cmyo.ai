@@ -18,12 +18,12 @@ export const sendVerificationEmail = async (email: string, token: string) => {
   console.log(`SMTP Config: Host=${process.env.SMTP_HOST}, Port=${process.env.SMTP_PORT}, User=${process.env.SMTP_USER}`);
 
   const mailOptions = {
-    from: process.env.SMTP_FROM || '"KAEU AI Asistan" <noreply@kaeu.ai>',
+    from: process.env.SMTP_FROM || '"ÇMYO AI Asistan" <noreply@cmyo.ai>',
     to: email,
-    subject: 'KAEU.AI Hesap Doğrulama',
+    subject: 'ÇMYO.AI Hesap Doğrulama',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <h2 style="color: #2563eb; text-align: center;">KAEU.AI Hoş Geldiniz!</h2>
+        <h2 style="color: #2563eb; text-align: center;">ÇMYO.AI Hoş Geldiniz!</h2>
         <p>Merhaba,</p>
         <p>Hesabınızı oluşturduğunuz için teşekkür ederiz. Lütfen aşağıdaki butona tıklayarak e-posta adresinizi doğrulayın:</p>
         <div style="text-align: center; margin: 30px 0;">

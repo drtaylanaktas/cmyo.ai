@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.cmyoai.app',
-  appName: 'KAEU.AI',
+  appName: 'ÇMYO.AI',
   webDir: 'public',
   server: {
     androidScheme: 'https',

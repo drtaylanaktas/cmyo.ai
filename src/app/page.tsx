@@ -488,7 +488,7 @@ export default function Home() {
             <div className="w-10 h-10 relative">
               <Image src="/logo.png" alt="Logo" fill className="object-contain" />
             </div>
-            <span className="font-bold text-lg tracking-tight">KAEU.AI</span>
+            <span className="font-bold text-lg tracking-tight">ÇMYO.AI</span>
             <button
               onClick={() => setShowHistory(false)}
               className="md:hidden ml-auto text-slate-400"
@@ -667,7 +667,7 @@ export default function Home() {
             >
               <History className="w-6 h-6" />
             </button>
-            <div className="md:hidden font-bold">KAEU.AI</div>
+            <div className="md:hidden font-bold">ÇMYO.AI</div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -690,14 +690,14 @@ export default function Home() {
                   <div className="relative w-32 h-32 mb-6 animate-float">
                     <Image
                       src="/logo.png"
-                      alt="KAEU Logo"
+                      alt="ÇMYO Logo"
                       fill
                       className="object-contain drop-shadow-[0_0_25px_rgba(0,128,255,0.3)]"
                     />
                   </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">KAEU.AI Asistan</h2>
+                  <h2 className="text-2xl font-bold text-white mb-2">ÇMYO.AI Asistan</h2>
                   <p className="text-slate-400 max-w-md">
-                    Kırşehir Ahi Evran Üniversitesi hakkında merak ettiklerinizi sorabilir, akademik ve idari süreçler hakkında yardım alabilirsiniz.
+                    Çiçekdağı MYO hakkında merak ettiklerinizi sorabilir, akademik ve idari süreçler hakkında yardım alabilirsiniz.
                   </p>
                 </div>
               )}
@@ -859,7 +859,7 @@ export default function Home() {
             </form>
           </div>
           <div className="text-center mt-2">
-            <p className="text-[10px] text-slate-600">KAEU.AI yanlış bilgiler gösterebilir. Bu nedenle, verdiği yanıtları doğrulayın.</p>
+            <p className="text-[10px] text-slate-600">ÇMYO.AI yanlış bilgiler gösterebilir. Bu nedenle, verdiği yanıtları doğrulayın.</p>
           </div>
         </div>
       </main>

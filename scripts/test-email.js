@@ -22,7 +22,7 @@ async function testEmail() {
         const info = await transporter.sendMail({
             from: process.env.SMTP_USER,
             to: process.env.SMTP_USER, // Send to self
-            subject: 'Test Email from KAEU.AI Local Script',
+            subject: 'Test Email from ÇMYO.AI Local Script',
             text: 'If you receive this, your SMTP credentials are correct!',
         });
         console.log('✅ Success! Email sent.');
