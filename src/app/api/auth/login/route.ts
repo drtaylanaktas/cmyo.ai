@@ -1,16 +1,33 @@
 import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { createToken, createSessionCookie } from '@/lib/auth';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter';
 
 export async function POST(request: Request) {
     try {
+        // Rate limiting
+        const ip = getClientIP(request);
+        const rateCheck = checkRateLimit(`login:${ip}`, RATE_LIMITS.login);
+        if (!rateCheck.allowed) {
+            return NextResponse.json(
+                { error: `Çok fazla giriş denemesi. ${rateCheck.resetIn} saniye sonra tekrar deneyin.` },
+                { status: 429 }
+            );
+        }
+
         const { email, password } = await request.json();
+
+        if (!email || !password) {
+            return NextResponse.json({ error: 'E-posta ve şifre gereklidir.' }, { status: 400 });
+        }
 
         // Check if user exists
         const userResult = await sql`SELECT * FROM users WHERE email = ${email}`;
 
         if (userResult.rows.length === 0) {
-            return NextResponse.json({ error: 'Kullanıcı bulunamadı.' }, { status: 404 });
+            // Generic message to prevent user enumeration
+            return NextResponse.json({ error: 'E-posta veya şifre hatalı.' }, { status: 401 });
         }
 
         const user = userResult.rows[0];
@@ -19,7 +36,8 @@ export async function POST(request: Request) {
         const passwordMatch = await bcrypt.compare(password, user.password);
 
         if (!passwordMatch) {
-            return NextResponse.json({ error: 'Hatalı şifre.' }, { status: 401 });
+            // Same generic message
+            return NextResponse.json({ error: 'E-posta veya şifre hatalı.' }, { status: 401 });
         }
 
         // Check if email is verified
@@ -29,11 +47,17 @@ export async function POST(request: Request) {
             }, { status: 403 });
         }
 
-        // Return user info (excluding password)
-        // We also need to map snake_case DB columns to camelCase for frontend consistency if needed, 
-        // but better to keep it consistent. Frontend expects: name, surname, role, title, academicUnit, avatar
-        // DB has: academic_unit
+        // Create JWT token
+        const token = await createToken({
+            email: user.email,
+            name: user.name,
+            surname: user.surname,
+            role: user.role,
+            title: user.title || undefined,
+            academicUnit: user.academic_unit || undefined,
+        });
 
+        // Return user info (excluding password)
         const userResponse = {
             name: user.name,
             surname: user.surname,
@@ -44,9 +68,14 @@ export async function POST(request: Request) {
             avatar: user.avatar
         };
 
-        return NextResponse.json({ user: userResponse }, { status: 200 });
+        const response = NextResponse.json({ user: userResponse }, { status: 200 });
+
+        // Set httpOnly secure cookie
+        response.headers.set('Set-Cookie', createSessionCookie(token));
+
+        return response;
     } catch (error: any) {
         console.error('Login error:', error);
-        return NextResponse.json({ error: `Giriş yapılırken bir hata oluştu: ${error.message}` }, { status: 500 });
+        return NextResponse.json({ error: 'Giriş sırasında bir hata oluştu.' }, { status: 500 });
     }
 }

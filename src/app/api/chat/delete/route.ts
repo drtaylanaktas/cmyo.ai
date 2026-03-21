@@ -17,6 +17,6 @@ export async function DELETE(request: Request) {
 
         return NextResponse.json({ message: 'Conversation deleted' });
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Sohbet silinirken bir hata oluştu.' }, { status: 500 });
     }
 }

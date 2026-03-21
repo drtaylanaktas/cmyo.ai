@@ -32,6 +32,6 @@ export async function PATCH(request: Request) {
 
         return NextResponse.json({ message: 'Conversation updated' });
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Sohbet güncellenirken bir hata oluştu.' }, { status: 500 });
     }
 }

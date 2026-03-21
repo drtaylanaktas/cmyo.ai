@@ -2,17 +2,20 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft, Trash2, Edit2, Pin, MoreHorizontal, X, Paperclip } from 'lucide-react';
+import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft, Trash2, Edit2, Pin, MoreHorizontal, X, Paperclip, Cloud, CloudRain, Sun, CloudSnow, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { checkProfanity } from '@/lib/badwords';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Message = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   attachments?: string[];
+  createdAt?: string;
 };
 
 export default function Home() {
@@ -32,9 +35,9 @@ export default function Home() {
   const [weatherData, setWeatherData] = useState<any>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  // We keep track of the input value when listening starts so we can append to it
   const inputRef = useRef(input);
-  const router = useRouter(); // Initialize useRouter
+  const router = useRouter();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -292,7 +295,12 @@ export default function Home() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      // Silent fail — still clear client-side
+    }
     localStorage.removeItem('cmyo_user');
     router.push('/login');
   };
@@ -450,13 +458,15 @@ export default function Home() {
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, msgId: string) => {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).catch(err => {
-        console.error('Async: Could not copy text: ', err);
+      navigator.clipboard.writeText(text).then(() => {
+        setCopiedId(msgId);
+        setTimeout(() => setCopiedId(null), 2000);
+      }).catch(err => {
+        console.error('Could not copy text: ', err);
       });
     } else {
-      // Fallback for insecure contexts (like HTTP emulator)
       const textArea = document.createElement("textarea");
       textArea.value = text;
       textArea.style.position = "fixed";
@@ -466,12 +476,32 @@ export default function Home() {
       textArea.select();
       try {
         document.execCommand('copy');
+        setCopiedId(msgId);
+        setTimeout(() => setCopiedId(null), 2000);
       } catch (err) {
-        console.error('Fallback: Oops, unable to copy', err);
+        console.error('Fallback: unable to copy', err);
       }
       document.body.removeChild(textArea);
     }
   };
+
+  // Weather icon helper
+  const getWeatherIcon = (code: number) => {
+    if (code === 0 || code === 1) return <Sun className="w-4 h-4 text-yellow-400" />;
+    if (code >= 2 && code <= 3) return <Cloud className="w-4 h-4 text-slate-400" />;
+    if (code >= 51 && code <= 67) return <CloudRain className="w-4 h-4 text-blue-400" />;
+    if (code >= 71 && code <= 77) return <CloudSnow className="w-4 h-4 text-blue-200" />;
+    if (code >= 95) return <Zap className="w-4 h-4 text-yellow-400" />;
+    return <Cloud className="w-4 h-4 text-slate-400" />;
+  };
+
+  // Quick start suggestions
+  const quickSuggestions = [
+    { icon: '📅', text: 'Ders programını göster', query: 'Haftalık ders programını gösterir misin?' },
+    { icon: '📝', text: 'Staj başvurusu nasıl yapılır?', query: 'Staj başvurusu nasıl yapılır?' },
+    { icon: '🏫', text: 'Çiçekdağı MYO hakkında', query: 'Çiçekdağı MYO hakkında bilgi ver' },
+    { icon: '📋', text: 'Kayıt dondurma süreci', query: 'Kayıt dondurma süreci nasıl işliyor?' },
+  ];
 
   return (
     <div className="fixed inset-0 flex w-full overflow-hidden bg-[#050a14] text-white">
@@ -671,6 +701,13 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
+            {weatherData && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-300">
+                {getWeatherIcon(weatherData.code)}
+                <span className="font-medium">{Math.round(weatherData.temp)}{weatherData.unit}</span>
+                <span className="text-slate-500 hidden md:inline">{weatherData.locationName}</span>
+              </div>
+            )}
             <button
               onClick={handleLogout}
               className="p-2 text-slate-400 hover:text-red-400 transition-colors"
@@ -696,9 +733,26 @@ export default function Home() {
                     />
                   </div>
                   <h2 className="text-2xl font-bold text-white mb-2">ÇMYO.AI Asistan</h2>
-                  <p className="text-slate-400 max-w-md">
+                  <p className="text-slate-400 max-w-md mb-8">
                     Çiçekdağı MYO hakkında merak ettiklerinizi sorabilir, akademik ve idari süreçler hakkında yardım alabilirsiniz.
                   </p>
+
+                  {/* Quick Start Cards */}
+                  <div className="grid grid-cols-2 gap-3 max-w-lg w-full">
+                    {quickSuggestions.map((s, i) => (
+                      <motion.button
+                        key={i}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.1 }}
+                        onClick={() => { setInput(s.query); }}
+                        className="flex items-center gap-3 p-3 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-blue-500/30 rounded-xl text-left text-sm text-slate-300 hover:text-white transition-all group"
+                      >
+                        <span className="text-lg">{s.icon}</span>
+                        <span className="group-hover:text-blue-300 transition-colors">{s.text}</span>
+                      </motion.button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -734,11 +788,11 @@ export default function Home() {
 
                       {/* Copy Button */}
                       <button
-                        onClick={() => copyToClipboard(msg.content)}
-                        className={`absolute top-2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === 'user' ? 'text-blue-200 hover:bg-blue-500' : 'text-slate-400 hover:bg-slate-700'
+                        onClick={() => copyToClipboard(msg.content, msg.id)}
+                        className={`absolute top-2 right-2 p-1.5 rounded transition-all ${copiedId === msg.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${msg.role === 'user' ? 'text-blue-200 hover:bg-blue-500' : 'text-slate-400 hover:bg-slate-700'
                           }`}
                       >
-                        <Copy className="w-3.5 h-3.5" />
+                        {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
 
                       {/* Attachment Badge */}
@@ -759,9 +813,15 @@ export default function Home() {
                         </div>
                       )}
 
-                      <div className="prose prose-invert prose-sm max-w-none">
-                        <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                      </div>
+                      {msg.role === 'user' ? (
+                        <div className="prose prose-invert prose-sm max-w-none">
+                          <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                        </div>
+                      ) : (
+                        <div className="prose prose-invert prose-sm max-w-none prose-headings:text-blue-200 prose-strong:text-blue-100 prose-a:text-blue-400 prose-code:text-green-300 prose-code:bg-slate-900/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-900/80 prose-pre:border prose-pre:border-slate-700/50 prose-table:border-collapse [&_th]:bg-slate-800/50 [&_th]:border [&_th]:border-slate-700/50 [&_th]:px-3 [&_th]:py-2 [&_td]:border [&_td]:border-slate-700/50 [&_td]:px-3 [&_td]:py-2 prose-li:marker:text-blue-400">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>

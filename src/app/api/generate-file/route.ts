@@ -12,7 +12,13 @@ function logDebug(message: string) {
 
 export async function POST(req: Request) {
     try {
-        const { filename, data } = await req.json();
+        const { filename: rawFilename, data } = await req.json();
+
+        // Sanitize filename to prevent path traversal
+        const filename = path.basename(rawFilename || '');
+        if (!filename) {
+            return NextResponse.json({ error: 'Geçersiz dosya adı.' }, { status: 400 });
+        }
 
         // Define path to potential template
         const dataDir = path.join(process.cwd(), 'src/data');

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { sql } from '@vercel/postgres';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter';
 
 // Load Knowledge Base
 const kbPath = path.join(process.cwd(), 'src/data/knowledge_base.json');
@@ -26,9 +27,11 @@ const loadKnowledgeBase = (): Document[] => {
     return [];
 };
 
+// Module-level cache: loaded once per serverless instance
+const knowledgeBase = loadKnowledgeBase();
+
 
 function findRelevantDocuments(query: string): Document[] {
-    const knowledgeBase = loadKnowledgeBase();
     const queryLower = query.toLocaleLowerCase('tr-TR');
 
     // CRITICAL: Always inject Course Schedule Forms if 'ders programı' is mentioned
@@ -48,7 +51,7 @@ function findRelevantDocuments(query: string): Document[] {
             content: "BU BELGE SİSTEMDE MEVCUTTUR. Haftalık Ders Programı. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sunabilirsin.",
             score: 100 // Force high score
         }));
-        return [...injectedDocs, ...loadKnowledgeBase().filter(d => scheduleFiles.includes(d.filename) === false).slice(0, 1)];
+        return [...injectedDocs, ...knowledgeBase.filter(d => scheduleFiles.includes(d.filename) === false).slice(0, 1)];
     }
 
     // CRITICAL: Always inject Internship Forms if 'staj' or 'form' is mentioned
@@ -175,12 +178,20 @@ async function generateWithOpenAI(message: string, systemPrompt: string, history
 
 export async function POST(req: Request) {
     try {
+        // Rate limiting
+        const ip = getClientIP(req);
+        const rateCheck = checkRateLimit(`chat:${ip}`, RATE_LIMITS.chat);
+        if (!rateCheck.allowed) {
+            return NextResponse.json(
+                { error: `Çok fazla mesaj gönderildi. ${rateCheck.resetIn} saniye sonra tekrar deneyin.` },
+                { status: 429 }
+            );
+        }
+
         const { message, history, user, weather, conversationId } = await req.json();
-        const role = user?.role || 'student'; // Fallback to student
+        const role = user?.role || 'student';
 
         logChatDebug(`--- Chat Request Started (OpenAI) ---`);
-        logChatDebug(`Message: ${message}`);
-        logChatDebug(`Role: ${role}`);
 
         // --- DATABASE PERSISTENCE START ---
         let currentConversationId = conversationId;

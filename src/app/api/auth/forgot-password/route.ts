@@ -2,15 +2,30 @@ import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter';
 
 export async function POST(request: Request) {
     try {
+        // Rate limiting
+        const ip = getClientIP(request);
+        const rateCheck = checkRateLimit(`forgot:${ip}`, RATE_LIMITS.forgotPassword);
+        if (!rateCheck.allowed) {
+            return NextResponse.json(
+                { error: `Çok fazla istek. ${rateCheck.resetIn} saniye sonra tekrar deneyin.` },
+                { status: 429 }
+            );
+        }
+
         const { email } = await request.json();
 
-        // 1. Check if user exists
+        // Always return success to prevent user enumeration
+        const successMessage = 'Eğer bu e-posta adresiyle kayıtlı bir hesap varsa, şifre sıfırlama bağlantısı gönderildi.';
+
+        // 1. Check if user exists (silently)
         const user = await sql`SELECT * FROM users WHERE email = ${email}`;
         if (user.rows.length === 0) {
-            return NextResponse.json({ error: 'Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.' }, { status: 404 });
+            // Return success even if email not found (anti-enumeration)
+            return NextResponse.json({ message: successMessage }, { status: 200 });
         }
 
         // 2. Generate Reset Token
@@ -66,7 +81,7 @@ export async function POST(request: Request) {
             });
         }
 
-        return NextResponse.json({ message: 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.' }, { status: 200 });
+        return NextResponse.json({ message: successMessage }, { status: 200 });
 
     } catch (error: any) {
         console.error('Forgot password error:', error);

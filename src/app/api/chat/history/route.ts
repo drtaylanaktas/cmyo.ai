@@ -19,6 +19,6 @@ export async function GET(request: Request) {
         `;
         return NextResponse.json({ history: result.rows });
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Geçmiş yüklenirken bir hata oluştu.' }, { status: 500 });
     }
 }
