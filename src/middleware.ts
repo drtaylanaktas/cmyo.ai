@@ -11,6 +11,7 @@ const protectedRoutes = [
     '/api/generate-file',
     '/api/generate-pdf',
     '/api/auth/update-profile',
+    '/api/admin', // NEW: Protect all admin routes
 ];
 
 // Routes that are always public

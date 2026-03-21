@@ -5,33 +5,45 @@ import path from 'path';
 import { sql } from '@vercel/postgres';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter';
 
-// Load Knowledge Base
-const kbPath = path.join(process.cwd(), 'src/data/knowledge_base.json');
-
 // Define Document interface
 interface Document {
+    id?: number;
     filename: string;
     content: string;
+    category?: string;
+    priority?: number;
     [key: string]: any;
 }
 
-const loadKnowledgeBase = (): Document[] => {
+// In-memory cache for fast RAG search without querying DB on every message
+let globalKnowledgeCache: Document[] = [];
+let lastCacheUpdate = 0;
+
+async function getKnowledgeBase(): Promise<Document[]> {
     try {
-        if (fs.existsSync(kbPath)) {
-            const fileContent = fs.readFileSync(kbPath, 'utf-8');
-            return JSON.parse(fileContent);
+        // If cache invalidated or empty, fetch from database.
+        // Also refresh if cache is older than 1 hour (3600000 ms) as a failsafe
+        const now = Date.now();
+        if ((global as any).knowledgeCacheInvalidated || globalKnowledgeCache.length === 0 || (now - lastCacheUpdate > 3600000)) {
+            console.log('Fetching knowledge base from Vercel Postgres...');
+            const { rows } = await sql`
+                SELECT id, filename, content, category, priority
+                FROM knowledge_documents
+            `;
+            globalKnowledgeCache = rows as Document[];
+            lastCacheUpdate = now;
+            (global as any).knowledgeCacheInvalidated = false;
         }
+        return globalKnowledgeCache;
     } catch (error) {
-        console.error('Error loading knowledge base:', error);
+        console.error('Error fetching knowledge base from DB:', error);
+        return globalKnowledgeCache; // Return stale cache if DB fails
     }
-    return [];
-};
-
-// Module-level cache: loaded once per serverless instance
-const knowledgeBase = loadKnowledgeBase();
+}
 
 
-function findRelevantDocuments(query: string): Document[] {
+async function findRelevantDocuments(query: string): Promise<Document[]> {
+    const knowledgeBase = await getKnowledgeBase();
     const queryLower = query.toLocaleLowerCase('tr-TR');
 
     // CRITICAL: Always inject Course Schedule Forms if 'ders programı' is mentioned
@@ -274,7 +286,7 @@ export async function POST(req: Request) {
         // --- DATABASE PERSISTENCE END ---
 
         // RAG Step
-        const relevantDocs = findRelevantDocuments(message);
+        const relevantDocs = await findRelevantDocuments(message);
         logChatDebug(`Found ${relevantDocs.length} relevant docs.`);
 
         let context = '';
