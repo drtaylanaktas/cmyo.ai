@@ -24,6 +24,7 @@ export default function AdminDashboard() {
 
     const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
     const [submitLoading, setSubmitLoading] = useState(false);
+    const [uploadingFile, setUploadingFile] = useState(false);
     const [error, setError] = useState('');
     
     // Form state
@@ -129,6 +130,40 @@ export default function AdminDashboard() {
             setError('Sunucu bağlantı hatası');
         } finally {
             setSubmitLoading(false);
+        }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploadingFile(true);
+        setError('');
+        
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch('/api/upload-and-parse', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                setCurrentDoc(prev => ({
+                    ...prev,
+                    content: (prev.content ? prev.content + '\n\n' : '') + data.text,
+                    filename: prev.filename || data.filename
+                }));
+            } else {
+                setError(data.error || 'Dosya yüklenirken bir hata oluştu');
+            }
+        } catch (err) {
+            setError('Sunucu bağlantı hatası');
+        } finally {
+            setUploadingFile(false);
+            e.target.value = '';
         }
     };
 
@@ -335,7 +370,30 @@ export default function AdminDashboard() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-neutral-300 mb-1.5">Ham İçerik</label>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className="block text-sm font-medium text-neutral-300">Ham İçerik</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="file" 
+                                                id="file-upload" 
+                                                className="hidden" 
+                                                accept=".pdf,.docx,.xlsx,.xls"
+                                                onChange={handleFileUpload}
+                                                disabled={uploadingFile}
+                                            />
+                                            <label 
+                                                htmlFor="file-upload" 
+                                                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                                                    uploadingFile 
+                                                    ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' 
+                                                    : 'border-neutral-700 text-neutral-400 hover:text-emerald-400 hover:border-emerald-500/50 bg-neutral-900'
+                                                }`}
+                                            >
+                                                {uploadingFile ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                                                {uploadingFile ? 'İşleniyor...' : 'Dosyadan Aktar'}
+                                            </label>
+                                        </div>
+                                    </div>
                                     <textarea 
                                         required
                                         value={currentDoc.content}

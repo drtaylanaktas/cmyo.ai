@@ -21,11 +21,13 @@ export async function POST(request: Request) {
         // Initial check for type compatibility
         const validTypes = [
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-            'application/pdf' // .pdf
+            'application/pdf', // .pdf
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+            'application/vnd.ms-excel' // .xls
         ];
 
         if (!validTypes.includes(file.type)) {
-            return NextResponse.json({ error: 'Desteklenmeyen dosya formatı. Sadece .docx ve .pdf yükleyebilirsiniz.' }, { status: 400 });
+            return NextResponse.json({ error: 'Desteklenmeyen dosya formatı. Sadece .docx, .pdf, .xlsx ve .xls yükleyebilirsiniz.' }, { status: 400 });
         }
 
         const text = await parseDocument(buffer, file.type);
