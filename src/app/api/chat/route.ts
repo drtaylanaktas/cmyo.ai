@@ -97,6 +97,53 @@ function findRelevantDocuments(query: string): Document[] {
         return [...injectedDocs, ...normalDocs];
     }
 
+    // CRITICAL: Always inject institutional knowledge for common questions
+    const institutionalKeywords: Record<string, string[]> = {
+        'CMYO_Yonetim_Kadrosu.txt': ['müdür', 'yönetim', 'başkan', 'sekreter', 'yardımcı', 'taylan', 'ramazan', 'yazıcı', 'aktaş', 'mayda', 'güzelküçük', 'komisyon', 'kurul'],
+        'CMYO_Bolumler_ve_Programlar.txt': ['bölüm', 'program', 'bilgisayar', 'veteriner', 'büro', 'çocuk', 'bitkisel', 'hayvansal', 'kontenjan', 'ön lisans', 'dgs', 'dikey geçiş'],
+        'CMYO_Genel_Tanitim_ve_Tarihce.txt': ['tarih', 'tarihçe', 'kuruluş', 'myo hakkında', 'meslek yüksekokulu', 'tanıtım', 'genel bilgi', 'nerede', 'çiçekdağı myo'],
+        'CMYO_Ogrenci_Hizmetleri.txt': ['ulaşım', 'yurt', 'barınma', 'kyk', 'ring', 'servis', 'aktaşlar', 'kütüphane', 'wifi', 'erasmus', 'psikolojik', 'destek'],
+        'CMYO_Iletisim_Bilgileri.txt': ['iletişim', 'telefon', 'e-posta', 'eposta', 'mail', 'adres', 'faks', 'web site', 'obs', 'aydep'],
+        'CMYO_Staj_Rehberi.txt': ['staj nasıl', 'staj süreci', 'staj başvuru', 'staj defteri', 'sicil fişi', 'staj yeri', 'sigorta', 'staj takvim'],
+        'CMYO_Sikca_Sorulan_Sorular.txt': ['nasıl yapılır', 'ne zaman', 'nedir', 'var mı', 'zorunlu mu', 'kayıt', 'devam', 'muafiyet', 'not sistemi', 'yaz okulu'],
+        'CMYO_Yemekhane_ve_AhiKart.txt': ['yemekhane', 'ahi kart', 'kampüs kart', 'bank24', 'temassız', 'bakiye', 'yükleme', 'halkbank'],
+        'CMYO_Akademik_Takvim.txt': ['akademik takvim', 'dönem', 'sınav', 'güz', 'bahar', 'kayıt tarihi', 'bütünleme'],
+    };
+
+    const matchedFiles: string[] = [];
+    for (const [filename, keywords] of Object.entries(institutionalKeywords)) {
+        if (keywords.some(kw => queryLower.includes(kw))) {
+            matchedFiles.push(filename);
+        }
+    }
+
+    if (matchedFiles.length > 0) {
+        const injectedDocs = knowledgeBase
+            .filter(d => matchedFiles.includes(d.filename))
+            .map(d => ({ ...d, score: 90 }));
+
+        // Also get normal search results
+        const terms = queryLower.split(' ').filter((t: string) => t.length > 2);
+        const normalScores = knowledgeBase
+            .filter(d => !matchedFiles.includes(d.filename))
+            .map((doc: Document) => {
+                let score = 0;
+                const filename = doc.filename.toLocaleLowerCase('tr-TR');
+                const content = doc.content.toLocaleLowerCase('tr-TR');
+                terms.forEach((term: string) => {
+                    if (filename.includes(term)) score += 20;
+                    if (content.includes(term)) score += 1;
+                });
+                return { doc, score };
+            })
+            .filter((s: { score: number }) => s.score > 0)
+            .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+            .slice(0, 3)
+            .map((s: { doc: Document }) => s.doc);
+
+        return [...injectedDocs, ...normalScores];
+    }
+
     if (!query || knowledgeBase.length === 0) return [];
 
     const terms = queryLower.split(' ').filter((t: string) => t.length > 2);
