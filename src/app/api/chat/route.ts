@@ -99,6 +99,7 @@ function findRelevantDocuments(query: string): Document[] {
 
     // CRITICAL: Always inject institutional knowledge for common questions
     const institutionalKeywords: Record<string, string[]> = {
+        'CMYO_Akademik_Kadro.txt': ['hoca', 'akademik', 'personel', 'öğretim görevlisi', 'profesör', 'doçent', 'dr', 'kadro', 'kimler var', 'dersi veren', 'ahmet aslan', 'deniz aygören', 'filiz özlem', 'burak ata', 'emine doğan'],
         'CMYO_Yonetim_Kadrosu.txt': ['müdür', 'yönetim', 'başkan', 'sekreter', 'yardımcı', 'taylan', 'ramazan', 'yazıcı', 'aktaş', 'mayda', 'güzelküçük', 'komisyon', 'kurul'],
         'CMYO_Bolumler_ve_Programlar.txt': ['bölüm', 'program', 'bilgisayar', 'veteriner', 'büro', 'çocuk', 'bitkisel', 'hayvansal', 'kontenjan', 'ön lisans', 'dgs', 'dikey geçiş'],
         'CMYO_Genel_Tanitim_ve_Tarihce.txt': ['tarih', 'tarihçe', 'kuruluş', 'myo hakkında', 'meslek yüksekokulu', 'tanıtım', 'genel bilgi', 'nerede', 'çiçekdağı myo'],
