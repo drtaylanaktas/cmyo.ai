@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import Link from 'next/link';
-import { LayoutDashboard, Database, LogOut, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, Database, LogOut, ArrowLeft, MessageCircle } from 'lucide-react';
 
 export default async function AdminLayout({
     children,
@@ -27,9 +27,13 @@ export default async function AdminLayout({
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2">
-                    <Link href="/admin" className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium transition-colors">
+                    <Link href="/admin" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-neutral-800 text-neutral-400 font-medium transition-colors">
                         <LayoutDashboard size={18} />
                         Bilgi Tabanı
+                    </Link>
+                    <Link href="/admin/chats" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-neutral-800 text-neutral-400 font-medium transition-colors">
+                        <MessageCircle size={18} />
+                        Sohbet Kayıtları
                     </Link>
                 </nav>
 
