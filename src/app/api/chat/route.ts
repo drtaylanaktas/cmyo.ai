@@ -66,9 +66,9 @@ async function findRelevantDocuments(query: string): Promise<Document[]> {
         return [...injectedDocs, ...knowledgeBase.filter(d => scheduleFiles.includes(d.filename) === false).slice(0, 1)];
     }
 
-    // CRITICAL: Always inject Internship Forms if 'staj' or 'form' is mentioned
+    // CRITICAL: Always inject Internship Forms if 'staj' is mentioned
     // This bypasses RAG relevance limits for these essential files
-    if (queryLower.includes('staj') || queryLower.includes('form') || queryLower.includes('belge')) {
+    if (queryLower.includes('staj')) {
         const internshipFiles = [
             "Bilgisayar Teknolojileri Bölümü Staj Başvuru ve Kabul Formu.pdf",
             "Bitkisel ve Hayvansal Üretim Bölümü Staj Başvuru ve Kabul Formu.pdf",
@@ -88,7 +88,7 @@ async function findRelevantDocuments(query: string): Promise<Document[]> {
         const scores = knowledgeBase.map((doc: Document) => {
             let score = 0;
             const filename = doc.filename.toLocaleLowerCase('tr-TR');
-            const content = doc.content.toLocaleLowerCase('tr-TR');
+            const content = doc.content ? doc.content.toLocaleLowerCase('tr-TR') : "";
 
             terms.forEach((term: string) => {
                 if (filename.includes(term)) score += 20;
@@ -103,7 +103,7 @@ async function findRelevantDocuments(query: string): Promise<Document[]> {
         const normalDocs = scores
             .filter((s: { score: number }) => s.score > 0)
             .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-            .slice(0, 3)
+            .slice(0, 5)
             .map((s: { doc: Document }) => s.doc);
 
         return [...injectedDocs, ...normalDocs];
