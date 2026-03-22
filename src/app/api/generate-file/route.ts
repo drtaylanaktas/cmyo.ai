@@ -116,12 +116,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'PDF belgesi bulunamadı. Lütfen yöneticiye bildirin.' }, { status: 404 });
         }
 
-        // Create table rows from data
+        // Content Table
         const rows = [];
         if (data && typeof data === 'object') {
             for (const [key, value] of Object.entries(data)) {
                 if (key === 'action') continue;
-
                 rows.push(
                     new TableRow({
                         children: [
@@ -139,75 +138,122 @@ export async function POST(req: Request) {
             }
         }
 
+        // Search the database for the form content if available
+        let defaultContent = '';
+        try {
+            const { sql } = await import('@vercel/postgres');
+            // Try to find matching filename roughly
+            const targetFilename = filename.toLowerCase().replace('.docx', '').replace('.pdf', '');
+            const dbQuery = await sql`
+                SELECT content FROM knowledge_documents 
+                WHERE LOWER(filename) LIKE ${'%' + targetFilename + '%'}
+                LIMIT 1
+            `;
+            if (dbQuery.rows.length > 0) {
+                defaultContent = dbQuery.rows[0].content;
+            }
+        } catch (dbErr) {
+            console.error('Failed to query DB for file generation:', dbErr);
+        }
+
+        const documentChildren: (Paragraph | Table)[] = [
+            // Header
+            new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                    new TextRun({ text: "T.C.", bold: true, size: 24 }),
+                ],
+            }),
+            new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                    new TextRun({ text: "KIRŞEHİR AHİ EVRAN ÜNİVERSİTESİ", bold: true, size: 28 }),
+                ],
+            }),
+            new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 400 },
+                children: [
+                    new TextRun({ text: "Çiçekdağı Meslek Yüksekokulu Müdürlüğü", size: 24 }),
+                ],
+            }),
+
+            // Document Title
+            new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 200, after: 200 },
+                children: [
+                    new TextRun({
+                        text: filename.replace('.docx', '').replace('.xlsx', '').toUpperCase(),
+                        bold: true,
+                        size: 32,
+                        underline: {}
+                    }),
+                ],
+            }),
+
+            // Date
+            new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                spacing: { after: 400 },
+                children: [
+                    new TextRun({ text: `Tarih: ${new Date().toLocaleDateString('tr-TR')}` }),
+                ],
+            }),
+        ];
+
+        // Add DB content if exists
+        if (defaultContent) {
+            const textLines = defaultContent.split('\n');
+            textLines.forEach(line => {
+                if (line.trim()) {
+                    documentChildren.push(
+                        new Paragraph({
+                            spacing: { after: 120 },
+                            children: [new TextRun({ text: line.trim() })]
+                        })
+                    );
+                }
+            });
+            documentChildren.push(new Paragraph({ spacing: { after: 400 } })); // Spacer
+        }
+
+        // Check if there are rows, docx crashes if table has 0 rows
+        if (rows.length > 0) {
+            documentChildren.push(
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: rows,
+                })
+            );
+        } else if (!defaultContent) {
+            // If completely empty, add a placeholder paragraph
+            documentChildren.push(
+                new Paragraph({
+                    text: "(Belge İçeriği Boş)",
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 400 }
+                })
+            );
+        }
+
+        // Signature Area
+        documentChildren.push(
+            new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                spacing: { before: 800 },
+                children: [new TextRun({ text: "İmza", bold: true })],
+            }),
+            new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [new TextRun({ text: "................................................" })],
+            })
+        );
+
         const doc = new Document({
             sections: [{
                 properties: {},
-                children: [
-                    // Header
-                    new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        children: [
-                            new TextRun({ text: "T.C.", bold: true, size: 24 }),
-                        ],
-                    }),
-                    new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        children: [
-                            new TextRun({ text: "KIRŞEHİR AHİ EVRAN ÜNİVERSİTESİ", bold: true, size: 28 }),
-                        ],
-                    }),
-                    new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        spacing: { after: 400 },
-                        children: [
-                            new TextRun({ text: "Çiçekdağı Meslek Yüksekokulu Müdürlüğü", size: 24 }),
-                        ],
-                    }),
-
-                    // Document Title
-                    new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        spacing: { before: 200, after: 200 },
-                        children: [
-                            new TextRun({
-                                text: filename.replace('.docx', '').replace('.xlsx', '').toUpperCase(),
-                                bold: true,
-                                size: 32,
-                                underline: {}
-                            }),
-                        ],
-                    }),
-
-                    // Date
-                    new Paragraph({
-                        alignment: AlignmentType.RIGHT,
-                        spacing: { after: 400 },
-                        children: [
-                            new TextRun({ text: `Tarih: ${new Date().toLocaleDateString('tr-TR')}` }),
-                        ],
-                    }),
-
-                    // Content Table
-                    new Table({
-                        width: { size: 100, type: WidthType.PERCENTAGE },
-                        rows: rows,
-                    }),
-
-                    // Signature Area
-                    new Paragraph({
-                        alignment: AlignmentType.RIGHT,
-                        spacing: { before: 800 },
-                        children: [
-                            new TextRun({ text: "İmza", bold: true }),
-                        ],
-                    }),
-                    new Paragraph({
-                        alignment: AlignmentType.RIGHT,
-                        children: [
-                            new TextRun({ text: "................................................" }),
-                        ],
-                    }),
-                ],
+                children: documentChildren,
             }],
         });
 
