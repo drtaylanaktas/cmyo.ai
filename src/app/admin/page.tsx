@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit2, Trash2, FileText, Loader2, RefreshCw } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, FileText, Loader2, RefreshCw, Link as LinkIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useUploadThing } from '@/lib/uploadthing';
 
 // Types
 interface Document {
@@ -11,6 +12,7 @@ interface Document {
     content?: string; // Content is only fetched when editing to save bandwidth
     category: string;
     priority: number;
+    file_url?: string;
     updated_at: string;
 }
 
@@ -21,6 +23,7 @@ export default function AdminDashboard() {
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(0);
     const limit = 15;
+    const { startUpload } = useUploadThing("documentUploader");
 
     const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
     const [submitLoading, setSubmitLoading] = useState(false);
@@ -32,7 +35,8 @@ export default function AdminDashboard() {
         filename: '',
         content: '',
         category: 'genel',
-        priority: 0
+        priority: 0,
+        file_url: ''
     });
 
     const fetchDocuments = async (resetPage = false) => {
@@ -140,10 +144,20 @@ export default function AdminDashboard() {
         setUploadingFile(true);
         setError('');
         
-        const formData = new FormData();
-        formData.append('file', file);
-
         try {
+            // STEP 1: Upload to UploadThing to get binary URL
+            const uploadRes = await startUpload([file]);
+            let uploadedUrl = '';
+            if (uploadRes && uploadRes.length > 0) {
+                uploadedUrl = uploadRes[0].url;
+            } else {
+                console.warn('UploadThing did not return an URL.');
+            }
+
+            // STEP 2: Extract text using local parser
+            const formData = new FormData();
+            formData.append('file', file);
+            
             const res = await fetch('/api/upload-and-parse', {
                 method: 'POST',
                 body: formData
@@ -154,13 +168,15 @@ export default function AdminDashboard() {
                 setCurrentDoc(prev => ({
                     ...prev,
                     content: (prev.content ? prev.content + '\n\n' : '') + data.text,
-                    filename: prev.filename || data.filename
+                    filename: prev.filename || data.filename,
+                    file_url: uploadedUrl || prev.file_url
                 }));
             } else {
-                setError(data.error || 'Dosya yüklenirken bir hata oluştu');
+                setError(data.error || 'Dosya işlenirken bir hata oluştu');
             }
         } catch (err) {
-            setError('Sunucu bağlantı hatası');
+            console.error(err);
+            setError('Yükleme sırasında sunucu bağlantı hatası oluştu');
         } finally {
             setUploadingFile(false);
             e.target.value = '';
@@ -367,6 +383,19 @@ export default function AdminDashboard() {
                                             className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-white focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none transition-all"
                                         />
                                     </div>
+                                </div>
+                                
+                                <div>
+                                    <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-1.5">
+                                        <LinkIcon size={14} className="text-emerald-400" /> Orijinal Dosya Linki (İsteğe Bağlı)
+                                    </label>
+                                    <input 
+                                        type="url" 
+                                        value={currentDoc.file_url || ''}
+                                        onChange={e => setCurrentDoc({...currentDoc, file_url: e.target.value})}
+                                        placeholder="Dosyadan Aktar denildiğinde otomatik dolar..."
+                                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-white focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none transition-all text-sm font-mono"
+                                    />
                                 </div>
 
                                 <div>

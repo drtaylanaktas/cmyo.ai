@@ -26,6 +26,21 @@ export const ourFileRouter = {
             // !!! Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
             return { uploadedBy: metadata.userId };
         }),
+        
+    // Document Uploader for Knowledge Base Files
+    documentUploader: f({ 
+        pdf: { maxFileSize: "16MB", maxFileCount: 1 }, 
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": { maxFileSize: "16MB", maxFileCount: 1 }, // .docx
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": { maxFileSize: "16MB", maxFileCount: 1 } // .xlsx
+    })
+        .middleware(async () => {
+            // Add auth if necessary, currently Admin Panel routes are guarded by Next.js edge middleware
+            return { uploadedBy: "admin" };
+        })
+        .onUploadComplete(async ({ metadata, file }) => {
+            console.log("Document upload complete. URL:", file.url);
+            return { url: file.url };
+        }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

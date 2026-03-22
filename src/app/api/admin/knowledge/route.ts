@@ -23,7 +23,7 @@ export async function GET(request: Request) {
         if (search) {
             const searchTerm = `%${search}%`;
             query = sql`
-                SELECT id, filename, category, priority, updated_at 
+                SELECT id, filename, category, priority, file_url, updated_at 
                 FROM knowledge_documents 
                 WHERE filename ILIKE ${searchTerm} OR content ILIKE ${searchTerm}
                 ORDER BY updated_at DESC, id DESC
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
             `;
         } else {
             query = sql`
-                SELECT id, filename, category, priority, updated_at 
+                SELECT id, filename, category, priority, file_url, updated_at 
                 FROM knowledge_documents 
                 ORDER BY updated_at DESC, id DESC
                 LIMIT ${limit} OFFSET ${offset}
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { filename, content, category, priority } = body;
+        const { filename, content, category, priority, file_url } = body;
 
         if (!filename || !content) {
             return NextResponse.json({ error: 'Dosya adı ve içerik zorunludur' }, { status: 400 });
@@ -78,9 +78,9 @@ export async function POST(request: Request) {
 
         // Insert new document
         const result = await sql`
-            INSERT INTO knowledge_documents (filename, content, category, priority)
-            VALUES (${filename}, ${content}, ${category || 'genel'}, ${priority || 0})
-            RETURNING id, filename, category, priority, updated_at
+            INSERT INTO knowledge_documents (filename, content, category, priority, file_url)
+            VALUES (${filename}, ${content}, ${category || 'genel'}, ${priority || 0}, ${file_url || null})
+            RETURNING id, filename, category, priority, file_url, updated_at
         `;
 
         // Signal to invalidate the in-memory cache

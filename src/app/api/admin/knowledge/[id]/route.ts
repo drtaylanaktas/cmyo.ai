@@ -15,7 +15,7 @@ export async function GET(
         const { id } = await params;
 
         const { rows } = await sql`
-            SELECT id, filename, content, category, priority, created_at, updated_at
+            SELECT id, filename, content, category, priority, file_url, created_at, updated_at
             FROM knowledge_documents
             WHERE id = ${parseInt(id, 10)}
         `;
@@ -43,7 +43,7 @@ export async function PUT(
 
         const { id } = await params;
         const body = await request.json();
-        const { filename, content, category, priority } = body;
+        const { filename, content, category, priority, file_url } = body;
 
         if (!filename || !content) {
             return NextResponse.json({ error: 'Dosya adı ve içerik zorunludur' }, { status: 400 });
@@ -65,9 +65,10 @@ export async function PUT(
                 content = ${content},
                 category = ${category || 'genel'},
                 priority = ${priority || 0},
+                file_url = ${file_url || null},
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ${parseInt(id, 10)}
-            RETURNING id, filename, category, priority, updated_at
+            RETURNING id, filename, category, priority, file_url, updated_at
         `;
 
         if (result.rows.length === 0) {

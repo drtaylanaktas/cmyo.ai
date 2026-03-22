@@ -145,11 +145,30 @@ export async function POST(req: Request) {
             // Try to find matching filename roughly
             const targetFilename = filename.toLowerCase().replace('.docx', '').replace('.pdf', '');
             const dbQuery = await sql`
-                SELECT content FROM knowledge_documents 
+                SELECT content, file_url FROM knowledge_documents 
                 WHERE LOWER(filename) LIKE ${'%' + targetFilename + '%'}
                 LIMIT 1
             `;
             if (dbQuery.rows.length > 0) {
+                // If we have an original file URL, proxy the download!
+                if (dbQuery.rows[0].file_url) {
+                    logDebug(`Found original file URL in DB: ${dbQuery.rows[0].file_url}. Proxying download...`);
+                    try {
+                        const fileRes = await fetch(dbQuery.rows[0].file_url);
+                        if (fileRes.ok) {
+                            return new NextResponse(fileRes.body, {
+                                headers: {
+                                    'Content-Type': fileRes.headers.get('Content-Type') || 'application/octet-stream',
+                                    'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+                                }
+                            });
+                        }
+                    } catch (fetchErr) {
+                        logDebug(`Failed to proxy file from UploadThing: ${fetchErr}`);
+                        // Fall back to generating docx if proxy fails
+                    }
+                }
+                
                 defaultContent = dbQuery.rows[0].content;
             }
         } catch (dbErr) {
