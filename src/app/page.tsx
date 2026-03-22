@@ -28,8 +28,9 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const [attachment, setAttachment] = useState<{ name: string, content: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [userRole, setUserRole] = useState<'student' | 'academic'>('student'); // Keep for API compatibility but derive from user
+  const [userRole, setUserRole] = useState<'student' | 'academic' | 'admin'>('student'); // Keep for API compatibility but derive from user
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [remainingQuota, setRemainingQuota] = useState<number | null>(null);
 
   const { isListening, transcript, startListening, stopListening, resetTranscript, hasSupport } = useVoiceInput();
   const [weatherData, setWeatherData] = useState<any>(null);
@@ -384,10 +385,15 @@ export default function Home() {
       }
 
       if (!response.ok) {
+        if (response.status === 429) setRemainingQuota(0);
         throw new Error(data.error || `API Error: ${response.statusText}`);
       }
 
       botContent = data.reply || 'Cevap alınamadı.';
+
+      if (data.remainingQuota !== undefined && data.remainingQuota !== null) {
+        setRemainingQuota(data.remainingQuota);
+      }
 
       if (data.conversationId && data.conversationId !== conversationId) {
         setConversationId(data.conversationId);
@@ -900,13 +906,20 @@ export default function Home() {
                 </div>
               )}
 
-              <div className="relative w-full flex items-center bg-slate-800 rounded-xl border border-transparent focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:bg-slate-800/80 transition-all p-1 overflow-hidden">
+              {/* Quota Badge */}
+              {userRole !== 'admin' && remainingQuota !== null && (
+                <div className={`absolute -top-10 right-0 border rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs animate-in fade-in slide-in-from-bottom-2 ${remainingQuota === 0 ? 'bg-red-900/50 border-red-500/30 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-slate-800/80 border-slate-600/50 text-slate-300'}`}>
+                   <span className="font-medium">Kalan Mesaj: {remainingQuota}/100</span>
+                </div>
+              )}
+
+              <div className={`relative w-full flex items-center rounded-xl border border-transparent transition-all p-1 overflow-hidden ${remainingQuota === 0 ? 'bg-red-950/20' : 'bg-slate-800 focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:bg-slate-800/80'}`}>
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  disabled={isBlocked}
-                  placeholder={isBlocked ? `Kısıtlandı: ${blockTimer}s` : (attachment ? "Belge hakkında bir şeyler sorun..." : "Bir şeyler yazın...")}
-                  className="flex-1 bg-transparent border-0 px-3 sm:px-4 py-2 sm:py-2.5 text-white placeholder-slate-500 focus:ring-0 focus:outline-none min-w-0 text-sm sm:text-base"
+                  disabled={isBlocked || remainingQuota === 0}
+                  placeholder={remainingQuota === 0 ? "Günlük limitiniz doldu. Lütfen yarın tekrar deneyin." : (isBlocked ? `Kısıtlandı: ${blockTimer}s` : (attachment ? "Belge hakkında bir şeyler sorun..." : "Bir şeyler yazın..."))}
+                  className="flex-1 bg-transparent border-0 px-3 sm:px-4 py-2 sm:py-2.5 text-white placeholder-slate-500 focus:ring-0 focus:outline-none min-w-0 text-sm sm:text-base disabled:opacity-70"
                 />
                 <button
                   type="submit"

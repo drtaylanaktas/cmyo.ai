@@ -251,11 +251,43 @@ export async function POST(req: Request) {
         const { message, history, user, weather, conversationId } = await req.json();
         const role = user?.role || 'student';
 
+        let remainingQuota: number | null = null;
+        const userEmail = user?.email;
+
+        // --- QUOTA (RATE LIMIT) CHECK START ---
+        if (role !== 'admin' && userEmail) {
+            try {
+                const userDb = await sql`SELECT id, daily_message_count, last_message_date FROM users WHERE email = ${userEmail}`;
+                if (userDb.rows.length > 0) {
+                    let { daily_message_count, last_message_date } = userDb.rows[0];
+                    const todayStr = new Date().toDateString();
+                    const lastDateStr = last_message_date ? new Date(last_message_date).toDateString() : '';
+                    
+                    if (todayStr !== lastDateStr) {
+                        daily_message_count = 0;
+                    }
+                    
+                    if (daily_message_count >= 100) {
+                        return NextResponse.json(
+                            { error: 'Günlük mesaj limitinize (100) ulaştınız. Harika sorularınızı yarına saklayın!' },
+                            { status: 429 }
+                        );
+                    }
+                    remainingQuota = 100 - (daily_message_count + 1);
+                } else {
+                    // Pre-registered session without DB match? Give default
+                    remainingQuota = 99;
+                }
+            } catch (quotaErr) {
+                console.error('Error checking quota:', quotaErr);
+            }
+        }
+        // --- QUOTA (RATE LIMIT) CHECK END ---
+
         logChatDebug(`--- Chat Request Started (OpenAI) ---`);
 
         // --- DATABASE PERSISTENCE START ---
         let currentConversationId = conversationId;
-        const userEmail = user?.email;
 
         try {
             if (userEmail) {
@@ -683,20 +715,30 @@ export async function POST(req: Request) {
             }, { status: 503 });
         }
 
-        // --- DATABASE PERSISTENCE (ASSISTANT) ---
+        // --- DATABASE PERSISTENCE (ASSISTANT & QUOTA) ---
         try {
             if (userEmail && currentConversationId) {
                 await sql`
                     INSERT INTO messages (conversation_id, role, content)
                     VALUES (${currentConversationId}, 'assistant', ${reply});
                 `;
+                
+                // Update quota
+                if (role !== 'admin' && remainingQuota !== null) {
+                    const newCount = 100 - remainingQuota;
+                    await sql`
+                        UPDATE users 
+                        SET daily_message_count = ${newCount}, last_message_date = CURRENT_TIMESTAMP
+                        WHERE email = ${userEmail};
+                    `;
+                }
             }
         } catch (dbError) {
-            console.error('Database persistence error (Assistant):', dbError);
+            console.error('Database persistence error (Assistant/Quota):', dbError);
         }
         // --- DATABASE PERSISTENCE END ---
 
-        return NextResponse.json({ reply, conversationId: currentConversationId });
+        return NextResponse.json({ reply, conversationId: currentConversationId, remainingQuota });
 
     } catch (error: any) {
         console.error('API Error:', error);
