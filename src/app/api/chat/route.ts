@@ -22,9 +22,9 @@ let lastCacheUpdate = 0;
 async function getKnowledgeBase(): Promise<Document[]> {
     try {
         // If cache invalidated or empty, fetch from database.
-        // Also refresh if cache is older than 1 hour (3600000 ms) as a failsafe
+        // Refresh if cache is older than 15 seconds to prevent cross-lambda staleness on Vercel
         const now = Date.now();
-        if ((global as any).knowledgeCacheInvalidated || globalKnowledgeCache.length === 0 || (now - lastCacheUpdate > 3600000)) {
+        if ((global as any).knowledgeCacheInvalidated || globalKnowledgeCache.length === 0 || (now - lastCacheUpdate > 15000)) {
             console.log('Fetching knowledge base from Vercel Postgres...');
             const { rows } = await sql`
                 SELECT id, filename, content, category, priority
@@ -632,6 +632,8 @@ export async function POST(req: Request) {
     - "Mazeret Sınavı" -> "FR-108 Mazeret Sınav Başvuru Formu.docx"
     - "Yatay Geçiş" -> "FR-104 Yatay Geçiş Başvuru Formu.docx"
 
+    DİKKAT (ÇOK ÖNEMLİ FORM KURALI): Yukarıdaki liste sadece en sık aranan formlardır. Eğer kullanıcı BURADA KAYITLI OLMAYAN "FR-585", "FR-200", "xyz formu" gibi GÜNCEL bir form kurumu veya numarası belirtirse:
+    LÜTFEN önce sana sağlanan "BULUNAN BELGELER (context)" içine bak. Eğer istediği form orada listelenmişse, "böyle bir form yok" DEME. Hiç tartışmadan doğrudan ilgili dosyanın "filename" bilgisini alarak "generate_file" JSON formatıyla cevap ver. Kısaca: SANA VERİLEN BAĞLAMDA (CONTEXT) VARSA HERTÜRLÜ BELGEYİ VE FORMU VEREBİLİRSİN. Arama yeteneğine güven.
 
     Eğer kullanıcı AKADEMİSYEN (academic) ise:
     - Hitap: "Sayın Hocam", "Hocam".
