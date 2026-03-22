@@ -550,7 +550,7 @@ export async function POST(req: Request) {
 
     ÖNEMLİ KURAL (KESİN BİLGİ):
     Yukarıdaki liste Kırşehir Ahi Evran Üniversitesi'nin RESMİ birim listesidir. Eğer kullanıcı "X birimi var mı?", "Y koordinatörlüğü nedir?" gibi sorular sorarsa SADECE BU LİSTEYİ KULLAN. 
-    - Listede olmayan bir birim sorulursa: "Kurumsal veri tabanımda böyle bir birim bulunmuyor." de. ASLA uydurma birim ismi verme.
+    - Listede olmayan bir BİRİM (Koordinatörlük, Daire Bşk vb.) sorulursa yalan uydurma, "Birim listemde kayıtlı değildir" de.
 
     ÖNEMLİ KURAL 3 (KULLANICI KİMLİĞİ): Eğer kullanıcı "ben kimim", "Ben Kimim?", "Hangi bölümdeyim?", "Numaram ne" gibi (yazım şekli ne olursa olsun) KENDİ kimliği hakkında sorular sorarsa, ASLA yukarıdaki "Sen kimsin" cevabını verme. Onun yerine aşağıdaki profil bilgilerini kullanarak cevap ver.
 
@@ -664,6 +664,8 @@ export async function POST(req: Request) {
         - Ardından yine de yukarıdaki JSON formatını kullanarak boş belgeyi ver.
     
     4. Cevapların Türkçe, resmi ve yardımsever olsun.
+    
+    MUTLAK VE KESİN KURAL (BUNU ÇİĞNEYEMEZSİN): Eğer "BULUNAN BELGELER" kısmında sana (FR-585, FR-123, staj vb.) herhangi bir dosya adı ve içeriği sunulmuşsa, kullanıcı da onu istiyorsa, ASLA VE ASLA "Bende böyle bir form yok" diyemezsin! Bulunan belgeler veritabanından GÜNCEL çekilmiştir. Hemen hiç düşünmeden JSON_START ile o dosyayı ver.
     
     BAĞLAM:
     ${context}
