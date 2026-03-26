@@ -933,6 +933,13 @@ export default function Home() {
           </div>
           <div className="text-center mt-2">
             <p className="text-[10px] text-slate-600">ÇMYO.AI yanlış bilgiler gösterebilir. Bu nedenle, verdiği yanıtları doğrulayın.</p>
+            <div className="flex justify-center gap-2 mt-1">
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-700 hover:text-blue-400 transition-colors">Kullanım Koşulları</a>
+              <span className="text-[10px] text-slate-800">•</span>
+              <a href="/kvkk" target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-700 hover:text-blue-400 transition-colors">KVKK</a>
+              <span className="text-[10px] text-slate-800">•</span>
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-700 hover:text-blue-400 transition-colors">Gizlilik</a>
+            </div>
           </div>
         </div>
       </main>

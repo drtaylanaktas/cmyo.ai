@@ -19,6 +19,7 @@ export default function LoginPage() {
     const [avatar, setAvatar] = useState('');
     const [role, setRole] = useState<'student' | 'academic'>('student');
     const [academicUnit, setAcademicUnit] = useState('');
+    const [termsAccepted, setTermsAccepted] = useState(false);
 
 
     const [error, setError] = useState('');
@@ -127,6 +128,11 @@ export default function LoginPage() {
                 return;
             }
 
+            if (!termsAccepted) {
+                setError('Devam edebilmek için Kullanım Koşulları, KVKK Aydınlatma Metni ve Gizlilik Politikasını kabul etmelisiniz.');
+                return;
+            }
+
             try {
                 const newUser = {
                     email,
@@ -136,7 +142,9 @@ export default function LoginPage() {
                     role,
                     title: role === 'academic' ? title : '',
                     academicUnit,
-                    avatar: avatar || ''
+                    avatar: avatar || '',
+                    termsAccepted: true,
+                    termsAcceptedAt: new Date().toISOString()
                 };
 
                 const res = await fetch('/api/auth/register', {
@@ -403,11 +411,33 @@ export default function LoginPage() {
                             </div>
                         )}
 
+                        {/* Terms Acceptance Checkbox - Only for Registration */}
+                        {!isLogin && (
+                            <div className="flex items-start gap-3 p-3 bg-slate-900/50 rounded-xl border border-blue-500/10">
+                                <input
+                                    type="checkbox"
+                                    id="terms-checkbox"
+                                    checked={termsAccepted}
+                                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                                    className="mt-1 w-4 h-4 rounded border-blue-500/30 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer shrink-0"
+                                />
+                                <label htmlFor="terms-checkbox" className="text-xs text-slate-400 leading-relaxed cursor-pointer">
+                                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline underline-offset-2">Kullanım Koşulları</a>,{' '}
+                                    <a href="/kvkk" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline underline-offset-2">KVKK Aydınlatma Metni</a> ve{' '}
+                                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline underline-offset-2">Gizlilik Politikası</a>&apos;nı
+                                    okudum ve kabul ediyorum.
+                                </label>
+                            </div>
+                        )}
+
                         <button
                             type="submit"
+                            disabled={!isLogin && !termsAccepted}
                             className={`w-full py-3.5 rounded-xl font-bold text-white transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg flex items-center justify-center gap-2 ${isLogin
                                 ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 shadow-blue-500/25'
-                                : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 shadow-green-500/25'
+                                : !termsAccepted
+                                    ? 'bg-slate-700 cursor-not-allowed opacity-50'
+                                    : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 shadow-green-500/25'
                                 }`}
                         >
                             {isLogin ? 'Giriş Yap' : 'Kayıt Ol'}
@@ -418,6 +448,13 @@ export default function LoginPage() {
                     <p className="mt-6 text-center text-xs text-slate-500">
                         &copy; {new Date().getFullYear()} ÇMYO.AI - Çiçekdağı MYO
                     </p>
+                    <div className="flex justify-center gap-3 mt-2">
+                        <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-600 hover:text-blue-400 transition-colors">Kullanım Koşulları</a>
+                        <span className="text-[10px] text-slate-700">•</span>
+                        <a href="/kvkk" target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-600 hover:text-blue-400 transition-colors">KVKK</a>
+                        <span className="text-[10px] text-slate-700">•</span>
+                        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-600 hover:text-blue-400 transition-colors">Gizlilik</a>
+                    </div>
                 </div>
             </motion.div>
 

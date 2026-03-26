@@ -17,11 +17,16 @@ export async function POST(request: Request) {
             );
         }
 
-        const { name, surname, email, password, role, title, academicUnit, avatar } = await request.json();
+        const { name, surname, email, password, role, title, academicUnit, avatar, termsAccepted, termsAcceptedAt } = await request.json();
 
         // Input validation
         if (!name || !surname || !email || !password || !role) {
             return NextResponse.json({ error: 'Tüm zorunlu alanları doldurun.' }, { status: 400 });
+        }
+
+        // Terms acceptance validation
+        if (termsAccepted !== true) {
+            return NextResponse.json({ error: 'Devam edebilmek için Kullanım Koşulları, KVKK Aydınlatma Metni ve Gizlilik Politikasını kabul etmelisiniz.' }, { status: 400 });
         }
 
         if (name.length < 2 || name.length > 50) {
@@ -72,8 +77,8 @@ export async function POST(request: Request) {
 
         // Insert user
         await sql`
-            INSERT INTO users (name, surname, email, password, role, title, academic_unit, avatar, verification_token, email_verified)
-            VALUES (${name}, ${surname}, ${email}, ${hashedPassword}, ${role}, ${title || null}, ${academicUnit || null}, ${avatar || null}, ${verificationToken}, FALSE)
+            INSERT INTO users (name, surname, email, password, role, title, academic_unit, avatar, verification_token, email_verified, terms_accepted, terms_accepted_at)
+            VALUES (${name}, ${surname}, ${email}, ${hashedPassword}, ${role}, ${title || null}, ${academicUnit || null}, ${avatar || null}, ${verificationToken}, FALSE, TRUE, ${termsAcceptedAt || new Date().toISOString()})
         `;
 
         // Send verification email
