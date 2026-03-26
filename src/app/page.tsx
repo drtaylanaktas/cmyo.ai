@@ -39,9 +39,22 @@ export default function Home() {
   const inputRef = useRef(input);
   const router = useRouter();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showTelegramBanner, setShowTelegramBanner] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    const bannerDismissed = localStorage.getItem('telegram_banner_dismissed');
+    if (!bannerDismissed) {
+      setShowTelegramBanner(true);
+    }
+  }, []);
+
+  const dismissTelegramBanner = () => {
+    setShowTelegramBanner(false);
+    localStorage.setItem('telegram_banner_dismissed', 'true');
   };
 
   // Auth check useEffect
@@ -723,6 +736,52 @@ export default function Home() {
             </button>
           </div>
         </header>
+
+        {/* Telegram Announcement Banner */}
+        <AnimatePresence>
+          {showTelegramBanner && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -20, height: 0 }}
+              className="relative z-20 w-full bg-gradient-to-r from-blue-900/40 via-blue-800/30 to-blue-900/40 border-b border-blue-500/20 backdrop-blur-md overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay"></div>
+              <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 text-blue-400" fill="currentColor">
+                      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.892-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white mt-0.5">ÇMYO.AI Artık Telegram'da!</h3>
+                    <p className="text-xs text-blue-200/80">Yapay zeka asistanımızı doğrudan Telegram üzerinden kullanabilirsiniz.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <a 
+                    href="https://t.me/CmyoResmiBot" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg transition-colors shadow-lg shadow-blue-500/20"
+                  >
+                    <span>Telegram'a Git</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                  </a>
+                  <button 
+                    onClick={dismissTelegramBanner}
+                    className="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700/50 rounded-lg transition-colors"
+                    title="Kapat"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative z-10 w-full min-h-0">
