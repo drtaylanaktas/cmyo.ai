@@ -149,7 +149,7 @@ export default function TermsPage() {
                                 <p className="text-white font-medium">Kırşehir Ahi Evran Üniversitesi</p>
                                 <p className="text-slate-400">Çiçekdağı Meslek Yüksekokulu</p>
                                 <p className="text-slate-400 mt-1">Çiçekdağı / Kırşehir, Türkiye</p>
-                                <p className="text-blue-400 mt-1">cicekdagimyo@ahievran.edu.tr</p>
+                                <p className="text-blue-400 mt-1">cmyo@ahievran.edu.tr</p>
                             </div>
                         </section>
 

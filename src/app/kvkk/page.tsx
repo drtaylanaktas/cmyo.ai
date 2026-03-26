@@ -40,7 +40,7 @@ export default function KVKKPage() {
                                 <p><strong className="text-white">Kurum:</strong> Kırşehir Ahi Evran Üniversitesi</p>
                                 <p><strong className="text-white">Birim:</strong> Çiçekdağı Meslek Yüksekokulu</p>
                                 <p><strong className="text-white">Adres:</strong> Çiçekdağı / Kırşehir, Türkiye</p>
-                                <p><strong className="text-white">E-posta:</strong> <span className="text-blue-400">cicekdagimyo@ahievran.edu.tr</span></p>
+                                <p><strong className="text-white">E-posta:</strong> <span className="text-blue-400">cmyo@ahievran.edu.tr</span></p>
                             </div>
                         </section>
 
@@ -261,7 +261,7 @@ export default function KVKKPage() {
                                 KVKK m.11 kapsamındaki haklarınızı kullanmak için aşağıdaki yöntemlerle başvurabilirsiniz:
                             </p>
                             <div className="mt-3 bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 space-y-2">
-                                <p><strong className="text-white">E-posta:</strong> <span className="text-blue-400">cicekdagimyo@ahievran.edu.tr</span></p>
+                                <p><strong className="text-white">E-posta:</strong> <span className="text-blue-400">cmyo@ahievran.edu.tr</span></p>
                                 <p><strong className="text-white">Konu:</strong> &quot;KVKK Bilgi Talebi&quot; ibaresi ile</p>
                                 <p><strong className="text-white">Posta:</strong> Kırşehir Ahi Evran Üniversitesi, Çiçekdağı Meslek Yüksekokulu, Çiçekdağı / Kırşehir</p>
                             </div>

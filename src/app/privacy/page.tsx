@@ -204,7 +204,7 @@ export default function PrivacyPage() {
                                 </li>
                                 <li className="flex items-start gap-2">
                                     <span className="text-blue-400 mt-0.5">•</span>
-                                    <span>Hesabınızın silinmesi talebi için <span className="text-blue-400">cicekdagimyo@ahievran.edu.tr</span> adresine başvurabilirsiniz.</span>
+                                    <span>Hesabınızın silinmesi talebi için <span className="text-blue-400">cmyo@ahievran.edu.tr</span> adresine başvurabilirsiniz.</span>
                                 </li>
                                 <li className="flex items-start gap-2">
                                     <span className="text-blue-400 mt-0.5">•</span>
@@ -234,7 +234,7 @@ export default function PrivacyPage() {
                                 <p className="text-white font-medium">Kırşehir Ahi Evran Üniversitesi</p>
                                 <p className="text-slate-400">Çiçekdağı Meslek Yüksekokulu</p>
                                 <p className="text-slate-400 mt-1">Çiçekdağı / Kırşehir, Türkiye</p>
-                                <p className="text-blue-400 mt-1">cicekdagimyo@ahievran.edu.tr</p>
+                                <p className="text-blue-400 mt-1">cmyo@ahievran.edu.tr</p>
                             </div>
                         </section>
 
