@@ -459,8 +459,28 @@ export default function LoginPage() {
                                 Telegram&apos;da da Kullanılabilir
                             </span>
                         </a>
+
+                        {/* Mobile Apps Coming Soon Badge */}
+                        <div className="group relative flex items-center justify-center gap-3 px-5 py-2 rounded-full bg-slate-900/40 border border-slate-700/50 shadow-inner">
+                            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 overflow-hidden"></div>
+                            
+                            <div className="flex items-center gap-1.5 relative z-10">
+                                <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-300 group-hover:text-white transition-colors" fill="currentColor">
+                                    <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm1.68 14.88c-.68 0-1.4-.4-2.12-.4-.76 0-1.52.4-2.12.4-1.28.08-2.6-1.04-3.32-2.32-.88-1.52-1.36-3.76-.44-5.32.44-.76 1.16-1.28 2.04-1.28.72 0 1.4.48 1.84.48.48 0 1.24-.52 2.04-.52 1.04 0 1.88.44 2.36 1.12-2.04 1.24-1.68 4.2 1.04 5.32-.28.84-.76 1.32 2.52zM13.68 7.6c.4-.52.68-1.2.6-1.84-.56.04-1.28.4-1.68.88-.36.44-.68 1.12-.6 1.8.6.04 1.28-.36 1.68-.84z"/>
+                                </svg>
+                                <svg viewBox="0 0 24 24" className="w-4 h-4 text-green-500/80 group-hover:text-green-400 transition-colors" fill="currentColor">
+                                    <path d="M17.523 15.3414C17.523 15.3414 17.523 15.3414 17.523 15.3414L18.913 17.75c.196.342.079.778-.263.974-.341.196-.778.08-.974-.262L16.275 16.03c-1.25.567-2.671.884-4.175.884s-2.925-.317-4.174-.884l-1.401 2.433c-.196.342-.633.458-.974.262-.342-.196-.459-.632-.263-.974l1.39-2.408C4.545 13.916 2.92 11.235 2.593 8.09h18.814c-.326 3.145-1.95 6.826-3.884 7.251zm-7.973-3.414c-.724 0-1.312-.587-1.312-1.31 0-.724.588-1.312 1.312-1.312s1.31.588 1.31 1.312c0 .723-.586 1.31-1.31 1.31zm5.099 0c-.723 0-1.31-.587-1.31-1.31 0-.724.587-1.312 1.31-1.312.724 0 1.312.588 1.312 1.312 0 .723-.588 1.31-1.312 1.31zM6.155 6.945h11.69a6.007 6.007 0 0 0-11.69 0z"/>
+                                </svg>
+                            </div>
+                            
+                            <div className="h-4 w-px bg-slate-700/50 relative z-10"></div>
+                            
+                            <span className="text-xs font-semibold bg-gradient-to-r from-slate-300 to-slate-400 bg-clip-text text-transparent group-hover:from-white group-hover:to-slate-200 transition-colors relative z-10">
+                                iOS & Android Uygulamalarımız Yakında
+                            </span>
+                        </div>
                         
-                        <div className="text-center">
+                        <div className="text-center mt-2">
                             <p className="text-xs text-slate-500">
                                 &copy; {new Date().getFullYear()} ÇMYO.AI - Çiçekdağı MYO
                             </p>
