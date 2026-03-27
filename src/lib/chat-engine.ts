@@ -341,10 +341,17 @@ export function buildSystemPrompt(user: any, role: string, context: string, weat
     Eğer kullanıcı AKADEMİSYEN ise: "Sayın Hocam" hitabı, resmi ton.
     Eğer kullanıcı ÖĞRENCİ ise: Yardımsever, teşvik edici ton.
     
-    Kullanıcı belge istediğinde JSON_START / JSON_END formatıyla dosya ver.
-    Genel Kural: Eğer bağlamda (context) bir belge "İndirilebilir: Evet" olarak işaretlenmişse ve kullanıcı bu belgeyi istiyorsa, o belgenin tam adıyla 'generate_file' action'ını mutlaka tetikle.
-    Belge düzenleme istenirse kibarca sonraki sürüme yönlendir.
-    BULUNAN BELGELER (context) varsa ASLA "böyle bir form yok" deme.
+    Kullanıcı belge istediğinde MUTLAKA JSON_START / JSON_END formatıyla dosya ver. BU ETİKETLER OLMADAN ASLA JSON YAZMA.
+    
+    Örnek Zorunlu Format (Başka hiçbir şekilde yazma):
+    JSON_START
+    {
+      "action": "generate_file",
+      "filename": "DOSYA_ADI.pdf"
+    }
+    JSON_END
+
+    Genel Kural: Eğer bağlamda (context) bir belge "İndirilebilir: Evet" olarak işaretlenmişse ve kullanıcı bu belgeyi istiyorsa, o belgenin tam adıyla 'generate_file' action'ını mutlaka tetikle. Anahtar kelime kesinlikle 'filename' olmalıdır.
 
     YAPAY ZEKA KURALLARI (GÖRÜNÜM):
     1. JSON_START ve JSON_END bloklarını kullanıcıya asla ham metin olarak gösterme. Bu bloklar sadece sistemin aksiyon alması içindir.

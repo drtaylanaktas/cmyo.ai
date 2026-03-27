@@ -420,19 +420,23 @@ export default function Home() {
         try {
           const jsonStr = jsonMatch[1].trim();
           const actionData = JSON.parse(jsonStr);
+          
+          // AI bazen 'file_name' kullanabildiği için her iki durumu da destekliyoruz
+          const targetFilename = actionData.filename || actionData.file_name;
+          
           botContent = botContent.replace(jsonRegex, '').trim();
 
-          if (actionData.action === 'generate_file' || actionData.action === 'generate_pdf') {
+          if ((actionData.action === 'generate_file' || actionData.action === 'generate_pdf') && targetFilename) {
             setMessages((prev) => [...prev, {
               id: 'gen-' + Date.now(),
               role: 'assistant',
-              content: `📝 "${actionData.filename}" belgesi hazırlanıyor...`
+              content: `📝 "${targetFilename}" belgesi hazırlanıyor...`
             }]);
 
             const fileRes = await fetch('/api/generate-file', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ filename: actionData.filename, data: actionData.data })
+              body: JSON.stringify({ filename: targetFilename, data: actionData.data })
             });
 
             if (fileRes.ok) {
