@@ -10,6 +10,10 @@ import { checkProfanity } from '@/lib/badwords';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+// Robust regex for stripping technical JSON action blocks from the UI
+const JSON_CLEAN_REGEX = /(?:```(?:json)?\s*)?JSON_START\s*[\s\S]*?JSON_END(?:\s*```)?/gi;
+const stripJsonBlock = (content: string) => content.replace(JSON_CLEAN_REGEX, '').trim();
+
 type Message = {
   id: string;
   role: 'user' | 'assistant';
@@ -414,48 +418,50 @@ export default function Home() {
       }
 
       // Check for JSON block (PDF Generation Trigger)
-      const jsonRegex = /(?:```(?:json)?\s*)?JSON_START\s*([\s\S]*?)\s*JSON_END(?:\s*```)?/i;
-      const jsonMatch = botContent.match(jsonRegex);
+      const jsonMatch = botContent.match(JSON_CLEAN_REGEX);
       if (jsonMatch) {
         try {
-          const jsonStr = jsonMatch[1].trim();
-          const actionData = JSON.parse(jsonStr);
+          const lastMatch = jsonMatch[jsonMatch.length - 1];
+          const jsonInside = lastMatch.match(/JSON_START\s*([\s\S]*?)\s*JSON_END/i);
           
-          // AI bazen 'file_name' kullanabildiği için her iki durumu da destekliyoruz
-          const targetFilename = actionData.filename || actionData.file_name;
-          
-          botContent = botContent.replace(jsonRegex, '').trim();
+          if (jsonInside) {
+            const jsonStr = jsonInside[1].trim();
+            const actionData = JSON.parse(jsonStr);
+            const targetFilename = actionData.filename || actionData.file_name;
+            
+            botContent = stripJsonBlock(botContent);
 
-          if ((actionData.action === 'generate_file' || actionData.action === 'generate_pdf') && targetFilename) {
-            setMessages((prev) => [...prev, {
-              id: 'gen-' + Date.now(),
-              role: 'assistant',
-              content: `📝 "${targetFilename}" belgesi hazırlanıyor...`
-            }]);
+            if ((actionData.action === 'generate_file' || actionData.action === 'generate_pdf') && targetFilename) {
+              setMessages((prev) => [...prev, {
+                id: 'gen-' + Date.now(),
+                role: 'assistant',
+                content: `📝 "${targetFilename}" belgesi hazırlanıyor...`
+              }]);
 
-            const fileRes = await fetch('/api/generate-file', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ filename: targetFilename, data: actionData.data })
-            });
+              const fileRes = await fetch('/api/generate-file', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: targetFilename, data: actionData.data })
+              });
 
-            if (fileRes.ok) {
-              const blob = await fileRes.blob();
-              const url = window.URL.createObjectURL(blob);
-              attachment = url;
+              if (fileRes.ok) {
+                const blob = await fileRes.blob();
+                const url = window.URL.createObjectURL(blob);
+                attachment = url;
 
-              const isPdf = actionData.filename.toLowerCase().endsWith('.pdf');
-              const extension = isPdf ? 'pdf' : 'docx';
+                const isPdf = targetFilename.toLowerCase().endsWith('.pdf');
+                const extension = isPdf ? 'pdf' : 'docx';
 
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `${actionData.filename.replace(/\.[^/.]+$/, "")}_Gen.${extension}`;
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-              botContent += `\n\n✅ Belgeniz hazırlandı ve indirildi (${isPdf ? 'PDF' : 'Word'} formatında).`;
-            } else {
-              botContent += "\n\n❌ Belge oluşturulurken hata oluştu.";
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${targetFilename.replace(/\.[^/.]+$/, "")}_Gen.${extension}`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                botContent += `\n\n✅ Belgeniz hazırlandı ve indirildi (${isPdf ? 'PDF' : 'Word'} formatında).`;
+              } else {
+                botContent += "\n\n❌ Belge oluşturulurken hata oluştu.";
+              }
             }
           }
         } catch (e) {
@@ -889,7 +895,7 @@ export default function Home() {
                         </div>
                       ) : (
                         <div className="prose prose-invert prose-sm max-w-none prose-headings:text-blue-200 prose-strong:text-blue-100 prose-a:text-blue-400 prose-code:text-green-300 prose-code:bg-slate-900/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-900/80 prose-pre:border prose-pre:border-slate-700/50 prose-table:border-collapse [&_th]:bg-slate-800/50 [&_th]:border [&_th]:border-slate-700/50 [&_th]:px-3 [&_th]:py-2 [&_td]:border [&_td]:border-slate-700/50 [&_td]:px-3 [&_td]:py-2 prose-li:marker:text-blue-400">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripJsonBlock(msg.content)}</ReactMarkdown>
                         </div>
                       )}
                     </div>
