@@ -142,13 +142,32 @@ export async function POST(req: Request) {
         let defaultContent = '';
         try {
             const { sql } = await import('@vercel/postgres');
-            // Try to find matching filename roughly
-            const targetFilename = filename.toLowerCase().replace('.docx', '').replace('.pdf', '');
-            const dbQuery = await sql`
-                SELECT content, file_url FROM knowledge_documents 
-                WHERE LOWER(filename) LIKE ${'%' + targetFilename + '%'}
-                LIMIT 1
-            `;
+            
+            // Normalize inputs for cross-platform matching (NFC/NFD issue)
+            const normFilename = filename.normalize('NFC').toLowerCase();
+            const targetFilename = normFilename.replace('.docx', '').replace('.pdf', '');
+            
+            // --- NEW: Try to match by code (like FR-504) first ---
+            const codeMatch = filename.match(/(FR|GGYS-FR)-(\d{3,4})|CMYO_([A-Za-z0-9_]+)/i);
+            const searchCode = codeMatch ? codeMatch[0] : null;
+            
+            logDebug(`Searching DB for: ${targetFilename}${searchCode ? ` (Code: ${searchCode})` : ''}`);
+            
+            let dbQuery;
+            if (searchCode) {
+                // If we have a code, use it as anchor (much more reliable than full Turkish title)
+                dbQuery = await sql`
+                    SELECT filename, content, file_url FROM knowledge_documents 
+                    WHERE filename ILIKE ${'%' + searchCode + '%'}
+                    LIMIT 1
+                `;
+            } else {
+                dbQuery = await sql`
+                    SELECT filename, content, file_url FROM knowledge_documents 
+                    WHERE LOWER(filename) LIKE ${'%' + targetFilename + '%'}
+                    LIMIT 1
+                `;
+            }
             if (dbQuery.rows.length > 0) {
                 // If we have an original file URL, proxy the download!
                 if (dbQuery.rows[0].file_url) {
