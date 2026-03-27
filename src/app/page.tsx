@@ -405,7 +405,7 @@ export default function Home() {
       botContent = data.reply || 'Cevap alınamadı.';
 
       if (data.remainingQuota !== undefined && data.remainingQuota !== null) {
-        setRemainingQuota(data.remainingQuota);
+            setRemainingQuota(data.remainingQuota);
       }
 
       if (data.conversationId && data.conversationId !== conversationId) {
@@ -414,12 +414,13 @@ export default function Home() {
       }
 
       // Check for JSON block (PDF Generation Trigger)
-      const jsonMatch = botContent.match(/JSON_START\s*([\s\S]*?)\s*JSON_END/);
+      const jsonRegex = /(?:```(?:json)?\s*)?JSON_START\s*([\s\S]*?)\s*JSON_END(?:\s*```)?/i;
+      const jsonMatch = botContent.match(jsonRegex);
       if (jsonMatch) {
         try {
-          const jsonStr = jsonMatch[1];
+          const jsonStr = jsonMatch[1].trim();
           const actionData = JSON.parse(jsonStr);
-          botContent = botContent.replace(/JSON_START[\s\S]*?JSON_END/, '').trim();
+          botContent = botContent.replace(jsonRegex, '').trim();
 
           if (actionData.action === 'generate_file' || actionData.action === 'generate_pdf') {
             setMessages((prev) => [...prev, {

@@ -22,7 +22,7 @@ export async function getKnowledgeBase(): Promise<Document[]> {
         if ((global as any).knowledgeCacheInvalidated || globalKnowledgeCache.length === 0 || (now - lastCacheUpdate > 15000)) {
             console.log('Fetching knowledge base from Vercel Postgres...');
             const { rows } = await sql`
-                SELECT id, filename, content, category, priority
+                SELECT id, filename, content, category, priority, file_url
                 FROM knowledge_documents
             `;
             globalKnowledgeCache = rows as Document[];
@@ -332,8 +332,9 @@ export function buildSystemPrompt(user: any, role: string, context: string, weat
     - "Kayıt Sildirme" -> "FR-109 Kayıt Sildirme İsteği Formu.docx"
     - "Kayıt Dondurma" -> "FR-117 Öğrenime Ara Verme Talep Formu.docx"
     - "Ders Kayıt" -> "FR-005 Ders Kayıt Formu.docx"
-    - "Ders Muafiyet" -> "FR-004 Ders Muafiyet Formu.docx"
-    - "Tek Ders Sınavı" -> "FR-103 Tek Ders Sınav Talep Formu.docx"
+      - "Ders Muafiyet" -> "FR-004 Ders Muafiyet Formu.docx"
+      - "Sınav Soru - Cevap Kağıdı", "FR-504" -> "FR-504 Sınav Soru - Cevap Kağıdı.docx"
+      - "Tek Ders Sınavı" -> "FR-103 Tek Ders Sınav Talep Formu.docx"
     - "Mazeret Sınavı" -> "FR-108 Mazeret Sınav Başvuru Formu.docx"
     - "Yatay Geçiş" -> "FR-104 Yatay Geçiş Başvuru Formu.docx"
 
@@ -341,9 +342,14 @@ export function buildSystemPrompt(user: any, role: string, context: string, weat
     Eğer kullanıcı ÖĞRENCİ ise: Yardımsever, teşvik edici ton.
     
     Kullanıcı belge istediğinde JSON_START / JSON_END formatıyla dosya ver.
+    Genel Kural: Eğer bağlamda (context) bir belge "İndirilebilir: Evet" olarak işaretlenmişse ve kullanıcı bu belgeyi istiyorsa, o belgenin tam adıyla 'generate_file' action'ını mutlaka tetikle.
     Belge düzenleme istenirse kibarca sonraki sürüme yönlendir.
     BULUNAN BELGELER (context) varsa ASLA "böyle bir form yok" deme.
-    
+
+    YAPAY ZEKA KURALLARI (GÖRÜNÜM):
+    1. JSON_START ve JSON_END bloklarını kullanıcıya asla ham metin olarak gösterme. Bu bloklar sadece sistemin aksiyon alması içindir.
+    2. Cevabını temiz ve kurumsal bir dille yaz.
+
     Cevapların Türkçe, resmi ve yardımsever olsun.
     
     BAĞLAM:
@@ -360,8 +366,13 @@ export function buildContext(relevantDocs: Document[]): string {
       
       ${relevantDocs.map(d => {
             const maxLen = d.filename.includes('BOLOGNA') ? 8000 : 3000;
-            const truncated = d.content.length > maxLen ? d.content.substring(0, maxLen) + '... (kısaltıldı)' : d.content;
-            return `--- BELGE BAŞLANGICI: ${d.filename} ---\n      ${truncated}\n      --- BELGE SONU ---`;
+            const truncated = d.content ? (d.content.length > maxLen ? d.content.substring(0, maxLen) + '... (kısaltıldı)' : d.content) : "(İçerik çekilemedi)";
+            const canDownload = d.file_url ? "Evet" : "Hayır";
+            return `--- BELGE BAŞLANGICI: ${d.filename} ---
+      İndirilebilir: ${canDownload}
+      İçerik:
+      ${truncated}
+      --- BELGE SONU ---`;
         }).join('\n\n')}
       `;
 }
