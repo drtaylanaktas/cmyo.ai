@@ -397,7 +397,8 @@ export function buildContext(relevantDocs: Document[]): string {
       ${relevantDocs.map(d => {
             const maxLen = d.filename.includes('BOLOGNA') ? 8000 : 3000;
             const truncated = d.content ? (d.content.length > maxLen ? d.content.substring(0, maxLen) + '... (kısaltıldı)' : d.content) : "(İçerik çekilemedi)";
-            const canDownload = d.file_url ? "Evet" : "Hayır";
+            const ext = d.filename?.toLowerCase().split('.').pop() || '';
+            const canDownload = (d.file_url || ext === 'docx' || ext === 'xlsx') ? "Evet" : "Hayır";
             return `--- BELGE BAŞLANGICI: ${d.filename} ---
       İndirilebilir: ${canDownload}
       İçerik:
