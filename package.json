@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "mobile": "npx cap open android",
     "data:scrape-bologna": "NODE_TLS_REJECT_UNAUTHORIZED=0 node scripts/scrape-bologna.js",
     "data:ingest-bologna": "node scripts/ingest-bologna.js"
@@ -52,9 +55,11 @@
     "@types/nodemailer": "^7.0.9",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^2.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.0.0"
   }
 }

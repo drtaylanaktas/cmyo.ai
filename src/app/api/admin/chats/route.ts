@@ -1,14 +1,18 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getSession } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: Request) {
     try {
         // Protect route
         const session = await getSession();
         if (!session || session.role !== 'admin') {
+            logger.audit('UNAUTHORIZED_ADMIN_ACCESS', { path: '/api/admin/chats' });
             return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 403 });
         }
+
+        logger.audit('ADMIN_CHATS_LIST', { admin: session.email });
 
         const { searchParams } = new URL(request.url);
         const limitStr = searchParams.get('limit') || '50';

@@ -2,6 +2,9 @@ import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Bu endpoint production ortamında devre dışıdır.' }, { status: 403 });
+    }
     try {
         // Add telegram_chat_id column
         await sql`
@@ -15,10 +18,10 @@ export async function GET() {
             ADD COLUMN IF NOT EXISTS telegram_linked BOOLEAN DEFAULT FALSE;
         `;
 
-        // Add telegram_link_code column
+        // Add telegram_link_code column (8-digit code)
         await sql`
             ALTER TABLE users
-            ADD COLUMN IF NOT EXISTS telegram_link_code VARCHAR(6);
+            ADD COLUMN IF NOT EXISTS telegram_link_code VARCHAR(8);
         `;
 
         return NextResponse.json({

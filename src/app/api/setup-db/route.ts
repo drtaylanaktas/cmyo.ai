@@ -1,9 +1,12 @@
 import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
 
-export async function GET(request: Request) {
+export async function GET() {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Bu endpoint production ortamında devre dışıdır.' }, { status: 403 });
+    }
     try {
-        const result = await sql`
+        await sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
 
 // Routes that require authentication
 const protectedRoutes = [
@@ -11,7 +12,7 @@ const protectedRoutes = [
     '/api/generate-file',
     '/api/generate-pdf',
     '/api/auth/update-profile',
-    '/api/admin', // NEW: Protect all admin routes
+    '/api/admin',
 ];
 
 // Routes that are always public
@@ -21,25 +22,24 @@ const publicRoutes = [
     '/api/auth/forgot-password',
     '/api/auth/reset-password',
     '/api/auth/verify',
+    '/api/auth/logout',
     '/api/setup-db',
     '/api/debug',
     '/api/uploadthing',
+    '/api/telegram/webhook',
 ];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    // Only check API routes
     if (!pathname.startsWith('/api/')) {
         return NextResponse.next();
     }
 
-    // Allow public routes
     if (publicRoutes.some(route => pathname.startsWith(route))) {
-        return NextResponse.next();
+        return addSecurityHeaders(NextResponse.next());
     }
 
-    // Check for session cookie on protected routes
     if (protectedRoutes.some(route => pathname.startsWith(route))) {
         const sessionToken = request.cookies.get('cmyo_session')?.value;
 
@@ -50,17 +50,31 @@ export function middleware(request: NextRequest) {
             );
         }
 
-        // Note: Full JWT verification happens in the route handler (jose needs async)
-        // Middleware just checks cookie existence for fast rejection
+        // Edge Runtime'da JWT doğrula — sadece imza ve süre kontrolü
+        // (last_logout_at revocation kontrolü route handler'da yapılıyor)
+        if (!process.env.JWT_SECRET) {
+            return NextResponse.json({ error: 'Sunucu yapılandırma hatası.' }, { status: 500 });
+        }
+
+        try {
+            const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+            await jwtVerify(sessionToken, secret, { algorithms: ['HS256'] });
+        } catch {
+            return NextResponse.json(
+                { error: 'Geçersiz veya süresi dolmuş oturum. Lütfen tekrar giriş yapın.' },
+                { status: 401 }
+            );
+        }
     }
 
-    // Add security headers to all API responses
-    const response = NextResponse.next();
+    return addSecurityHeaders(NextResponse.next());
+}
+
+function addSecurityHeaders(response: NextResponse): NextResponse {
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('X-Frame-Options', 'DENY');
     response.headers.set('X-XSS-Protection', '1; mode=block');
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-
     return response;
 }
 

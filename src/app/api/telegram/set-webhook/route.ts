@@ -40,6 +40,6 @@ export async function GET(req: Request) {
         }
     } catch (error: any) {
         console.error('Set webhook error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Webhook ayarlanırken bir hata oluştu.' }, { status: 500 });
     }
 }

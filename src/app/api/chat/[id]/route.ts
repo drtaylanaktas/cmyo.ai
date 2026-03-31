@@ -26,6 +26,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
         return NextResponse.json({ messages });
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error('Error fetching messages:', error);
+        return NextResponse.json({ error: 'Sunucu hatası.' }, { status: 500 });
     }
 }

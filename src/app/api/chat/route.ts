@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter';
-import { findRelevantDocuments, generateWithOpenAI, buildSystemPrompt, buildContext, logChatDebug } from '@/lib/chat-engine';
+import { findRelevantDocuments, generateWithOpenAI, buildSystemPrompt, buildContext, logChatDebug, sanitizeUserMessage } from '@/lib/chat-engine';
 
 export async function POST(req: Request) {
     try {
         // Rate limiting
         const ip = getClientIP(req);
-        const rateCheck = checkRateLimit(`chat:${ip}`, RATE_LIMITS.chat);
+        const rateCheck = await checkRateLimit(`chat:${ip}`, RATE_LIMITS.chat);
         if (!rateCheck.allowed) {
             return NextResponse.json(
                 { error: `Çok fazla mesaj gönderildi. ${rateCheck.resetIn} saniye sonra tekrar deneyin.` },
@@ -15,7 +15,17 @@ export async function POST(req: Request) {
             );
         }
 
-        const { message, history, user, weather, conversationId } = await req.json();
+        const { message: rawMessage, history, user, weather, conversationId } = await req.json();
+
+        // Input validation & sanitization
+        if (!rawMessage || typeof rawMessage !== 'string') {
+            return NextResponse.json({ error: 'Geçersiz mesaj.' }, { status: 400 });
+        }
+        const message = sanitizeUserMessage(rawMessage.trim().slice(0, 4000));
+        if (message.length === 0) {
+            return NextResponse.json({ error: 'Mesaj boş olamaz.' }, { status: 400 });
+        }
+
         const role = user?.role || 'student';
 
         let remainingQuota: number | null = null;

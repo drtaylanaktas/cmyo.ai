@@ -2,6 +2,9 @@ import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Bu endpoint production ortamında devre dışıdır.' }, { status: 403 });
+    }
     try {
         // Add terms_accepted and terms_accepted_at columns to users table
         await sql`

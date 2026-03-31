@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     try {
         // Rate limiting
         const ip = getClientIP(request);
-        const rateCheck = checkRateLimit(`forgot:${ip}`, RATE_LIMITS.forgotPassword);
+        const rateCheck = await checkRateLimit(`forgot:${ip}`, RATE_LIMITS.forgotPassword);
         if (!rateCheck.allowed) {
             return NextResponse.json(
                 { error: `Çok fazla istek. ${rateCheck.resetIn} saniye sonra tekrar deneyin.` },

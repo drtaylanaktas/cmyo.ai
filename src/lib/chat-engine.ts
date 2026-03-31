@@ -177,6 +177,29 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         .map((s: { doc: Document }) => s.doc);
 }
 
+// Prompt injection saldırılarına karşı mesajı temizler
+const INJECTION_PATTERNS = [
+    /ignore\s+(all\s+)?(previous|prior|above)\s+instructions?/gi,
+    /forget\s+(all\s+)?(previous|your)\s+instructions?/gi,
+    /you\s+are\s+now\s+(a|an)\s+/gi,
+    /act\s+as\s+(if\s+you\s+are|a|an)\s+/gi,
+    /new\s+system\s+prompt/gi,
+    /\[system\]/gi,
+    /\<system\>/gi,
+    /###\s*system/gi,
+    /override\s+system/gi,
+    /jailbreak/gi,
+    /DAN\s+mode/gi,
+];
+
+export function sanitizeUserMessage(input: string): string {
+    let sanitized = input;
+    for (const pattern of INJECTION_PATTERNS) {
+        sanitized = sanitized.replace(pattern, '[FİLTRELENDİ]');
+    }
+    return sanitized;
+}
+
 // Helper to write debug logs
 export function logChatDebug(message: string) {
     const timestamp = new Date().toISOString();

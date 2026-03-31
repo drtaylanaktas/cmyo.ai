@@ -307,6 +307,6 @@ export async function POST(req: Request) {
     } catch (error: any) {
         console.error('File Generation Error:', error);
         logDebug(`CRITICAL ERROR: ${error.message}`);
-        return NextResponse.json({ error: 'Failed to generate file: ' + error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Dosya oluşturulurken bir hata oluştu.' }, { status: 500 });
     }
 }

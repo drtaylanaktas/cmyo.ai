@@ -1,19 +1,23 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getSession } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 
 export async function GET(
-    request: Request,
+    _request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         // Protect route
         const session = await getSession();
         if (!session || session.role !== 'admin') {
+            logger.audit('UNAUTHORIZED_ADMIN_ACCESS', { path: '/api/admin/chats/[id]' });
             return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 403 });
         }
 
         const { id } = await params;
+
+        logger.audit('ADMIN_CHAT_READ', { admin: session.email, conversationId: id });
 
         // Fetch conversation details
         const convResult = await sql`

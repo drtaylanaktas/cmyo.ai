@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
-import { findRelevantDocuments, generateWithOpenAI, buildSystemPrompt, buildContext, logChatDebug } from '@/lib/chat-engine';
-import { sendVerificationEmail } from '@/lib/email';
+import { findRelevantDocuments, generateWithOpenAI, buildSystemPrompt, buildContext, logChatDebug, sanitizeUserMessage } from '@/lib/chat-engine';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 import crypto from 'crypto';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
@@ -59,7 +59,6 @@ export async function POST(req: Request) {
 
         const chatId = message.chat.id;
         const text = message.text.trim();
-        const telegramUsername = message.from?.username || '';
         const telegramFirstName = message.from?.first_name || 'Kullanıcı';
 
         // --- COMMAND HANDLING ---
@@ -179,8 +178,8 @@ export async function POST(req: Request) {
                 return NextResponse.json({ ok: true });
             }
 
-            // Generate 6-digit verification code
-            const code = crypto.randomInt(100000, 999999).toString();
+            // Generate 8-digit verification code (100M olasılık — 6 haneli 1M'dan çok daha güçlü)
+            const code = crypto.randomInt(10000000, 99999999).toString();
 
             // Save code and chat_id temporarily
             await sql`
@@ -223,7 +222,7 @@ export async function POST(req: Request) {
 
                 await sendTelegramMessage(chatId,
                     `✅ Doğrulama kodu *${email}* adresine gönderildi.\n\n` +
-                    `📩 E-postanızdaki 6 haneli kodu buraya yazın.`
+                    `📩 E-postanızdaki 8 haneli kodu buraya yazın.`
                 );
             } catch (emailError) {
                 console.error('Telegram link email error:', emailError);
@@ -235,11 +234,18 @@ export async function POST(req: Request) {
             return NextResponse.json({ ok: true });
         }
 
-        // --- CHECK IF CODE VERIFICATION (6-digit number) ---
-        if (/^\d{6}$/.test(text)) {
+        // --- CHECK IF CODE VERIFICATION (8-digit number) ---
+        if (/^\d{8}$/.test(text)) {
+            // Rate limit: chatId başına 10 dakikada 3 deneme
+            const codeRateCheck = await checkRateLimit(`telegram_code:${chatId}`, RATE_LIMITS.telegramCode);
+            if (!codeRateCheck.allowed) {
+                await sendTelegramMessage(chatId, `⚠️ Çok fazla hatalı deneme. ${codeRateCheck.resetIn} saniye sonra tekrar deneyin.`);
+                return NextResponse.json({ ok: true });
+            }
+
             try {
                 const userResult = await sql`
-                    SELECT id, name, surname, email, telegram_link_code 
+                    SELECT id, name, surname, email, telegram_link_code
                     FROM users WHERE telegram_chat_id = ${chatId} AND telegram_linked = FALSE
                 `;
 
@@ -321,7 +327,8 @@ export async function POST(req: Request) {
         // --- RAG + AI GENERATION ---
         logChatDebug(`--- Telegram Chat Request from ${linkedUser.email} ---`);
 
-        const relevantDocs = await findRelevantDocuments(text);
+        const sanitizedText = sanitizeUserMessage(text.slice(0, 4000));
+        const relevantDocs = await findRelevantDocuments(sanitizedText);
         logChatDebug(`Found ${relevantDocs.length} relevant docs for Telegram.`);
 
         const context = buildContext(relevantDocs);
@@ -338,7 +345,7 @@ export async function POST(req: Request) {
 
         let reply = '';
         try {
-            reply = await generateWithOpenAI(text, systemPrompt, []);
+            reply = await generateWithOpenAI(sanitizedText, systemPrompt, []);
         } catch (error: any) {
             console.error('Telegram AI generation failed:', error);
             await sendTelegramMessage(chatId, '⚠️ Bir hata oluştu. Lütfen tekrar deneyin.');

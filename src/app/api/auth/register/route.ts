@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     try {
         // Rate limiting
         const ip = getClientIP(request);
-        const rateCheck = checkRateLimit(`register:${ip}`, RATE_LIMITS.register);
+        const rateCheck = await checkRateLimit(`register:${ip}`, RATE_LIMITS.register);
         if (!rateCheck.allowed) {
             return NextResponse.json(
                 { error: `Çok fazla kayıt denemesi. ${rateCheck.resetIn} saniye sonra tekrar deneyin.` },
