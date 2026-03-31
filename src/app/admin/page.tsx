@@ -149,9 +149,13 @@ export default function AdminDashboard() {
             const uploadRes = await startUpload([file]);
             let uploadedUrl = '';
             if (uploadRes && uploadRes.length > 0) {
-                uploadedUrl = uploadRes[0].url;
-            } else {
-                console.warn('UploadThing did not return an URL.');
+                uploadedUrl = uploadRes[0].ufsUrl || uploadRes[0].url || '';
+            }
+            if (!uploadedUrl) {
+                setError('Dosya UploadThing\'e yüklenemedi. UPLOADTHING_TOKEN ortam değişkenini kontrol edin.');
+                setUploadingFile(false);
+                e.target.value = '';
+                return;
             }
 
             // STEP 2: Extract text using local parser

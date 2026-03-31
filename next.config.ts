@@ -35,9 +35,6 @@ const nextConfig: NextConfig = {
             },
         ],
     },
-    env: {
-        UPLOADTHING_TOKEN: process.env.UPLOADTHING_TOKEN,
-    },
     async headers() {
         return [
             {
