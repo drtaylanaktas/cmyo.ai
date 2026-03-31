@@ -12,7 +12,7 @@ const CSP = [
     // Font kaynakları
     "font-src 'self' data:",
     // API bağlantıları: kendi domain + Vercel + OpenAI + Gemini + Telegram + Neon + UploadThing
-    "connect-src 'self' https://*.vercel.app https://api.openai.com https://generativelanguage.googleapis.com https://api.telegram.org https://*.neon.tech https://uploadthing.com https://utfs.io https://api.uploadthing.com",
+    "connect-src 'self' https://*.vercel.app https://api.openai.com https://generativelanguage.googleapis.com https://api.telegram.org https://*.neon.tech https://*.uploadthing.com https://utfs.io https://*.utfs.io https://api.uploadthing.com",
     // iframe: tamamen engelle
     "frame-src 'none'",
     // Obje/medya: engelle
