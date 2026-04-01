@@ -104,7 +104,7 @@ export async function POST(req: Request) {
             logChatDebug(`OPENAI FAILED: ${error.message}`);
 
             return NextResponse.json({
-                error: `API Error: ${error.message || 'Unknown error'}.`
+                error: 'Şu an yanıt üretemiyorum, lütfen biraz sonra tekrar deneyin.'
             }, { status: 503 });
         }
 
@@ -135,6 +135,6 @@ export async function POST(req: Request) {
     } catch (error: any) {
         console.error('API Error:', error);
         logChatDebug(`TOP LEVEL API ERROR: ${error.message}`);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Bir sorun oluştu, lütfen tekrar deneyin.' }, { status: 500 });
     }
 }

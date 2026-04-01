@@ -136,7 +136,7 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         const matched = scored
             .filter((s: { score: number }) => s.score > 0)
             .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-            .slice(0, 8)
+            .slice(0, 4)
             .map((s: { doc: Document }) => s.doc);
 
         if (matched.length > 0) {
@@ -161,7 +161,7 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         return allScored
             .filter((s: { score: number }) => s.score > 0)
             .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-            .slice(0, 8)
+            .slice(0, 4)
             .map((s: { doc: Document }) => s.doc);
     }
 
@@ -459,7 +459,7 @@ export function buildContext(relevantDocs: Document[]): string {
       AŞAĞIDAKİ BELGELER BULUNDU. KULLANICI BU BELGELER HAKKINDA SORU SORUYOR VEYA BU BELGELERİ İSTİYOR OLABİLİR.
       
       ${relevantDocs.map(d => {
-            const maxLen = d.filename.includes('BOLOGNA') ? 15000 : 3000;
+            const maxLen = d.filename.includes('BOLOGNA') ? 8000 : 3000;
             const truncated = d.content ? (d.content.length > maxLen ? d.content.substring(0, maxLen) + '... (kısaltıldı)' : d.content) : "(İçerik çekilemedi)";
             const ext = d.filename?.toLowerCase().split('.').pop() || '';
             const canDownload = (d.file_url || ext === 'docx' || ext === 'xlsx') ? "Evet" : "Hayır";
