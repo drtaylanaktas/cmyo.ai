@@ -101,6 +101,70 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         return [...injectedDocs, ...normalDocs];
     }
 
+    // BOLOGNA: Müfredat / ders içeriği sorularını tespit et
+    const BOLOGNA_TRIGGERS = [
+        'müfredat', 'ders listesi', 'ders planı', 'dersleri neler', 'yarıyıl',
+        'dönem ders', 'zorunlu ders', 'seçmeli ders', 'akts', 'ects',
+        'ders saati', 'program dersleri', 'bologna', 'kaç ders',
+        '1. yarıyıl', '2. yarıyıl', '3. yarıyıl', '4. yarıyıl',
+        '1. dönem', '2. dönem', '3. dönem', '4. dönem',
+        'birinci dönem', 'ikinci dönem', 'güz yarıyıl', 'bahar yarıyıl',
+        'ders programı nedir', 'hangi dersler', 'müfredatı ne',
+    ];
+
+    const isBolognaQuery = BOLOGNA_TRIGGERS.some(trigger => queryLower.includes(trigger));
+
+    if (isBolognaQuery) {
+        const bolognaDocs = knowledgeBase.filter((d: Document) => d.filename.startsWith('BOLOGNA_'));
+        const terms = queryLower.split(/\s+/).filter((t: string) => t.length > 2);
+
+        const scored = bolognaDocs.map((doc: Document) => {
+            let score = 0;
+            const filename = doc.filename.toLocaleLowerCase('tr-TR');
+            const content = doc.content ? doc.content.toLocaleLowerCase('tr-TR') : '';
+
+            terms.forEach((term: string) => {
+                // Filename match is the strongest signal — indicates specific program
+                if (filename.includes(term)) score += 30;
+                // Content match is secondary
+                if (content.includes(term)) score += 2;
+            });
+
+            return { doc, score };
+        });
+
+        const matched = scored
+            .filter((s: { score: number }) => s.score > 0)
+            .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+            .slice(0, 8)
+            .map((s: { doc: Document }) => s.doc);
+
+        if (matched.length > 0) {
+            return matched;
+        }
+
+        // Hiç spesifik eşleşme yok — Bologna belgelerini genel skorlamaya göre döndür
+        const allScored = knowledgeBase.map((doc: Document) => {
+            let score = 0;
+            const filename = doc.filename.toLocaleLowerCase('tr-TR');
+            const content = doc.content ? doc.content.toLocaleLowerCase('tr-TR') : '';
+
+            if (filename.startsWith('bologna_')) score += 10;
+            terms.forEach((term: string) => {
+                if (filename.includes(term)) score += 20;
+                if (content.includes(term)) score += 1;
+            });
+
+            return { doc, score };
+        });
+
+        return allScored
+            .filter((s: { score: number }) => s.score > 0)
+            .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+            .slice(0, 8)
+            .map((s: { doc: Document }) => s.doc);
+    }
+
     // CRITICAL: Always inject institutional knowledge for common questions
     const institutionalKeywords: Record<string, string[]> = {
         'CMYO_Akademik_Kadro.txt': ['hoca', 'akademik', 'personel', 'öğretim görevlisi', 'profesör', 'doçent', 'dr', 'kadro', 'kimler var', 'dersi veren', 'ahmet aslan', 'deniz aygören', 'filiz özlem', 'burak ata', 'emine doğan'],
@@ -395,7 +459,7 @@ export function buildContext(relevantDocs: Document[]): string {
       AŞAĞIDAKİ BELGELER BULUNDU. KULLANICI BU BELGELER HAKKINDA SORU SORUYOR VEYA BU BELGELERİ İSTİYOR OLABİLİR.
       
       ${relevantDocs.map(d => {
-            const maxLen = d.filename.includes('BOLOGNA') ? 8000 : 3000;
+            const maxLen = d.filename.includes('BOLOGNA') ? 15000 : 3000;
             const truncated = d.content ? (d.content.length > maxLen ? d.content.substring(0, maxLen) + '... (kısaltıldı)' : d.content) : "(İçerik çekilemedi)";
             const ext = d.filename?.toLowerCase().split('.').pop() || '';
             const canDownload = (d.file_url || ext === 'docx' || ext === 'xlsx') ? "Evet" : "Hayır";

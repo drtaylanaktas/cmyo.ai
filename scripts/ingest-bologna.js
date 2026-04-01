@@ -45,6 +45,31 @@ async function main() {
             contentObj += `\n>> ${sem.semester}\n`;
             for (const course of sem.courses) {
                 contentObj += `- Ders Kodu: ${course.code}, Ders Adı: ${course.name} | Tür: ${course.type} | Teori: ${course.theory}, Uygulama: ${course.practice}, Laboratuvar: ${course.lab} | AKTS: ${course.ects}\n`;
+
+                // Ders detayları varsa ekle (scrape-bologna-details.js ile kazınan veriler)
+                if (course.details) {
+                    if (course.details.description) {
+                        contentObj += `  Açıklama: ${course.details.description}\n`;
+                    }
+                    if (course.details.outcomes && course.details.outcomes.length > 0) {
+                        contentObj += `  Öğrenme Çıktıları:\n`;
+                        course.details.outcomes.forEach((o, idx) => {
+                            contentObj += `    ${idx + 1}. ${o}\n`;
+                        });
+                    }
+                    if (course.details.weeklyPlan && course.details.weeklyPlan.length > 0) {
+                        contentObj += `  Haftalık Plan:\n`;
+                        course.details.weeklyPlan.forEach(w => {
+                            contentObj += `    ${w}\n`;
+                        });
+                    }
+                    if (course.details.evaluation) {
+                        contentObj += `  Değerlendirme: ${course.details.evaluation}\n`;
+                    }
+                    if (course.details.resources) {
+                        contentObj += `  Kaynaklar: ${course.details.resources}\n`;
+                    }
+                }
             }
         }
 
