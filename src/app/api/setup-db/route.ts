@@ -17,7 +17,15 @@ export async function GET() {
         title VARCHAR(100),
         academic_unit VARCHAR(255),
         avatar TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        email_verified BOOLEAN DEFAULT FALSE,
+        verification_token TEXT,
+        terms_accepted BOOLEAN DEFAULT FALSE,
+        terms_accepted_at TIMESTAMP WITH TIME ZONE,
+        reset_token VARCHAR(255),
+        reset_token_expiry TIMESTAMP WITH TIME ZONE,
+        daily_message_count INTEGER,
+        last_message_date TIMESTAMP WITH TIME ZONE
       );
     `;
         return NextResponse.json({ message: 'Database functionality is ready! Users table created successfully.' }, { status: 200 });
