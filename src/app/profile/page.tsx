@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import NeuralBackground from '@/components/NeuralBackground';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, User, Mail, Shield, AlertCircle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Save, User, Shield, AlertCircle, CheckCircle, Lock } from 'lucide-react';
 import Image from 'next/image';
 
 import { UploadButton } from "@/lib/uploadthing";
@@ -17,6 +17,12 @@ export default function ProfilePage() {
     const [title, setTitle] = useState('');
     const [avatar, setAvatar] = useState('');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [passwordLoading, setPasswordLoading] = useState(false);
 
     useEffect(() => {
         const userStr = localStorage.getItem('cmyo_user');
@@ -75,6 +81,29 @@ export default function ProfilePage() {
 
         } catch (error: any) {
             setMessage({ type: 'error', text: error.message });
+        }
+    };
+
+    const handleChangePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setPasswordMessage(null);
+        setPasswordLoading(true);
+        try {
+            const res = await fetch('/api/auth/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Şifre değiştirilemedi.');
+            setPasswordMessage({ type: 'success', text: 'Şifreniz başarıyla güncellendi!' });
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (error: any) {
+            setPasswordMessage({ type: 'error', text: error.message });
+        } finally {
+            setPasswordLoading(false);
         }
     };
 
@@ -200,6 +229,49 @@ export default function ProfilePage() {
                     </button>
 
                     <div className="pt-4 border-t border-slate-800 mt-6">
+                        <form onSubmit={handleChangePassword} className="space-y-3">
+                            <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                <Lock className="w-4 h-4 text-blue-400" /> Şifre Değiştir
+                            </h2>
+                            <input
+                                type="password"
+                                placeholder="Mevcut şifre"
+                                value={currentPassword}
+                                onChange={(e) => setCurrentPassword(e.target.value)}
+                                className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-2.5 px-4 text-white text-sm focus:border-blue-500/50 focus:outline-none transition-all"
+                            />
+                            <input
+                                type="password"
+                                placeholder="Yeni şifre"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-2.5 px-4 text-white text-sm focus:border-blue-500/50 focus:outline-none transition-all"
+                            />
+                            <input
+                                type="password"
+                                placeholder="Yeni şifre (tekrar)"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="w-full bg-slate-900/50 border border-blue-500/20 rounded-xl py-2.5 px-4 text-white text-sm focus:border-blue-500/50 focus:outline-none transition-all"
+                            />
+                            {passwordMessage && (
+                                <div className={`flex items-center gap-2 text-sm p-3 rounded-lg border ${passwordMessage.type === 'success' ? 'text-green-400 bg-green-500/10 border-green-500/20' : 'text-red-400 bg-red-500/10 border-red-500/20'}`}>
+                                    {passwordMessage.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                                    {passwordMessage.text}
+                                </div>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={passwordLoading}
+                                className="w-full py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                <Lock className="w-4 h-4" />
+                                {passwordLoading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
+                            </button>
+                        </form>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-800">
                         <button
                             type="button"
                             onClick={() => {
