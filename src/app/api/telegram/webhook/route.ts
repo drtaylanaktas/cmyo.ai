@@ -3,6 +3,8 @@ import { sql } from '@vercel/postgres';
 import { findRelevantDocuments, generateWithOpenAI, buildSystemPrompt, buildContext, logChatDebug, sanitizeUserMessage } from '@/lib/chat-engine';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 
@@ -85,23 +87,45 @@ async function sendTelegramDocument(
     }
 }
 
-// Resolve file: DB file_url lookup → generate-file fallback
+// Resolve file: DB file_url lookup → local file → generate-file fallback
 async function resolveFile(filename: string, requestOrigin: string): Promise<{
     source: string | Buffer;
     resolvedFilename: string;
 } | null> {
-    // 1. DB lookup for file_url (BKYS forms all have this)
+    // Build search term: remove extension, use as wildcard keyword
+    const searchTerm = '%' + filename.replace(/\.[^.]+$/, '').trim() + '%';
+
+    // 1. DB lookup — exact match first, then keyword wildcard (covers BKYS forms)
     try {
-        const result = await sql`
+        let result = await sql`
             SELECT file_url, filename FROM knowledge_documents
             WHERE filename ILIKE ${filename} LIMIT 1
         `;
+        if (result.rows.length === 0) {
+            result = await sql`
+                SELECT file_url, filename FROM knowledge_documents
+                WHERE filename ILIKE ${searchTerm} AND file_url IS NOT NULL LIMIT 1
+            `;
+        }
         if (result.rows.length > 0 && result.rows[0].file_url) {
             return { source: result.rows[0].file_url, resolvedFilename: result.rows[0].filename };
         }
     } catch (_) {}
 
-    // 2. Fallback: call generate-file endpoint (local file or generated DOCX)
+    // 2. Local file lookup in src/data/
+    try {
+        const dataDir = path.join(process.cwd(), 'src/data');
+        const files = fs.readdirSync(dataDir);
+        const found = files.find(f =>
+            f.normalize('NFC').toLowerCase() === filename.normalize('NFC').toLowerCase()
+        );
+        if (found) {
+            const buffer = fs.readFileSync(path.join(dataDir, found));
+            return { source: buffer, resolvedFilename: found };
+        }
+    } catch (_) {}
+
+    // 3. Fallback: call generate-file endpoint (on-the-fly DOCX generation)
     try {
         const res = await fetch(`${requestOrigin}/api/generate-file`, {
             method: 'POST',
