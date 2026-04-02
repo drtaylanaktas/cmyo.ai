@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import Link from 'next/link';
-import { LayoutDashboard, Database, LogOut, ArrowLeft, MessageCircle, UserX } from 'lucide-react';
+import { LayoutDashboard, Database, LogOut, ArrowLeft, MessageCircle, UserX, Users } from 'lucide-react';
 
 export default async function AdminLayout({
     children,
@@ -38,6 +38,10 @@ export default async function AdminLayout({
                     <Link href="/admin/deletions" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-neutral-800 text-neutral-400 font-medium transition-colors">
                         <UserX size={18} />
                         Silme İstekleri
+                    </Link>
+                    <Link href="/admin/users" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-neutral-800 text-neutral-400 font-medium transition-colors">
+                        <Users size={18} />
+                        Kullanıcılar
                     </Link>
                 </nav>
 
