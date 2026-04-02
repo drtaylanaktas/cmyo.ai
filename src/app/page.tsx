@@ -609,7 +609,7 @@ export default function Home() {
                       </button>
 
                       {/* Hover Actions — single minimal button */}
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10">
+                      <div className="absolute inset-y-0 right-1 flex items-center z-10">
                         <button
                           onClick={(e) => { e.stopPropagation(); setHistoryMenuOpen(historyMenuOpen === chat.id ? null : chat.id); }}
                           className={`p-1.5 rounded-md transition-all ${historyMenuOpen === chat.id ? 'opacity-100 text-white bg-white/10' : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white hover:bg-white/10'}`}
