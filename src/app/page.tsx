@@ -608,25 +608,14 @@ export default function Home() {
                         <span className="truncate flex-1">{chat.title}</span>
                       </button>
 
-                      {/* Hover Actions - Outside button, positioned over it */}
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                        <div
-                          onClick={(e) => handleDeleteChat(e, chat.id)}
-                          className="p-1.5 bg-slate-800 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-md transition-colors cursor-pointer border border-slate-700/50"
-                          title="Sil"
+                      {/* Hover Actions — single minimal button */}
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setHistoryMenuOpen(historyMenuOpen === chat.id ? null : chat.id); }}
+                          className={`p-1.5 rounded-md transition-all ${historyMenuOpen === chat.id ? 'opacity-100 text-white bg-white/10' : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white hover:bg-white/10'}`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </div>
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setHistoryMenuOpen(historyMenuOpen === chat.id ? null : chat.id);
-                          }}
-                          className={`p-1.5 bg-slate-800 hover:bg-blue-500/20 rounded-md transition-colors cursor-pointer border border-slate-700/50 ${historyMenuOpen === chat.id ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-blue-400'}`}
-                          title="Ayarlar"
-                        >
-                          <MoreHorizontal className="w-3.5 h-3.5" />
-                        </div>
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
                       </div>
                     </>
                   )}
@@ -637,23 +626,31 @@ export default function Home() {
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setHistoryMenuOpen(null)} />
                         <motion.div
-                          initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                          initial={{ opacity: 0, scale: 0.95, y: -6 }}
                           animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                          className="absolute right-0 top-full mt-1 w-32 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden"
+                          exit={{ opacity: 0, scale: 0.95, y: -6 }}
+                          transition={{ duration: 0.12 }}
+                          className="absolute right-0 top-full mt-1.5 w-44 bg-[#0d1424] border border-slate-700/60 rounded-xl shadow-2xl z-50 overflow-hidden py-1"
                         >
                           <button
                             onClick={(e) => startRenaming(e, chat)}
-                            className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
                           >
-                            <Edit2 className="w-3 h-3" /> Yeniden Adlandır
+                            <Edit2 className="w-3.5 h-3.5 text-slate-400" /> Yeniden Adlandır
                           </button>
                           <button
                             onClick={(e) => handlePinChat(e, chat.id, chat.is_pinned)}
-                            className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
                           >
-                            <Pin className={`w-3 h-3 ${chat.is_pinned ? 'fill-current' : ''}`} />
+                            <Pin className={`w-3.5 h-3.5 text-slate-400 ${chat.is_pinned ? 'fill-current' : ''}`} />
                             {chat.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}
+                          </button>
+                          <div className="border-t border-slate-700/50 my-1" />
+                          <button
+                            onClick={(e) => { handleDeleteChat(e, chat.id); setHistoryMenuOpen(null); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Sil
                           </button>
                         </motion.div>
                       </>
