@@ -34,6 +34,89 @@ async function sendTelegramMessage(chatId: number, text: string, parseMode: stri
     }
 }
 
+// Parse JSON_START/JSON_END file action from AI reply
+function parseFileAction(reply: string): { filename: string | null; cleanReply: string } {
+    const match = reply.match(/JSON_START\s*([\s\S]*?)\s*JSON_END/);
+    if (!match) return { filename: null, cleanReply: reply.trim() };
+    try {
+        const parsed = JSON.parse(match[1]);
+        const filename = parsed.action === 'generate_file' ? parsed.filename : null;
+        const cleanReply = reply.replace(/JSON_START[\s\S]*?JSON_END/g, '').trim();
+        return { filename, cleanReply };
+    } catch {
+        return { filename: null, cleanReply: reply.replace(/JSON_START[\s\S]*?JSON_END/g, '').trim() };
+    }
+}
+
+// Send a document (file) to Telegram — either by URL or buffer
+async function sendTelegramDocument(
+    chatId: number,
+    fileSource: string | Buffer,
+    filename: string,
+    caption?: string
+) {
+    try {
+        const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+        if (typeof fileSource === 'string') {
+            // URL-based: Telegram servers download it directly (works for BKYS forms)
+            const res = await fetch(`${TELEGRAM_API}/sendDocument`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, document: fileSource, caption: caption || '' }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                console.error('Telegram sendDocument (URL) error:', err);
+            }
+        } else {
+            // Buffer-based: multipart/form-data upload (local/generated files)
+            const formData = new FormData();
+            formData.append('chat_id', String(chatId));
+            formData.append('document', new Blob([new Uint8Array(fileSource)]), filename);
+            if (caption) formData.append('caption', caption);
+            const res = await fetch(`${TELEGRAM_API}/sendDocument`, { method: 'POST', body: formData });
+            if (!res.ok) {
+                const err = await res.json();
+                console.error('Telegram sendDocument (buffer) error:', err);
+            }
+        }
+    } catch (e) {
+        console.error('sendTelegramDocument failed:', e);
+    }
+}
+
+// Resolve file: DB file_url lookup → generate-file fallback
+async function resolveFile(filename: string, requestOrigin: string): Promise<{
+    source: string | Buffer;
+    resolvedFilename: string;
+} | null> {
+    // 1. DB lookup for file_url (BKYS forms all have this)
+    try {
+        const result = await sql`
+            SELECT file_url, filename FROM knowledge_documents
+            WHERE filename ILIKE ${filename} LIMIT 1
+        `;
+        if (result.rows.length > 0 && result.rows[0].file_url) {
+            return { source: result.rows[0].file_url, resolvedFilename: result.rows[0].filename };
+        }
+    } catch (_) {}
+
+    // 2. Fallback: call generate-file endpoint (local file or generated DOCX)
+    try {
+        const res = await fetch(`${requestOrigin}/api/generate-file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename }),
+        });
+        if (res.ok) {
+            const buffer = Buffer.from(await res.arrayBuffer());
+            return { source: buffer, resolvedFilename: filename };
+        }
+    } catch (_) {}
+
+    return null;
+}
+
 // Send "typing" action
 async function sendTypingAction(chatId: number) {
     try {
@@ -341,7 +424,7 @@ export async function POST(req: Request) {
         };
 
         const systemPrompt = buildSystemPrompt(user, role, context, null) +
-            '\n\nÖNEMLİ: Bu mesaj Telegram üzerinden geldi. Cevaplarını Telegram\'a uygun formatta ver. JSON_START/JSON_END blokları KULLANMA çünkü Telegram\'da dosya indirme özelliği yok. Bunun yerine kullanıcıyı web sitesine yönlendir.';
+            '\n\nÖNEMLİ: Bu mesaj Telegram üzerinden geldi. Kullanıcı dosya istediğinde JSON_START/JSON_END formatını KULLAN — dosyalar Telegram üzerinden otomatik gönderilecek. Dosya dışı cevaplarda normal Telegram Markdown kullan.';
 
         let reply = '';
         try {
@@ -352,16 +435,16 @@ export async function POST(req: Request) {
             return NextResponse.json({ ok: true });
         }
 
-        // Clean up JSON blocks if AI still generates them
-        reply = reply.replace(/JSON_START[\s\S]*?JSON_END/g, '').trim();
-        if (!reply) reply = 'Bir yanıt oluşturulamadı. Lütfen tekrar deneyin.';
+        // Parse file action and clean reply text
+        const { filename: requestedFile, cleanReply } = parseFileAction(reply);
+        let finalReply = cleanReply || 'Bir yanıt oluşturulamadı. Lütfen tekrar deneyin.';
 
         // --- UPDATE QUOTA ---
         if (role !== 'admin' && remainingQuota !== null) {
             try {
                 const newCount = 100 - remainingQuota;
                 await sql`
-                    UPDATE users 
+                    UPDATE users
                     SET daily_message_count = ${newCount}, last_message_date = CURRENT_TIMESTAMP
                     WHERE id = ${linkedUser.id};
                 `;
@@ -371,13 +454,23 @@ export async function POST(req: Request) {
         }
 
         // --- SEND REPLY ---
-        // Add quota info for non-admin users
-        let finalReply = reply;
         if (role !== 'admin' && remainingQuota !== null && remainingQuota <= 10) {
             finalReply += `\n\n⚠️ _Kalan mesaj hakkınız: ${remainingQuota}/100_`;
         }
 
         await sendTelegramMessage(chatId, finalReply);
+
+        // --- SEND FILE IF REQUESTED ---
+        if (requestedFile) {
+            const origin = new URL(req.url).origin;
+            const resolved = await resolveFile(requestedFile, origin);
+            if (resolved) {
+                await sendTelegramDocument(chatId, resolved.source, resolved.resolvedFilename, resolved.resolvedFilename);
+            } else {
+                await sendTelegramMessage(chatId, '📎 Bu dosyayı web üzerinden indirebilirsiniz: https://cmyo.ahievran.edu.tr');
+            }
+        }
+
         return NextResponse.json({ ok: true });
 
     } catch (error: any) {
