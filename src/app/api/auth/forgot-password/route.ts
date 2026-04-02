@@ -44,8 +44,8 @@ export async function POST(request: Request) {
         // Use environment variable for base URL or default to localhost in dev
         // 4. Create Reset Link
         // Use environment variable for base URL or default to localhost in dev
-        // FALLBACK: If NEXT_PUBLIC_APP_URL is not set (e.g. in Vercel preview), try to use VERCEL_URL
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+        // FALLBACK: Use VERCEL_PROJECT_PRODUCTION_URL (stable production domain) instead of VERCEL_URL (per-deployment, expires)
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000');
         const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
 
         // 5. Send Email (or Log to Console if no SMTP config)
