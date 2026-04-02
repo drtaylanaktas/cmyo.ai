@@ -25,6 +25,8 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [isSuccessAnimation, setIsSuccessAnimation] = useState(false);
+    const [showResendButton, setShowResendButton] = useState(false);
+    const [resendLoading, setResendLoading] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -34,6 +36,29 @@ export default function LoginPage() {
             router.push('/');
         }
     }, [router]);
+
+    const handleResend = async () => {
+        setResendLoading(true);
+        try {
+            const res = await fetch('/api/auth/resend-verification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setSuccess(data.message);
+                setError('');
+                setShowResendButton(false);
+            } else {
+                setError(data.error || 'Mail gönderilemedi.');
+            }
+        } catch {
+            setError('Bir hata oluştu.');
+        } finally {
+            setResendLoading(false);
+        }
+    };
 
     const validateEmail = (email: string) => {
         return email.endsWith('@ahievran.edu.tr');
@@ -91,6 +116,9 @@ export default function LoginPage() {
 
                 if (!res.ok) {
                     setError(data.error || 'Giriş başarısız.');
+                    if (res.status === 403) {
+                        setShowResendButton(true);
+                    }
                     return;
                 }
 
@@ -398,9 +426,21 @@ export default function LoginPage() {
                         )}
 
                         {error && (
-                            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 p-3 rounded-lg border border-red-500/20">
-                                <AlertCircle className="w-4 h-4 shrink-0" />
-                                {error}
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    {error}
+                                </div>
+                                {showResendButton && (
+                                    <button
+                                        type="button"
+                                        onClick={handleResend}
+                                        disabled={resendLoading}
+                                        className="w-full py-2.5 rounded-xl text-sm font-medium text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
+                                    >
+                                        {resendLoading ? 'Gönderiliyor...' : 'Doğrulama mailini yeniden gönder'}
+                                    </button>
+                                )}
                             </div>
                         )}
 

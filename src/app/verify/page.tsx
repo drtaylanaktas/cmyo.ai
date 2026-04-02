@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, XCircle, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -9,6 +9,27 @@ function VerifyContent() {
     const searchParams = useSearchParams();
     const success = searchParams.get('success');
     const error = searchParams.get('error');
+    const [resendEmail, setResendEmail] = useState('');
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendMessage, setResendMessage] = useState('');
+
+    const handleResend = async () => {
+        if (!resendEmail) return;
+        setResendLoading(true);
+        try {
+            const res = await fetch('/api/auth/resend-verification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: resendEmail }),
+            });
+            const data = await res.json();
+            setResendMessage(res.ok ? data.message : (data.error || 'Bir hata oluştu.'));
+        } catch {
+            setResendMessage('Bir hata oluştu.');
+        } finally {
+            setResendLoading(false);
+        }
+    };
 
     if (success) {
         return (
@@ -41,9 +62,29 @@ function VerifyContent() {
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-2">Doğrulama Başarısız</h2>
                 <p className="text-slate-400 mb-6">{errorMessage}</p>
+                <div className="flex flex-col gap-3 mb-6">
+                    <p className="text-slate-400 text-sm">Yeni doğrulama maili almak ister misiniz?</p>
+                    <input
+                        type="email"
+                        value={resendEmail}
+                        onChange={(e) => setResendEmail(e.target.value)}
+                        placeholder="E-posta adresiniz"
+                        className="w-full bg-slate-800/50 border border-white/10 rounded-xl py-2.5 px-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 text-sm"
+                    />
+                    <button
+                        onClick={handleResend}
+                        disabled={resendLoading || !resendEmail}
+                        className="w-full py-2.5 rounded-xl text-sm font-medium text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
+                    >
+                        {resendLoading ? 'Gönderiliyor...' : 'Doğrulama mailini yeniden gönder'}
+                    </button>
+                    {resendMessage && (
+                        <p className="text-sm text-green-400">{resendMessage}</p>
+                    )}
+                </div>
                 <Link
                     href="/login"
-                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                    className="text-blue-400 hover:text-blue-300 transition-colors text-sm"
                 >
                     Giriş sayfasına dön
                 </Link>
