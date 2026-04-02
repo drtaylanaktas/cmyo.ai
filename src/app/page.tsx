@@ -784,22 +784,22 @@ export default function Home() {
                 <span className="text-slate-500 hidden md:inline">{weatherData.locationName}</span>
               </div>
             )}
-            {!weatherData && (locationPermission === 'denied' || locationPermission === 'prompt') && (
+            {!weatherData && locationPermission !== 'unknown' && (
               <button
                 onClick={() => {
                   if (locationPermission === 'denied') {
                     alert('Konum iznini etkinleştirmek için tarayıcı adres çubuğundaki kilit/bilgi ikonuna tıklayın, konum iznini "İzin Ver" olarak değiştirin ve sayfayı yenileyin.');
                   } else {
                     localStorage.removeItem('location_banner_dismissed');
-                    setShowLocationBanner(true);
+                    setShowLocationBanner(false);
                     requestLocation();
                   }
                 }}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-500 hover:text-slate-300 transition-colors"
-                title={locationPermission === 'denied' ? 'Tarayıcı ayarlarından konum iznini etkinleştirin' : 'Konum iznine izin ver'}
+                className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                title={locationPermission === 'denied' ? 'Tarayıcı ayarlarından konum iznini etkinleştirin' : 'Konuma erişime izin ver'}
               >
                 <MapPin className="w-3.5 h-3.5" />
-                <span>{locationPermission === 'denied' ? 'Konum engellendi' : 'Konum izni ver'}</span>
+                <span className="hidden sm:inline">{locationPermission === 'denied' ? 'Konum engellendi' : 'Konum izni ver'}</span>
               </button>
             )}
             <button
