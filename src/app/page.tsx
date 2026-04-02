@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft, Trash2, Edit2, Pin, MoreHorizontal, X, Paperclip, Cloud, CloudRain, Sun, CloudSnow, Zap } from 'lucide-react';
+import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft, Trash2, Edit2, Pin, MoreHorizontal, X, Paperclip, Cloud, CloudRain, Sun, CloudSnow, Zap, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
@@ -38,6 +38,9 @@ export default function Home() {
 
   const { isListening, transcript, startListening, stopListening, resetTranscript, hasSupport } = useVoiceInput();
   const [weatherData, setWeatherData] = useState<any>(null);
+  const [locationPermission, setLocationPermission] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
+  const [showLocationBanner, setShowLocationBanner] = useState(false);
+  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef(input);
@@ -203,50 +206,91 @@ export default function Home() {
   };
 
   // Weather & Location Logic
-  useEffect(() => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(async (position) => {
-        const { latitude, longitude } = position.coords;
-        let locationName = "Bilinmeyen Konum";
-
-        // 1. Get readable address (Reverse Geocoding)
-        try {
-          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`, {
-            headers: {
-              'User-Agent': 'CMYO-AI-Web/1.0'
-            }
-          });
-          if (geoRes.ok) {
-            const geoData = await geoRes.json();
-            // Prioritize District/City/Town
-            locationName = geoData.address.town || geoData.address.city || geoData.address.province || geoData.address.district || "Bilinmeyen Bölge";
-            if (geoData.address.suburb) locationName += `, ${geoData.address.suburb}`;
-          }
-        } catch (e) {
-          console.error("Reverse geocoding failed", e);
-        }
-
-        // 2. Get Weather
-        try {
-          const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&timezone=auto`);
-          if (response.ok) {
-            const data = await response.json();
-            setWeatherData({
-              temp: data.current.temperature_2m,
-              code: data.current.weather_code,
-              unit: data.current_units.temperature_2m,
-              lat: latitude,
-              lon: longitude,
-              locationName: locationName // Add the readable name
-            });
-          }
-        } catch (e) {
-          console.error("Failed to fetch weather", e);
-        }
-      }, (error) => {
-        console.log("Location access denied or error:", error);
+  const fetchWeatherAndLocation = async (latitude: number, longitude: number) => {
+    let locationName = "Bilinmeyen Konum";
+    try {
+      const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`, {
+        headers: { 'User-Agent': 'CMYO-AI-Web/1.0' }
       });
+      if (geoRes.ok) {
+        const geoData = await geoRes.json();
+        locationName = geoData.address.town || geoData.address.city || geoData.address.province || geoData.address.district || "Bilinmeyen Bölge";
+        if (geoData.address.suburb) locationName += `, ${geoData.address.suburb}`;
+      }
+    } catch (e) {
+      console.error("Reverse geocoding failed", e);
     }
+    try {
+      const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&timezone=auto`);
+      if (response.ok) {
+        const data = await response.json();
+        setWeatherData({
+          temp: data.current.temperature_2m,
+          code: data.current.weather_code,
+          unit: data.current_units.temperature_2m,
+          lat: latitude,
+          lon: longitude,
+          locationName
+        });
+      }
+    } catch (e) {
+      console.error("Failed to fetch weather", e);
+    }
+  };
+
+  const requestLocation = () => {
+    if (!("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setLocationPermission('granted');
+        setShowLocationBanner(false);
+        await fetchWeatherAndLocation(latitude, longitude);
+        if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
+        locationIntervalRef.current = setInterval(() => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => fetchWeatherAndLocation(pos.coords.latitude, pos.coords.longitude),
+            () => {}
+          );
+        }, 30 * 60 * 1000);
+      },
+      () => {
+        setLocationPermission('denied');
+        setShowLocationBanner(false);
+      }
+    );
+  };
+
+  const dismissLocationBanner = () => {
+    setShowLocationBanner(false);
+    localStorage.setItem('location_banner_dismissed', 'true');
+  };
+
+  useEffect(() => {
+    if (!("geolocation" in navigator)) return;
+    const checkPermission = async () => {
+      if (navigator.permissions) {
+        const result = await navigator.permissions.query({ name: 'geolocation' });
+        if (result.state === 'granted') {
+          setLocationPermission('granted');
+          requestLocation();
+        } else if (result.state === 'denied') {
+          setLocationPermission('denied');
+        } else {
+          setLocationPermission('prompt');
+          if (!localStorage.getItem('location_banner_dismissed')) {
+            setShowLocationBanner(true);
+          }
+        }
+      } else {
+        requestLocation();
+      }
+    };
+    checkPermission();
+    return () => {
+      if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -735,6 +779,16 @@ export default function Home() {
                 <span className="text-slate-500 hidden md:inline">{weatherData.locationName}</span>
               </div>
             )}
+            {locationPermission === 'denied' && !weatherData && (
+              <button
+                onClick={() => alert('Konum iznini etkinleştirmek için tarayıcı adres çubuğundaki kilit/bilgi ikonuna tıklayın ve konum iznine "İzin Ver" seçin, ardından sayfayı yenileyin.')}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                title="Konum izni verilmemiş"
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                <span>Konum kapalı</span>
+              </button>
+            )}
             <button
               onClick={handleLogout}
               className="p-2 text-slate-400 hover:text-red-400 transition-colors"
@@ -780,6 +834,44 @@ export default function Home() {
                   </a>
                   <button 
                     onClick={dismissTelegramBanner}
+                    className="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700/50 rounded-lg transition-colors"
+                    title="Kapat"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Location Permission Banner */}
+        <AnimatePresence>
+          {showLocationBanner && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -20, height: 0 }}
+              className="relative z-20 w-full bg-slate-800/60 border-b border-slate-700/40 backdrop-blur-md overflow-hidden"
+            >
+              <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                    <MapPin className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-300">Hava durumu ve konuma dayalı soruları yanıtlayabilmek için konum izninize ihtiyaç duyuluyor.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={requestLocation}
+                    className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    İzin Ver
+                  </button>
+                  <button
+                    onClick={dismissLocationBanner}
                     className="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700/50 rounded-lg transition-colors"
                     title="Kapat"
                   >

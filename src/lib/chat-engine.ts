@@ -327,20 +327,42 @@ export function buildSystemPrompt(user: any, role: string, context: string, weat
     Tespit Edilen Konum: ${weather.locationName} (${weather.lat}, ${weather.lon})
     Sıcaklık: ${weather.temp}${weather.unit}
     Hava Durumu Kodu: ${weather.code} (WMO Code)
-    
-    WMO KODU ANLAMLARI:
-    0: Açık
-    1, 2, 3: Parçalı Bulutlu
-    45, 48: Sisli
-    51, 53, 55: Çiseleme
-    61, 63, 65: Yağmurlu
-    71, 73, 75: Karlı
-    95, 96, 99: Fırtınalı
-    
+
+    WMO KODU ANLAMLARI (tam liste):
+    0: Açık gökyüzü
+    1: Çoğunlukla açık
+    2: Parçalı bulutlu
+    3: Kapalı (bulutlu)
+    45: Sisli
+    48: Buzlanmalı sis
+    51: Hafif çiseleme
+    53: Orta çiseleme
+    55: Yoğun çiseleme
+    56: Dondurucu hafif çiseleme
+    57: Dondurucu yoğun çiseleme
+    61: Hafif yağmur
+    63: Orta yağmur
+    65: Şiddetli yağmur
+    66: Dondurucu hafif yağmur
+    67: Dondurucu şiddetli yağmur
+    71: Hafif kar yağışı
+    73: Orta kar yağışı
+    75: Yoğun kar yağışı
+    77: Kar taneleri
+    80: Hafif sağanak yağış
+    81: Orta sağanak yağış
+    82: Şiddetli sağanak yağış
+    85: Hafif kar sağanağı
+    86: Yoğun kar sağanağı
+    95: Gök gürültülü fırtına
+    96: Hafif dolu ile fırtına
+    99: Yoğun dolu ile fırtına
+
     ÖNEMLİ KONUM KURALLARI:
-    1. Kullanıcı "Hava nasıl?" diye sorarsa: "Şu an bulunduğunuz ${weather.locationName} konumunda hava [DURUM] ve sıcaklık ${weather.temp}${weather.unit}" şeklinde cevap ver. ASLA "Çiçekdağı" deme (eğer tespit edilen konum Çiçekdağı değilse).
+    1. Kullanıcı "Hava nasıl?", "Dışarısı nasıl?", "Bugün yağmur yağacak mı?" gibi hava durumu soruları sorarsa: "${weather.locationName} konumunda hava şu an [DURUM], sıcaklık ${weather.temp}${weather.unit}." şeklinde cevap ver. ASLA "Çiçekdağı" deme (tespit edilen konum Çiçekdağı değilse).
     2. Kullanıcı "Neredeyim?", "Konumum neresi?" diye sorarsa: "Şu an ${weather.locationName} konumunda görünüyorsunuz." şeklinde cevap ver.
     3. Senin okulun (Çiçekdağı MYO) ile kullanıcının konumu farklı olabilir. Bunu karıştırma.
+    4. Kullanıcı "Yakınımda ne var?", "En yakın market/kafe/hastane?" gibi konum bazlı sorular sorarsa: "${weather.locationName} konumunu referans alarak yardımcı olmaya çalış, ancak gerçek zamanlı yer bilgisine erişimin olmadığını belirt.
     ` : 'Konum bilgisi alınamadı. Eğer kullanıcı hava durumu veya konum sorarsa "Konum izni verirseniz size yardımcı olabilirim." de.'}
 
     GENEL KURAL (SÜRE VE TOKEN OPTİMİZASYONU): Cevapların MÜMKÜN OLDUĞUNCA KISA, ÖZ ve NET olsun. Gereksiz kibarlık cümleleri, uzun giriş-gelişme paragrafları kullanma. Kullanıcının sorusuna doğrudan odaklan. Sadece gerekli bilgiyi ver.
