@@ -18,6 +18,11 @@ export default function ProfilePage() {
     const [avatar, setAvatar] = useState('');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+    const [deleteMessage, setDeleteMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -104,6 +109,22 @@ export default function ProfilePage() {
             setPasswordMessage({ type: 'error', text: error.message });
         } finally {
             setPasswordLoading(false);
+        }
+    };
+
+    const handleRequestDeletion = async () => {
+        setDeleteLoading(true);
+        try {
+            const res = await fetch('/api/auth/request-deletion', { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Bir hata oluştu.');
+            setDeleteMessage({ type: 'success', text: 'Hesap silme talebiniz alındı. Yönetici onayından sonra hesabınız kaldırılacaktır.' });
+            localStorage.removeItem('cmyo_user');
+            localStorage.removeItem(`user_${user.email}`);
+            setTimeout(() => router.push('/login'), 4000);
+        } catch (error: any) {
+            setDeleteMessage({ type: 'error', text: error.message });
+            setDeleteLoading(false);
         }
     };
 
@@ -274,13 +295,7 @@ export default function ProfilePage() {
                     <div className="pt-4 border-t border-slate-800">
                         <button
                             type="button"
-                            onClick={() => {
-                                if (confirm('Hesabınızı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) {
-                                    localStorage.removeItem('cmyo_user');
-                                    localStorage.removeItem(`user_${user.email}`);
-                                    router.push('/login');
-                                }
-                            }}
+                            onClick={() => { setShowDeleteModal(true); setDeleteConfirmed(false); setDeleteMessage(null); }}
                             className="w-full py-3 rounded-xl font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20 transition-all flex items-center justify-center gap-2"
                         >
                             Hesabımı Sil
@@ -288,6 +303,69 @@ export default function ProfilePage() {
                     </div>
                 </form>
             </motion.div>
+
+            {/* Hesap Silme Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="w-full max-w-sm mx-4 p-6 bg-[#050a14] border border-red-500/30 rounded-2xl shadow-[0_0_40px_rgba(239,68,68,0.15)]"
+                    >
+                        {deleteMessage ? (
+                            <div className="text-center">
+                                <div className={`flex items-center justify-center gap-2 text-sm p-4 rounded-xl mb-4 ${deleteMessage.type === 'success' ? 'text-green-400 bg-green-500/10 border border-green-500/20' : 'text-red-400 bg-red-500/10 border border-red-500/20'}`}>
+                                    {deleteMessage.type === 'success' ? <CheckCircle className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+                                    <span>{deleteMessage.text}</span>
+                                </div>
+                                {deleteMessage.type === 'error' && (
+                                    <button onClick={() => setShowDeleteModal(false)} className="text-sm text-slate-400 hover:text-white transition-colors">
+                                        Kapat
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                                        <AlertCircle className="w-5 h-5 text-red-400" />
+                                    </div>
+                                    <h2 className="text-lg font-bold text-white">Hesap Silme Talebi</h2>
+                                </div>
+                                <p className="text-sm text-slate-400 mb-5">
+                                    Hesabınız ve tüm verileriniz kalıcı olarak silinecektir. Bu işlem yönetici onayından sonra gerçekleşir.
+                                </p>
+                                <label className="flex items-start gap-3 mb-6 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        checked={deleteConfirmed}
+                                        onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                                        className="mt-0.5 accent-red-500 w-4 h-4"
+                                    />
+                                    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+                                        Hesabımı silmek istediğimi onaylıyorum.
+                                    </span>
+                                </label>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setShowDeleteModal(false)}
+                                        className="flex-1 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700 transition-all"
+                                    >
+                                        İptal
+                                    </button>
+                                    <button
+                                        onClick={handleRequestDeletion}
+                                        disabled={!deleteConfirmed || deleteLoading}
+                                        className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        {deleteLoading ? 'Gönderiliyor...' : 'Talep Gönder'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </motion.div>
+                </div>
+            )}
         </main>
     );
 }

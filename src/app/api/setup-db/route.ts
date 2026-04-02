@@ -28,7 +28,18 @@ export async function GET() {
         last_message_date TIMESTAMP WITH TIME ZONE
       );
     `;
-        return NextResponse.json({ message: 'Database functionality is ready! Users table created successfully.' }, { status: 200 });
+        await sql`
+      CREATE TABLE IF NOT EXISTS deletion_requests (
+        id SERIAL PRIMARY KEY,
+        user_email VARCHAR(255) NOT NULL,
+        user_name VARCHAR(255),
+        requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        status VARCHAR(20) DEFAULT 'pending',
+        reviewed_at TIMESTAMP WITH TIME ZONE,
+        reviewed_by VARCHAR(255)
+      );
+    `;
+        return NextResponse.json({ message: 'Database functionality is ready! Users and deletion_requests tables created successfully.' }, { status: 200 });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
