@@ -269,20 +269,25 @@ export default function Home() {
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
     const checkPermission = async () => {
-      if (navigator.permissions) {
-        const result = await navigator.permissions.query({ name: 'geolocation' });
-        if (result.state === 'granted') {
-          setLocationPermission('granted');
-          requestLocation();
-        } else if (result.state === 'denied') {
-          setLocationPermission('denied');
-        } else {
-          setLocationPermission('prompt');
-          if (!localStorage.getItem('location_banner_dismissed')) {
-            setShowLocationBanner(true);
+      try {
+        if (navigator.permissions) {
+          const result = await navigator.permissions.query({ name: 'geolocation' });
+          if (result.state === 'granted') {
+            setLocationPermission('granted');
+            requestLocation();
+          } else if (result.state === 'denied') {
+            setLocationPermission('denied');
+          } else {
+            setLocationPermission('prompt');
+            if (!localStorage.getItem('location_banner_dismissed')) {
+              setShowLocationBanner(true);
+            }
           }
+        } else {
+          requestLocation();
         }
-      } else {
+      } catch {
+        // permissions API not supported — fall back to direct request
         requestLocation();
       }
     };
@@ -779,14 +784,22 @@ export default function Home() {
                 <span className="text-slate-500 hidden md:inline">{weatherData.locationName}</span>
               </div>
             )}
-            {locationPermission === 'denied' && !weatherData && (
+            {!weatherData && (locationPermission === 'denied' || locationPermission === 'prompt') && (
               <button
-                onClick={() => alert('Konum iznini etkinleştirmek için tarayıcı adres çubuğundaki kilit/bilgi ikonuna tıklayın ve konum iznine "İzin Ver" seçin, ardından sayfayı yenileyin.')}
+                onClick={() => {
+                  if (locationPermission === 'denied') {
+                    alert('Konum iznini etkinleştirmek için tarayıcı adres çubuğundaki kilit/bilgi ikonuna tıklayın, konum iznini "İzin Ver" olarak değiştirin ve sayfayı yenileyin.');
+                  } else {
+                    localStorage.removeItem('location_banner_dismissed');
+                    setShowLocationBanner(true);
+                    requestLocation();
+                  }
+                }}
                 className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-500 hover:text-slate-300 transition-colors"
-                title="Konum izni verilmemiş"
+                title={locationPermission === 'denied' ? 'Tarayıcı ayarlarından konum iznini etkinleştirin' : 'Konum iznine izin ver'}
               >
                 <MapPin className="w-3.5 h-3.5" />
-                <span>Konum kapalı</span>
+                <span>{locationPermission === 'denied' ? 'Konum engellendi' : 'Konum izni ver'}</span>
               </button>
             )}
             <button
