@@ -89,8 +89,7 @@ export default function ProfilePage() {
         }
     };
 
-    const handleChangePassword = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleChangePassword = async () => {
         setPasswordMessage(null);
         setPasswordLoading(true);
         try {
@@ -250,7 +249,7 @@ export default function ProfilePage() {
                     </button>
 
                     <div className="pt-4 border-t border-slate-800 mt-6">
-                        <form onSubmit={handleChangePassword} className="space-y-3">
+                        <div className="space-y-3">
                             <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
                                 <Lock className="w-4 h-4 text-blue-400" /> Şifre Değiştir
                             </h2>
@@ -282,14 +281,15 @@ export default function ProfilePage() {
                                 </div>
                             )}
                             <button
-                                type="submit"
+                                type="button"
+                                onClick={handleChangePassword}
                                 disabled={passwordLoading}
                                 className="w-full py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 <Lock className="w-4 h-4" />
                                 {passwordLoading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
                             </button>
-                        </form>
+                        </div>
                     </div>
 
                     <div className="pt-4 border-t border-slate-800">
