@@ -15,7 +15,8 @@ export async function POST(req: Request) {
         const { filename: rawFilename, data } = await req.json();
 
         // Sanitize filename to prevent path traversal
-        const filename = path.basename(rawFilename || '');
+        // Also normalize underscores to spaces (AI sometimes generates underscore filenames)
+        const filename = path.basename((rawFilename || '').replace(/_/g, ' '));
         if (!filename) {
             return NextResponse.json({ error: 'Geçersiz dosya adı.' }, { status: 400 });
         }

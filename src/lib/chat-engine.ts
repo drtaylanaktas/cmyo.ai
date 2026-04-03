@@ -54,7 +54,8 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
 
         const injectedDocs = scheduleFiles.map(filename => ({
             filename: filename,
-            content: "BU BELGE SİSTEMDE MEVCUTTUR. Haftalık Ders Programı. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sunabilirsin.",
+            content: `BU BELGE SİSTEMDE MEVCUTTUR. Haftalık Ders Programı. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sun. DOSYA ADI OLARAK TAM OLARAK ŞU DEĞERI KULLAN: "${filename}"`,
+            file_url: 'exists',
             score: 100
         }));
         return [...injectedDocs, ...knowledgeBase.filter(d => scheduleFiles.includes(d.filename) === false).slice(0, 1)];
@@ -72,7 +73,8 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
 
         const injectedDocs = internshipFiles.map(filename => ({
             filename: filename,
-            content: "BU BELGE SİSTEMDE MEVCUTTUR. Staj Başvuru ve Kabul Formu. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sunabilirsin.",
+            content: `BU BELGE SİSTEMDE MEVCUTTUR. Staj Başvuru ve Kabul Formu. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sun. DOSYA ADI OLARAK TAM OLARAK ŞU DEĞERI KULLAN: "${filename}"`,
+            file_url: 'exists',
             score: 100
         }));
 
@@ -464,6 +466,8 @@ export function buildSystemPrompt(user: any, role: string, context: string, weat
     JSON_END
 
     Genel Kural: Eğer bağlamda (context) bir belge "İndirilebilir: Evet" olarak işaretlenmişse ve kullanıcı bu belgeyi istiyorsa, o belgenin tam adıyla 'generate_file' action'ını mutlaka tetikle. Anahtar kelime kesinlikle 'filename' olmalıdır.
+
+    KRİTİK KURAL — DOSYA ADI: filename değeri olarak MUTLAKA bağlamdaki "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX değerini aynen kopyala. Asla kısaltma, çeviri, alt çizgi veya farklı bir isim uydurma. Örnek doğru kullanım: "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 1. ŞUBE.pdf"
 
     YAPAY ZEKA KURALLARI (GÖRÜNÜM):
     1. JSON_START ve JSON_END bloklarını kullanıcıya asla ham metin olarak gösterme. Bu bloklar sadece sistemin aksiyon alması içindir.
