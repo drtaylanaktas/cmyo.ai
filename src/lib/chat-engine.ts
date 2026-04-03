@@ -167,9 +167,37 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
             .map((s: { doc: Document }) => s.doc);
     }
 
+    // WEB KADRO/PERSONEL: Web kazıma verilerini öncelikli inject et (CMYO_Akademik_Kadro.txt'den daha güncel)
+    const IDARI_TRIGGERS = ['idari personel', 'idari çalışan', 'idari görevli', 'memur listesi', 'personel listesi', 'idari kadro', 'sekreter listesi'];
+    const KADRO_TRIGGERS = ['kadro', 'personel', 'öğretim eleman', 'öğretim görevlisi', 'hoca kimler', 'hocalar kim', 'dersi veren', 'kimler var', 'bölüm hoca', 'öğretim üye'];
+
+    const isIdariQuery = IDARI_TRIGGERS.some(t => queryLower.includes(t));
+    const isKadroQuery = !isIdariQuery && KADRO_TRIGGERS.some(t => queryLower.includes(t));
+
+    if (isIdariQuery || isKadroQuery) {
+        const webPersonelDocs = knowledgeBase.filter((d: Document) => {
+            if (isIdariQuery) {
+                return d.filename === 'WEB_AKADEMIK_HAKKIMIZDA-TANITIM-IDARI-PERSONEL.txt' ||
+                       d.filename.startsWith('WEB_GENEL_HAKKIMIZDA-YONETIM');
+            }
+            // Genel kadro sorgusu: tüm bölüm sayfaları + yönetim sayfaları
+            return (d.filename.startsWith('WEB_AKADEMIK_AKADEMIK-') && d.filename.endsWith('BOLUMU.txt')) ||
+                   d.filename.startsWith('WEB_GENEL_HAKKIMIZDA-YONETIM');
+        }).map((d: Document) => ({ ...d, score: 88 }));
+
+        // CMYO_Akademik_Kadro.txt'yi de ek bağlam olarak dahil et
+        const cmyoKadro = knowledgeBase
+            .filter((d: Document) => d.filename === 'CMYO_Akademik_Kadro.txt')
+            .map((d: Document) => ({ ...d, score: 75 }));
+
+        const allKadroDocs = [...webPersonelDocs, ...cmyoKadro];
+        if (allKadroDocs.length > 0) return allKadroDocs;
+        // Web verisi yoksa genel skorlamaya düş
+    }
+
     // CRITICAL: Always inject institutional knowledge for common questions
     const institutionalKeywords: Record<string, string[]> = {
-        'CMYO_Akademik_Kadro.txt': ['hoca', 'akademik', 'personel', 'öğretim görevlisi', 'profesör', 'doçent', 'dr', 'kadro', 'kimler var', 'dersi veren', 'ahmet aslan', 'deniz aygören', 'filiz özlem', 'burak ata', 'emine doğan'],
+        'CMYO_Akademik_Kadro.txt': ['hoca', 'akademik', 'profesör', 'doçent', 'dr', 'ahmet aslan', 'deniz aygören', 'filiz özlem', 'burak ata', 'emine doğan'],
         'CMYO_Yonetim_Kadrosu.txt': ['müdür', 'yönetim', 'başkan', 'sekreter', 'yardımcı', 'taylan', 'ramazan', 'yazıcı', 'aktaş', 'mayda', 'güzelküçük', 'komisyon', 'kurul'],
         'CMYO_Bolumler_ve_Programlar.txt': ['bölüm', 'program', 'bilgisayar', 'veteriner', 'büro', 'çocuk', 'bitkisel', 'hayvansal', 'kontenjan', 'ön lisans', 'dgs', 'dikey geçiş'],
         'CMYO_Genel_Tanitim_ve_Tarihce.txt': ['tarih', 'tarihçe', 'kuruluş', 'myo hakkında', 'meslek yüksekokulu', 'tanıtım', 'genel bilgi', 'nerede', 'çiçekdağı myo'],
