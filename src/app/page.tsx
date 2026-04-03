@@ -208,30 +208,37 @@ export default function Home() {
   // Weather & Location Logic
   const fetchWeatherAndLocation = async (latitude: number, longitude: number) => {
     let locationName = "Bilinmeyen Konum";
+
+    // Geocoding (best-effort, doesn't block weather data)
     try {
-      const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`, {
-        headers: { 'User-Agent': 'CMYO-AI-Web/1.0' }
-      });
+      const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`);
       if (geoRes.ok) {
         const geoData = await geoRes.json();
-        locationName = geoData.address.town || geoData.address.city || geoData.address.province || geoData.address.district || "Bilinmeyen Bölge";
-        if (geoData.address.suburb) locationName += `, ${geoData.address.suburb}`;
+        locationName = geoData.address.town || geoData.address.city || geoData.address.village || geoData.address.province || geoData.address.district || "Bilinmeyen Bölge";
+        if (geoData.address.county && locationName === "Bilinmeyen Bölge") locationName = geoData.address.county;
       }
     } catch (e) {
       console.error("Reverse geocoding failed", e);
     }
+
+    // Set location immediately so AI has context even if weather fetch fails
+    setWeatherData({ lat: latitude, lon: longitude, locationName, temp: null, code: null, unit: '°C' });
+
+    // Weather (best-effort)
     try {
       const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&timezone=auto`);
       if (response.ok) {
         const data = await response.json();
-        setWeatherData({
-          temp: data.current.temperature_2m,
-          code: data.current.weather_code,
-          unit: data.current_units.temperature_2m,
-          lat: latitude,
-          lon: longitude,
-          locationName
-        });
+        if (data.current) {
+          setWeatherData({
+            temp: data.current.temperature_2m,
+            code: data.current.weather_code,
+            unit: data.current_units?.temperature_2m ?? '°C',
+            lat: latitude,
+            lon: longitude,
+            locationName
+          });
+        }
       }
     } catch (e) {
       console.error("Failed to fetch weather", e);
@@ -779,8 +786,10 @@ export default function Home() {
           <div className="flex items-center gap-3">
             {weatherData && (
               <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-300">
-                {getWeatherIcon(weatherData.code)}
-                <span className="font-medium">{Math.round(weatherData.temp)}{weatherData.unit}</span>
+                {weatherData.code !== null ? getWeatherIcon(weatherData.code) : <MapPin className="w-4 h-4 text-blue-400" />}
+                {weatherData.temp !== null
+                  ? <span className="font-medium">{Math.round(weatherData.temp)}{weatherData.unit}</span>
+                  : null}
                 <span className="text-slate-500 hidden md:inline">{weatherData.locationName}</span>
               </div>
             )}

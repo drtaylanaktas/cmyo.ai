@@ -325,8 +325,8 @@ export function buildSystemPrompt(user: any, role: string, context: string, weat
     ${weather ? `
     KULLANICI KONUM VE ORTAM BİLGİSİ:
     Tespit Edilen Konum: ${weather.locationName} (${weather.lat}, ${weather.lon})
-    Sıcaklık: ${weather.temp}${weather.unit}
-    Hava Durumu Kodu: ${weather.code} (WMO Code)
+    ${weather.temp !== null ? `Sıcaklık: ${weather.temp}${weather.unit}` : 'Sıcaklık: (alınamadı)'}
+    ${weather.code !== null ? `Hava Durumu Kodu: ${weather.code} (WMO Code)` : 'Hava Durumu Kodu: (alınamadı)'}
 
     WMO KODU ANLAMLARI (tam liste):
     0: Açık gökyüzü
@@ -359,7 +359,10 @@ export function buildSystemPrompt(user: any, role: string, context: string, weat
     99: Yoğun dolu ile fırtına
 
     ÖNEMLİ KONUM KURALLARI:
-    1. Kullanıcı "Hava nasıl?", "Dışarısı nasıl?", "Bugün yağmur yağacak mı?" gibi hava durumu soruları sorarsa: "${weather.locationName} konumunda hava şu an [DURUM], sıcaklık ${weather.temp}${weather.unit}." şeklinde cevap ver. ASLA "Çiçekdağı" deme (tespit edilen konum Çiçekdağı değilse).
+    1. Kullanıcı "Hava nasıl?", "Dışarısı nasıl?", "Bugün yağmur yağacak mı?" gibi hava durumu soruları sorarsa:
+       - Sıcaklık ve kod mevcut ise: "${weather.locationName} konumunda hava şu an [DURUM], sıcaklık ${weather.temp !== null ? weather.temp + weather.unit : '(bilinmiyor)'}." şeklinde cevap ver.
+       - Sadece konum mevcut ise: "Konumunuz ${weather.locationName} olarak tespit edildi ancak anlık hava verisi alınamadı." de.
+       ASLA "Çiçekdağı" deme (tespit edilen konum Çiçekdağı değilse).
     2. Kullanıcı "Neredeyim?", "Konumum neresi?" diye sorarsa: "Şu an ${weather.locationName} konumunda görünüyorsunuz." şeklinde cevap ver.
     3. Senin okulun (Çiçekdağı MYO) ile kullanıcının konumu farklı olabilir. Bunu karıştırma.
     4. Kullanıcı "Yakınımda ne var?", "En yakın market/kafe/hastane?" gibi konum bazlı sorular sorarsa: "${weather.locationName} konumunu referans alarak yardımcı olmaya çalış, ancak gerçek zamanlı yer bilgisine erişimin olmadığını belirt.
