@@ -167,40 +167,130 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
             .map((s: { doc: Document }) => s.doc);
     }
 
-    // WEB KADRO/PERSONEL: Web kazıma verilerini öncelikli inject et (CMYO_Akademik_Kadro.txt'den daha güncel)
-    const IDARI_TRIGGERS = ['idari personel', 'idari çalışan', 'idari görevli', 'memur listesi', 'personel listesi', 'idari kadro', 'sekreter listesi'];
-    const KADRO_TRIGGERS = ['kadro', 'personel', 'öğretim eleman', 'öğretim görevlisi', 'hoca kimler', 'hocalar kim', 'dersi veren', 'kimler var', 'bölüm hoca', 'öğretim üye'];
+    // ============================================================
+    // BLOKLAR 4-11: Kapsamlı RAG Yönlendirme (Web Kazıma Verisi Desteği)
+    // ============================================================
 
-    const isIdariQuery = IDARI_TRIGGERS.some(t => queryLower.includes(t));
-    const isKadroQuery = !isIdariQuery && KADRO_TRIGGERS.some(t => queryLower.includes(t));
+    // Bölüm-anahtar kelime haritası: her bölüm için prefix ve tetikleyici kelimeler
+    const BOLUM_MAP = [
+        { keys: ['veteriner', 'laborant'], prefix: 'WEB_AKADEMIK_AKADEMIK-VETERINERLIK-' },
+        { keys: ['bilgisayar', 'sağlık bilgi', 'yazılım', 'programlama'], prefix: 'WEB_AKADEMIK_AKADEMIK-BILGISAYAR-' },
+        { keys: ['büro', 'sekreterlik', 'hukuk büro', 'büro yönetimi', 'yönetici asistanlığı'], prefix: 'WEB_AKADEMIK_AKADEMIK-BURO-' },
+        { keys: ['çocuk', 'çocuk gelişimi', 'çocuk bakımı', 'çocuk koruma'], prefix: 'WEB_AKADEMIK_AKADEMIK-COCUK-' },
+        { keys: ['bitkisel', 'hayvansal', 'tarım', 'süt', 'besi hayvancılığı'], prefix: 'WEB_AKADEMIK_AKADEMIK-BITKISEL-' },
+    ];
 
-    if (isIdariQuery || isKadroQuery) {
-        const webPersonelDocs = knowledgeBase.filter((d: Document) => {
-            if (isIdariQuery) {
-                return d.filename === 'WEB_AKADEMIK_HAKKIMIZDA-TANITIM-IDARI-PERSONEL.txt' ||
-                       d.filename.startsWith('WEB_GENEL_HAKKIMIZDA-YONETIM');
-            }
-            // Genel kadro sorgusu: tüm bölüm sayfaları + yönetim sayfaları
-            return (d.filename.startsWith('WEB_AKADEMIK_AKADEMIK-') && d.filename.endsWith('BOLUMU.txt')) ||
-                   d.filename.startsWith('WEB_GENEL_HAKKIMIZDA-YONETIM');
-        }).map((d: Document) => ({ ...d, score: 88 }));
+    const STAFF_KEYWORDS = ['hoca', 'hocalar', 'öğretim', 'kadro', 'personel',
+        'elemanlar', 'kimler', 'kim var', 'öğr. gör', 'doçent', 'profesör',
+        'dersi veren', 'bölüm üyesi', 'akademisyen'];
 
-        // CMYO_Akademik_Kadro.txt'yi de ek bağlam olarak dahil et
-        const cmyoKadro = knowledgeBase
-            .filter((d: Document) => d.filename === 'CMYO_Akademik_Kadro.txt')
+    const matchedBolum = BOLUM_MAP.find(b => b.keys.some(k => queryLower.includes(k)));
+    const hasStaffKeyword = STAFF_KEYWORDS.some(k => queryLower.includes(k));
+
+    // BLOK 4: Bölüm-Spesifik Kadro Sorgusu
+    // Tetikleyici: Hem bölüm adı hem de kadro/personel kelimesi var
+    if (matchedBolum && hasStaffKeyword) {
+        const bolumDocs = knowledgeBase
+            .filter((d: Document) => d.filename.startsWith(matchedBolum.prefix) && d.filename.endsWith('BOLUMU.txt'))
+            .map((d: Document) => ({ ...d, score: 95 }));
+        const baskanlarDoc = knowledgeBase
+            .filter((d: Document) => d.filename === 'WEB_BOLUM_HAKKIMIZDA-YONETIM-BOLUM-BASKANLARI.txt')
             .map((d: Document) => ({ ...d, score: 75 }));
-
-        const allKadroDocs = [...webPersonelDocs, ...cmyoKadro];
-        if (allKadroDocs.length > 0) return allKadroDocs;
-        // Web verisi yoksa genel skorlamaya düş
+        const result4 = [...bolumDocs, ...baskanlarDoc];
+        if (result4.length > 0) return result4;
     }
 
-    // CRITICAL: Always inject institutional knowledge for common questions
+    // BLOK 5: Bölüm Genel Bilgi Sorgusu
+    // Tetikleyici: Bölüm adı var, kadro/personel kelimesi yok
+    if (matchedBolum && !hasStaffKeyword) {
+        const bolumDocs = knowledgeBase
+            .filter((d: Document) => d.filename.startsWith(matchedBolum.prefix))
+            .map((d: Document) => ({ ...d, score: 85 }));
+        const cmyoBolumler = knowledgeBase
+            .filter((d: Document) => d.filename === 'CMYO_Bolumler_ve_Programlar.txt')
+            .map((d: Document) => ({ ...d, score: 70 }));
+        const result5 = [...bolumDocs, ...cmyoBolumler];
+        if (result5.length > 0) return result5;
+    }
+
+    // BLOK 6: Yönetim Sorgusu (müdür, yönetim)
+    const YONETIM_TRIGGERS = ['müdür', 'okul müdürü', 'müdür yardımcısı', 'yönetim ekibi', 'okul yönetimi', 'yönetim kurulu', 'müdür kim', 'okul başkanı'];
+    if (YONETIM_TRIGGERS.some(t => queryLower.includes(t))) {
+        const mudurDoc = knowledgeBase
+            .filter((d: Document) => d.filename === 'WEB_GENEL_HAKKIMIZDA-YONETIM-MUDUR.txt')
+            .map((d: Document) => ({ ...d, score: 92 }));
+        const mudurYardDoc = knowledgeBase
+            .filter((d: Document) => d.filename === 'WEB_GENEL_HAKKIMIZDA-YONETIM-MUDUR-YARDIMCILARI.txt')
+            .map((d: Document) => ({ ...d, score: 90 }));
+        const kurulDoc = knowledgeBase
+            .filter((d: Document) => d.filename === 'WEB_GENEL_HAKKIMIZDA-YONETIM-KURULLARIMIZ.txt')
+            .map((d: Document) => ({ ...d, score: 80 }));
+        const cmyoYonetim = knowledgeBase
+            .filter((d: Document) => d.filename === 'CMYO_Yonetim_Kadrosu.txt')
+            .map((d: Document) => ({ ...d, score: 70 }));
+        const result6 = [...mudurDoc, ...mudurYardDoc, ...kurulDoc, ...cmyoYonetim];
+        if (result6.length > 0) return result6;
+    }
+
+    // BLOK 7: İdari Personel Sorgusu (genişletilmiş tetikleyiciler)
+    const IDARI_TRIGGERS = ['idari personel', 'idari çalışan', 'idari görevli', 'memur listesi', 'personel listesi',
+        'idari kadro', 'sekreter listesi', 'yazı işleri', 'öğrenci işleri', 'mali işler', 'personel işleri', 'dahili', 'iç hat'];
+    if (IDARI_TRIGGERS.some(t => queryLower.includes(t))) {
+        const idariDoc = knowledgeBase
+            .filter((d: Document) => d.filename === 'WEB_AKADEMIK_HAKKIMIZDA-TANITIM-IDARI-PERSONEL.txt')
+            .map((d: Document) => ({ ...d, score: 95 }));
+        if (idariDoc.length > 0) return idariDoc;
+    }
+
+    // BLOK 8: Genel Kadro/Personel Sorgusu (bölüm adı yok)
+    if (hasStaffKeyword && !matchedBolum) {
+        const baskanlarDoc = knowledgeBase
+            .filter((d: Document) => d.filename === 'WEB_BOLUM_HAKKIMIZDA-YONETIM-BOLUM-BASKANLARI.txt')
+            .map((d: Document) => ({ ...d, score: 92 }));
+        const idariDoc = knowledgeBase
+            .filter((d: Document) => d.filename === 'WEB_AKADEMIK_HAKKIMIZDA-TANITIM-IDARI-PERSONEL.txt')
+            .map((d: Document) => ({ ...d, score: 85 }));
+        const bolumKadroDocs = knowledgeBase
+            .filter((d: Document) => d.filename.startsWith('WEB_AKADEMIK_AKADEMIK-') && d.filename.endsWith('BOLUMU.txt'))
+            .map((d: Document) => ({ ...d, score: 75 }));
+        const cmyoKadro = knowledgeBase
+            .filter((d: Document) => d.filename === 'CMYO_Akademik_Kadro.txt')
+            .map((d: Document) => ({ ...d, score: 65 }));
+        const result8 = [...baskanlarDoc, ...idariDoc, ...bolumKadroDocs, ...cmyoKadro];
+        if (result8.length > 0) return result8;
+    }
+
+    // BLOK 9: Duyuru Sorgusu
+    const DUYURU_TRIGGERS = ['son duyuru', 'duyurular neler', 'öğrenci duyurusu', 'öğrenci duyuruları', 'ilan', 'haber'];
+    if (DUYURU_TRIGGERS.some(t => queryLower.includes(t))) {
+        const arsivOgrenci = knowledgeBase
+            .filter((d: Document) => d.filename === 'WEB_DUYURU_ARSIV-OGRENCI-DUYURULARI.txt')
+            .map((d: Document) => ({ ...d, score: 88 }));
+        const arsivGenel = knowledgeBase
+            .filter((d: Document) => d.filename === 'WEB_DUYURU_ARSIV-GENEL-DUYURULAR.txt')
+            .map((d: Document) => ({ ...d, score: 85 }));
+        const duyuruTerms = queryLower.split(/\s+/).filter((t: string) => t.length > 2);
+        const topDuyurular = knowledgeBase
+            .filter((d: Document) => d.category === 'web-duyuru' &&
+                !['WEB_DUYURU_ARSIV-OGRENCI-DUYURULARI.txt', 'WEB_DUYURU_ARSIV-GENEL-DUYURULAR.txt'].includes(d.filename))
+            .map((d: Document) => {
+                const content = d.content ? d.content.toLocaleLowerCase('tr-TR') : '';
+                const score = duyuruTerms.reduce((acc: number, t: string) => acc + (content.includes(t) ? 2 : 0), 80);
+                return { ...d, score };
+            })
+            .sort((a: Document, b: Document) => ((b.score as number) || 0) - ((a.score as number) || 0))
+            .slice(0, 5);
+        const result9 = [...arsivOgrenci, ...arsivGenel, ...topDuyurular];
+        if (result9.length > 0) return result9;
+    }
+
+    // BLOK 10: Kurumsal keyword inject (bölüm/kadro keyword'leri kaldırıldı — üstteki bloklar hallediyor)
     const institutionalKeywords: Record<string, string[]> = {
-        'CMYO_Akademik_Kadro.txt': ['hoca', 'akademik', 'profesör', 'doçent', 'dr', 'ahmet aslan', 'deniz aygören', 'filiz özlem', 'burak ata', 'emine doğan'],
-        'CMYO_Yonetim_Kadrosu.txt': ['müdür', 'yönetim', 'başkan', 'sekreter', 'yardımcı', 'taylan', 'ramazan', 'yazıcı', 'aktaş', 'mayda', 'güzelküçük', 'komisyon', 'kurul'],
-        'CMYO_Bolumler_ve_Programlar.txt': ['bölüm', 'program', 'bilgisayar', 'veteriner', 'büro', 'çocuk', 'bitkisel', 'hayvansal', 'kontenjan', 'ön lisans', 'dgs', 'dikey geçiş'],
+        'CMYO_Akademik_Kadro.txt': ['ahmet aslan', 'deniz aygören', 'filiz özlem', 'burak ata', 'emine doğan'],
+        'CMYO_Yonetim_Kadrosu.txt': ['başkan', 'komisyon', 'kurul', 'güzelküçük'],
+        'CMYO_Bolumler_ve_Programlar.txt': ['kontenjan', 'ön lisans', 'dgs', 'dikey geçiş'],
         'CMYO_Genel_Tanitim_ve_Tarihce.txt': ['tarih', 'tarihçe', 'kuruluş', 'myo hakkında', 'meslek yüksekokulu', 'tanıtım', 'genel bilgi', 'nerede', 'çiçekdağı myo'],
+        'WEB_GENEL_HAKKIMIZDA-TANITIM-TARIHCE.txt': ['tarih', 'tarihçe', 'kuruluş', 'tanıtım'],
         'CMYO_Ogrenci_Hizmetleri.txt': ['ulaşım', 'yurt', 'barınma', 'kyk', 'ring', 'servis', 'aktaşlar', 'kütüphane', 'wifi', 'erasmus', 'psikolojik', 'destek'],
         'CMYO_Iletisim_Bilgileri.txt': ['iletişim', 'telefon', 'e-posta', 'eposta', 'mail', 'adres', 'faks', 'web site', 'obs', 'aydep'],
         'CMYO_Staj_Rehberi.txt': ['staj nasıl', 'staj süreci', 'staj başvuru', 'staj defteri', 'sicil fişi', 'staj yeri', 'sigorta', 'staj takvim'],
@@ -228,9 +318,10 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
                 let score = 0;
                 const filename = doc.filename.toLocaleLowerCase('tr-TR');
                 const content = doc.content.toLocaleLowerCase('tr-TR');
+                const catBonus = (doc.category === 'web-akademik' || doc.category === 'web-bolum') ? 3 : 1;
                 terms.forEach((term: string) => {
                     if (filename.includes(term)) score += 20;
-                    if (content.includes(term)) score += 1;
+                    if (content.includes(term)) score += catBonus;
                 });
                 return { doc, score };
             })
@@ -242,6 +333,7 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         return [...injectedDocs, ...normalScores];
     }
 
+    // BLOK 11: Genel Skorlama (fallback) — web-akademik/bolum kategorilerine +3 bonus
     if (!query || knowledgeBase.length === 0) return [];
 
     const terms = queryLower.split(' ').filter((t: string) => t.length > 2);
@@ -249,12 +341,13 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         let score = 0;
         const filename = doc.filename.toLocaleLowerCase('tr-TR');
         const content = doc.content.toLocaleLowerCase('tr-TR');
+        const catBonus = (doc.category === 'web-akademik' || doc.category === 'web-bolum') ? 3 : 1;
 
         terms.forEach((term: string) => {
             const rootTerm = term.length > 6 ? term.substring(0, Math.min(term.length - 2, 7)) : term;
 
             if (filename.includes(term) || (rootTerm.length > 4 && filename.includes(rootTerm))) score += 20;
-            if (content.includes(term) || (rootTerm.length > 4 && content.includes(rootTerm))) score += 1;
+            if (content.includes(term) || (rootTerm.length > 4 && content.includes(rootTerm))) score += catBonus;
 
             if (term.includes('staj') && content.includes('staj')) score += 5;
             if (term.includes('tarih') && content.includes('tarih')) score += 5;
@@ -267,7 +360,7 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
     return scores
         .filter((s: { score: number }) => s.score > 0)
         .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-        .slice(0, 5)
+        .slice(0, 6)
         .map((s: { doc: Document }) => s.doc);
 }
 
@@ -349,8 +442,6 @@ export function buildSystemPrompt(user: any, role: string, context: string, weat
     ŞU ANKİ TARİH VE SAAT: ${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', dateStyle: 'full', timeStyle: 'short' })}
     BUGÜN GÜNLERDEN: ${new Intl.DateTimeFormat('tr-TR', { timeZone: 'Europe/Istanbul', weekday: 'long' }).format(new Date())}
     Bu bilgiyi kullanarak sana sorulan "bugün günlerden ne", "saat kaç" gibi sorulara %100 doğru cevap ver. Asla başka bir tarih uydurma.
-
-    ${context}
 
     ${weather ? `
     KULLANICI KONUM VE ORTAM BİLGİSİ:
