@@ -12,7 +12,10 @@
     "test:coverage": "vitest run --coverage",
     "mobile": "npx cap open android",
     "data:scrape-bologna": "NODE_TLS_REJECT_UNAUTHORIZED=0 node scripts/scrape-bologna.js",
-    "data:ingest-bologna": "node scripts/ingest-bologna.js"
+    "data:ingest-bologna": "node scripts/ingest-bologna.js",
+    "scrape:web": "node scripts/scrape-website.js",
+    "scrape:web:test": "node scripts/scrape-website.js --test",
+    "ingest:web": "node -r dotenv/config scripts/ingest-website.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
