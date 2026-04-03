@@ -384,11 +384,18 @@ export async function POST(req: Request) {
             // If no pending verification, fall through to chat
         }
 
+        // --- ENSURE HISTORY COLUMNS EXIST (auto-migration, no-op after first run) ---
+        try {
+            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_history JSONB DEFAULT '[]'::jsonb`;
+            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_history_updated_at TIMESTAMPTZ`;
+        } catch (_) {}
+
         // --- CHECK IF USER IS LINKED ---
         let linkedUser: any = null;
         try {
             const userResult = await sql`
-                SELECT id, name, surname, email, role, title, academic_unit, daily_message_count, last_message_date
+                SELECT id, name, surname, email, role, title, academic_unit, daily_message_count, last_message_date,
+                       telegram_history, telegram_history_updated_at
                 FROM users WHERE telegram_chat_id = ${chatId} AND telegram_linked = TRUE
             `;
             if (userResult.rows.length > 0) {
@@ -448,11 +455,23 @@ export async function POST(req: Request) {
         };
 
         const systemPrompt = buildSystemPrompt(user, role, context, null) +
-            '\n\nÖNEMLİ: Bu mesaj Telegram üzerinden geldi. Kullanıcı dosya istediğinde JSON_START/JSON_END formatını KULLAN — dosyalar Telegram üzerinden otomatik gönderilecek. Dosya dışı cevaplarda normal Telegram Markdown kullan.';
+            '\n\nÖNEMLİ: Bu mesaj Telegram üzerinden geldi. Kullanıcı dosya istediğinde JSON_START/JSON_END formatını KULLAN — dosyalar Telegram üzerinden otomatik gönderilecek. Dosya adı olarak knowledge base\'deki tam ve eksiksiz dosya adını kullan (örn: "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 1. ŞUBE.pdf"). Asla kısaltma veya tahmin etme. Dosya dışı cevaplarda normal Telegram Markdown kullan.';
+
+        // --- LOAD CONVERSATION HISTORY ---
+        type HistoryMessage = { role: 'user' | 'assistant'; content: string };
+        let conversationHistory: HistoryMessage[] = [];
+        try {
+            if (linkedUser.telegram_history && linkedUser.telegram_history_updated_at) {
+                const historyAgeMs = Date.now() - new Date(linkedUser.telegram_history_updated_at).getTime();
+                if (historyAgeMs < 30 * 60 * 1000) { // 30 minutes TTL
+                    conversationHistory = linkedUser.telegram_history as HistoryMessage[];
+                }
+            }
+        } catch (_) {}
 
         let reply = '';
         try {
-            reply = await generateWithOpenAI(sanitizedText, systemPrompt, []);
+            reply = await generateWithOpenAI(sanitizedText, systemPrompt, conversationHistory);
         } catch (error: any) {
             console.error('Telegram AI generation failed:', error);
             await sendTelegramMessage(chatId, '⚠️ Bir hata oluştu. Lütfen tekrar deneyin.');
@@ -461,19 +480,39 @@ export async function POST(req: Request) {
 
         // Parse file action and clean reply text
         const { filename: requestedFile, cleanReply } = parseFileAction(reply);
-        let finalReply = cleanReply || 'Bir yanıt oluşturulamadı. Lütfen tekrar deneyin.';
+        let finalReply = cleanReply || (requestedFile ? 'Dosyanız hazırlanıyor...' : 'Bir yanıt oluşturulamadı. Lütfen tekrar deneyin.');
 
-        // --- UPDATE QUOTA ---
+        // --- UPDATE QUOTA + CONVERSATION HISTORY ---
+        const updatedHistory: HistoryMessage[] = [
+            ...conversationHistory,
+            { role: 'user' as const, content: sanitizedText },
+            { role: 'assistant' as const, content: cleanReply || reply.replace(/JSON_START[\s\S]*?JSON_END/g, '').trim() }
+        ].slice(-20); // Keep last 20 messages (10 pairs)
+
         if (role !== 'admin' && remainingQuota !== null) {
             try {
                 const newCount = 100 - remainingQuota;
                 await sql`
                     UPDATE users
-                    SET daily_message_count = ${newCount}, last_message_date = CURRENT_TIMESTAMP
+                    SET daily_message_count = ${newCount}, last_message_date = CURRENT_TIMESTAMP,
+                        telegram_history = ${JSON.stringify(updatedHistory)}::jsonb,
+                        telegram_history_updated_at = CURRENT_TIMESTAMP
                     WHERE id = ${linkedUser.id};
                 `;
             } catch (e) {
                 console.error('Quota update error:', e);
+            }
+        } else {
+            // Admin: still save history
+            try {
+                await sql`
+                    UPDATE users
+                    SET telegram_history = ${JSON.stringify(updatedHistory)}::jsonb,
+                        telegram_history_updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ${linkedUser.id};
+                `;
+            } catch (e) {
+                console.error('History update error:', e);
             }
         }
 
@@ -491,7 +530,7 @@ export async function POST(req: Request) {
             if (resolved) {
                 await sendTelegramDocument(chatId, resolved.source, resolved.resolvedFilename, resolved.resolvedFilename);
             } else {
-                await sendTelegramMessage(chatId, '📎 Bu dosyayı web üzerinden indirebilirsiniz: https://cmyo.ahievran.edu.tr');
+                await sendTelegramMessage(chatId, '📎 Dosya şu an erişilemiyor. Lütfen https://cmyoai.com adresinden giriş yaparak indirin veya yöneticiyle iletişime geçin.');
             }
         }
 
