@@ -38,9 +38,16 @@ export async function POST(request: Request) {
 
         await sql`UPDATE users SET verification_token = ${newToken} WHERE email = ${email}`;
 
-        await sendVerificationEmail(email, newToken);
+        const sent = await sendVerificationEmail(email, newToken);
 
-        return NextResponse.json({ message: 'Doğrulama maili gönderildi. Lütfen gelen kutunuzu kontrol edin.' });
+        if (!sent) {
+            return NextResponse.json(
+                { error: 'Mail gönderilemedi. Lütfen birkaç dakika sonra tekrar deneyin veya yöneticiyle iletişime geçin.' },
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json({ message: 'Doğrulama maili gönderildi. Gelen kutusu ve spam klasörünü kontrol edin.' });
     } catch (error) {
         console.error('Resend verification error:', error);
         return NextResponse.json({ error: 'Bir hata oluştu. Lütfen tekrar deneyin.' }, { status: 500 });
