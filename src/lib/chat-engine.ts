@@ -298,12 +298,16 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
     }
 
     // BLOK 9b: Akademik Takvim Sorgusu
-    const TAKVIM_TRIGGERS = ['akademik takvim', 'sınav tarihi', 'ara sınav ne zaman', 'final ne zaman', 'bütünleme ne zaman', 'ders kaydı ne zaman', 'kayıt tarihi', 'tatil ne zaman', 'akademik takvimi', 'sınav takvimi', 'resmi tatil'];
+    const TAKVIM_TRIGGERS = ['akademik takvim', 'akademik takvimi', 'sınav tarihi', 'sınav takvimi',
+        'ara sınav ne zaman', 'ara sınavlar ne zaman', 'final ne zaman', 'final sınavı ne zaman',
+        'bütünleme ne zaman', 'ders kaydı ne zaman', 'kayıt tarihi', 'tatil ne zaman', 'resmi tatil',
+        'dönem başlangıcı', 'ders dönemi ne zaman'];
     if (TAKVIM_TRIGGERS.some(t => queryLower.includes(t))) {
         const takvimdocs = knowledgeBase
-            .filter((d: Document) => /takvim/i.test(d.filename))
-            // Admin'den yüklenen dosyalar (file_url'si olanlar) önce gelsin
-            .map((d: Document) => ({ ...d, score: d.file_url ? 98 : 85 }))
+            // Türkçe "İ" (U+0130) için toLocaleLowerCase kullan — /takvim/i regex'i "TAKVİMİ"yi eşleştiremez
+            .filter((d: Document) => d.filename.toLocaleLowerCase('tr-TR').includes('takvim'))
+            // Score: file_url varlığı (50pt) + DB priority değeri → bağlaşma olmaz
+            .map((d: Document) => ({ ...d, score: (d.file_url ? 50 : 0) + ((d.priority as number) || 0) }))
             .sort((a: Document, b: Document) => ((b.score as number) || 0) - ((a.score as number) || 0));
         if (takvimdocs.length > 0) return takvimdocs;
     }
