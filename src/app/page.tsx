@@ -1071,8 +1071,15 @@ export default function Home() {
 
             {isLoading && (
               <div className="flex justify-start w-full gap-4 pl-2">
-                <div className="w-8 h-8 rounded-full bg-slate-900 border border-blue-500/30 flex items-center justify-center shrink-0 overflow-hidden">
-                  <Image src="/logo.png" alt="Loading" width={32} height={32} className="w-full h-full object-cover animate-pulse" />
+                <div className="relative w-8 h-8 shrink-0">
+                  {/* Dönen gradyan halka */}
+                  <div className="absolute inset-0 rounded-full animate-spin" style={{ background: 'conic-gradient(from 0deg, #3b82f6, #8b5cf6, #06b6d4, #3b82f6)', animationDuration: '2s' }} />
+                  {/* Koyu merkez */}
+                  <div className="absolute inset-[2.5px] rounded-full bg-[#050a14]" />
+                  {/* Merkez nokta */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                  </div>
                 </div>
                 <div className="bg-slate-800/50 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-700/50 flex items-center">
                   <span className="text-sm text-blue-400 animate-pulse font-medium">
