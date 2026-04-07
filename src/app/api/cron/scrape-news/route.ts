@@ -2,7 +2,11 @@
  * GET /api/cron/scrape-news
  *
  * Vercel Cron Job endpoint — her gün 14:00 UTC (17:00 TRT) tetiklenir.
- * Çiçekdağı MYO haber arşivini çekip knowledge_documents tablosuna upsert eder.
+ * Çiçekdağı MYO haber arşiv sayfasını tek seferde çekip knowledge_documents
+ * tablosuna upsert eder.
+ *
+ * Strateji: Hobby plan (10s limit) için sadece 1 HTTP isteği yapılır.
+ * Arşiv listesinin tüm içeriği (başlıklar, tarihler, URL'ler) tek dokümana kaydedilir.
  *
  * Güvenlik: Authorization: Bearer <CRON_SECRET> header'ı zorunludur.
  */
@@ -13,33 +17,11 @@ import * as cheerio from 'cheerio';
 
 const BASE_URL = 'https://cicekdagimyo.ahievran.edu.tr';
 const NEWS_ARCHIVE_URL = `${BASE_URL}/arsiv-haberler`;
+const FILENAME = 'WEB_HABER_ARSIV-HABERLER.txt';
 const CATEGORY = 'web-haber';
-const PRIORITY = 80;
-// Vercel Hobby plan: 10s timeout — güvenli üst limit
-const MAX_NEWS_PER_RUN = 20;
-const RUN_TIMEOUT_MS = 8500;
+const PRIORITY = 85;
 
-// Türkçe karakter normalize + URL → dosya adı
-function urlToNewsFilename(url: string): string {
-    const trMap: Record<string, string> = {
-        'ş': 's', 'ğ': 'g', 'ü': 'u', 'ö': 'o', 'ç': 'c', 'ı': 'i',
-        'Ş': 'S', 'Ğ': 'G', 'Ü': 'U', 'Ö': 'O', 'Ç': 'C', 'İ': 'I',
-    };
-    const slug = url
-        .replace(BASE_URL, '')
-        .replace(/^\/+|\/+$/g, '')
-        .split('')
-        .map((c) => trMap[c] || c)
-        .join('')
-        .replace(/[^a-zA-Z0-9-]/g, '-')
-        .replace(/-+/g, '-')
-        .toUpperCase()
-        .slice(0, 80);
-    return `WEB_HABER_${slug}.txt`;
-}
-
-// Timeout destekli fetch
-async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<string | null> {
+async function fetchWithTimeout(url: string, timeoutMs = 7000): Promise<string | null> {
     try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -59,18 +41,18 @@ async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<string |
     }
 }
 
-interface NewsItem {
-    url: string;
-    title: string;
-    date: string;
-}
-
-// Haber arşiv sayfasından liste çıkar
-function parseNewsList(html: string): NewsItem[] {
+// Arşiv sayfasından haber listesini ve tüm metin içeriğini çıkar
+function parseArchivePage(html: string): { newsLines: string[]; bodyText: string } {
     const $ = cheerio.load(html);
-    const items: NewsItem[] = [];
 
-    // Ahievran CMS yapısına göre — öncelik sırasına göre dene
+    // Gürültü temizle
+    $('header, footer, nav, .navbar, .sidebar, script, style, .breadcrumb, .pagination').remove();
+
+    // Haber linklerini topla
+    const newsLines: string[] = [];
+    const seen = new Set<string>();
+
+    // Öncelikli selector'lar
     const selectors = [
         '.haber-listesi li',
         '.haberler-listesi li',
@@ -79,6 +61,7 @@ function parseNewsList(html: string): NewsItem[] {
         'table.haberler tr',
     ];
 
+    let matched = false;
     for (const sel of selectors) {
         if ($(sel).length > 0) {
             $(sel).each((_, el) => {
@@ -88,20 +71,19 @@ function parseNewsList(html: string): NewsItem[] {
                 const url = href.startsWith('http')
                     ? href
                     : `${BASE_URL}${href.startsWith('/') ? '' : '/'}${href}`;
-                const title =
-                    a.text().trim() ||
-                    $(el).find('.baslik, .title, h3, h4').first().text().trim();
+                const title = a.text().trim() || $(el).find('.baslik, .title, h3, h4').first().text().trim();
                 const date = $(el).find('.tarih, .date, time').first().text().trim() || '';
-                if (title && url.includes(BASE_URL)) {
-                    items.push({ url, title, date });
+                if (title && url.includes(BASE_URL) && !seen.has(url)) {
+                    seen.add(url);
+                    newsLines.push(date ? `[${date}] ${title} — ${url}` : `${title} — ${url}`);
                 }
             });
-            if (items.length > 0) break;
+            if (newsLines.length > 0) { matched = true; break; }
         }
     }
 
-    // Fallback: haber veya arsiv içeren tüm linkleri tara
-    if (items.length === 0) {
+    // Fallback: haber URL pattern'i içeren tüm linkler
+    if (!matched) {
         $('a[href]').each((_, el) => {
             const href = $(el).attr('href') || '';
             const fullUrl = href.startsWith('http')
@@ -112,54 +94,28 @@ function parseNewsList(html: string): NewsItem[] {
                 fullUrl.includes(BASE_URL) &&
                 /\/(haber|arsiv-haber|detay)/.test(fullUrl) &&
                 title.length > 5 &&
-                !items.some((i) => i.url === fullUrl)
+                !seen.has(fullUrl)
             ) {
-                items.push({ url: fullUrl, title, date: '' });
+                seen.add(fullUrl);
+                newsLines.push(`${title} — ${fullUrl}`);
             }
         });
     }
 
-    return items.slice(0, MAX_NEWS_PER_RUN);
-}
-
-// Tek haberin tam içeriğini çıkar
-function parseNewsDetail(html: string, item: NewsItem): string {
-    const $ = cheerio.load(html);
-
-    $('header, footer, nav, .navbar, .sidebar, script, style, .breadcrumb, .pagination').remove();
-
-    const title =
-        $('h1').first().text().trim() ||
-        $('h2').first().text().trim() ||
-        item.title;
-
-    const contentEl =
+    // Sayfanın tüm metin içeriği (başlıklar + açıklamalar)
+    const mainEl =
         $('.icerik').length ? $('.icerik') :
         $('main').length ? $('main') :
         $('#content').length ? $('#content') :
-        $('.haber-icerik').length ? $('.haber-icerik') :
-        $('.content-area').length ? $('.content-area') :
-        $('article').length ? $('article') :
         $('body');
 
-    const bodyText = contentEl.text()
+    const bodyText = mainEl.text()
         .replace(/\t/g, ' ')
         .replace(/[ ]{3,}/g, ' ')
         .replace(/\n{4,}/g, '\n\n\n')
         .trim();
 
-    const scrapedAt = new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
-
-    return [
-        `Kaynak URL: ${item.url}`,
-        `Sayfa Başlığı: ${title}`,
-        `Haber Tarihi: ${item.date || 'Belirtilmemiş'}`,
-        `Kategori: ${CATEGORY}`,
-        `Kazıma Tarihi: ${scrapedAt}`,
-        '---',
-        '',
-        bodyText,
-    ].join('\n').replace(/\0/g, '');
+    return { newsLines, bodyText };
 }
 
 export async function GET(request: Request) {
@@ -172,85 +128,61 @@ export async function GET(request: Request) {
     }
 
     const startTime = Date.now();
-    const results = { inserted: 0, updated: 0, skipped: 0, errors: 0 };
 
     try {
-        // 1. Haber arşiv listesini çek
-        const listHtml = await fetchWithTimeout(NEWS_ARCHIVE_URL, 8000);
-        if (!listHtml) {
+        // Tek HTTP isteği: arşiv sayfası
+        const html = await fetchWithTimeout(NEWS_ARCHIVE_URL, 7000);
+        if (!html) {
             return NextResponse.json(
                 { error: 'Haber arşivi sayfasına ulaşılamadı', url: NEWS_ARCHIVE_URL },
                 { status: 502 }
             );
         }
 
-        const newsItems = parseNewsList(listHtml);
-        if (newsItems.length === 0) {
-            return NextResponse.json(
-                { warning: 'Haber listesi boş — selector eşleşmedi', url: NEWS_ARCHIVE_URL },
-                { status: 200 }
-            );
-        }
+        const { newsLines, bodyText } = parseArchivePage(html);
+        const scrapedAt = new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
 
-        // 2. Her haber için detay çek + DB upsert
-        for (const item of newsItems) {
-            // Timeout koruması (Vercel Hobby: 10s)
-            if (Date.now() - startTime > RUN_TIMEOUT_MS) {
-                console.warn(`[scrape-news] Timeout koruması: ${results.inserted + results.updated} haber işlendi`);
-                break;
-            }
+        const content = [
+            `Kaynak URL: ${NEWS_ARCHIVE_URL}`,
+            `Sayfa Başlığı: Çiçekdağı MYO — Haber Arşivi`,
+            `Kategori: ${CATEGORY}`,
+            `Kazıma Tarihi: ${scrapedAt}`,
+            `Toplam Haber: ${newsLines.length}`,
+            '---',
+            '',
+            newsLines.length > 0
+                ? `HABERLER LİSTESİ:\n${newsLines.join('\n')}`
+                : '(Haber listesi çıkarılamadı)',
+            '',
+            '--- SAYFA İÇERİĞİ ---',
+            '',
+            bodyText,
+        ].join('\n').replace(/\0/g, '');
 
-            try {
-                const filename = urlToNewsFilename(item.url);
-                const detailHtml = await fetchWithTimeout(item.url, 6000);
+        // DB upsert
+        const upsertResult = await sql`
+            INSERT INTO knowledge_documents (filename, content, category, priority)
+            VALUES (${FILENAME}, ${content}, ${CATEGORY}, ${PRIORITY})
+            ON CONFLICT (filename) DO UPDATE
+            SET content    = EXCLUDED.content,
+                category   = EXCLUDED.category,
+                priority   = EXCLUDED.priority,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING (xmax = 0) AS is_insert
+        `;
 
-                let content: string;
-                if (detailHtml) {
-                    content = parseNewsDetail(detailHtml, item);
-                } else {
-                    // Detay sayfasına ulaşılamazsa minimal kayıt
-                    content = [
-                        `Kaynak URL: ${item.url}`,
-                        `Sayfa Başlığı: ${item.title}`,
-                        `Haber Tarihi: ${item.date || 'Belirtilmemiş'}`,
-                        `Kategori: ${CATEGORY}`,
-                        `Not: Detay içeriği alınamadı`,
-                    ].join('\n');
-                    results.skipped++;
-                }
+        const isNew = upsertResult.rows[0]?.is_insert;
 
-                const upsertResult = await sql`
-                    INSERT INTO knowledge_documents (filename, content, category, priority)
-                    VALUES (${filename}, ${content}, ${CATEGORY}, ${PRIORITY})
-                    ON CONFLICT (filename) DO UPDATE
-                    SET content    = EXCLUDED.content,
-                        category   = EXCLUDED.category,
-                        priority   = EXCLUDED.priority,
-                        updated_at = CURRENT_TIMESTAMP
-                    RETURNING (xmax = 0) AS is_insert
-                `;
-
-                if (upsertResult.rows[0]?.is_insert) {
-                    results.inserted++;
-                } else {
-                    results.updated++;
-                }
-            } catch (itemErr) {
-                console.error(`[scrape-news] Haber hatası: ${item.url}`, itemErr);
-                results.errors++;
-            }
-        }
-
-        // 3. Knowledge base cache'ini geçersiz kıl
+        // Knowledge base cache'ini geçersiz kıl
         (global as any).knowledgeCacheInvalidated = true;
 
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`[scrape-news] Tamamlandı: ${JSON.stringify(results)} (${duration}s)`);
+        console.log(`[scrape-news] ${isNew ? 'Eklendi' : 'Güncellendi'}: ${newsLines.length} haber (${duration}s)`);
 
         return NextResponse.json({
             ok: true,
-            processed: newsItems.length,
-            ...results,
+            action: isNew ? 'inserted' : 'updated',
+            newsCount: newsLines.length,
             durationSeconds: parseFloat(duration),
         });
     } catch (err) {
