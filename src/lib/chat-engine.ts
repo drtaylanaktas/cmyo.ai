@@ -260,8 +260,11 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         if (result8.length > 0) return result8;
     }
 
-    // BLOK 9: Duyuru Sorgusu
-    const DUYURU_TRIGGERS = ['son duyuru', 'duyurular neler', 'öğrenci duyurusu', 'öğrenci duyuruları', 'ilan', 'haber'];
+    // BLOK 9: Duyuru + Haber Sorgusu
+    const DUYURU_TRIGGERS = [
+        'son duyuru', 'duyurular neler', 'öğrenci duyurusu', 'öğrenci duyuruları', 'ilan', 'haber',
+        'son haber', 'güncel haber', 'bu hafta ne var', 'yeni haber', 'haberler', 'ne haber',
+    ];
     if (DUYURU_TRIGGERS.some(t => queryLower.includes(t))) {
         const arsivOgrenci = knowledgeBase
             .filter((d: Document) => d.filename === 'WEB_DUYURU_ARSIV-OGRENCI-DUYURULARI.txt')
@@ -280,7 +283,17 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
             })
             .sort((a: Document, b: Document) => ((b.score as number) || 0) - ((a.score as number) || 0))
             .slice(0, 5);
-        const result9 = [...arsivOgrenci, ...arsivGenel, ...topDuyurular];
+        // Günlük otomatik scraping ile eklenen güncel haberler (WEB_HABER_*.txt)
+        const topHaberler = knowledgeBase
+            .filter((d: Document) => d.filename.startsWith('WEB_HABER_'))
+            .map((d: Document) => {
+                const content = d.content ? d.content.toLocaleLowerCase('tr-TR') : '';
+                const score = duyuruTerms.reduce((acc: number, t: string) => acc + (content.includes(t) ? 3 : 0), 82);
+                return { ...d, score };
+            })
+            .sort((a: Document, b: Document) => ((b.score as number) || 0) - ((a.score as number) || 0))
+            .slice(0, 5);
+        const result9 = [...arsivOgrenci, ...arsivGenel, ...topDuyurular, ...topHaberler];
         if (result9.length > 0) return result9;
     }
 
