@@ -297,6 +297,15 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         if (result9.length > 0) return result9;
     }
 
+    // BLOK 9b: Akademik Takvim Sorgusu
+    const TAKVIM_TRIGGERS = ['akademik takvim', 'sınav tarihi', 'ara sınav ne zaman', 'final ne zaman', 'bütünleme ne zaman', 'ders kaydı ne zaman', 'kayıt tarihi', 'tatil ne zaman', 'akademik takvimi', 'sınav takvimi', 'resmi tatil'];
+    if (TAKVIM_TRIGGERS.some(t => queryLower.includes(t))) {
+        const takvimdocs = knowledgeBase
+            .filter((d: Document) => /takvim/i.test(d.filename))
+            .map((d: Document) => ({ ...d, score: 95 }));
+        if (takvimdocs.length > 0) return takvimdocs;
+    }
+
     // BLOK 10: Kurumsal keyword inject (bölüm/kadro keyword'leri kaldırıldı — üstteki bloklar hallediyor)
     const institutionalKeywords: Record<string, string[]> = {
         'CMYO_Akademik_Kadro.txt': ['ahmet aslan', 'deniz aygören', 'filiz özlem', 'burak ata', 'emine doğan'],

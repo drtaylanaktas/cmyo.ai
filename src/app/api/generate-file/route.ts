@@ -109,10 +109,53 @@ export async function POST(req: Request) {
             });
         }
 
-        logDebug('File not found at all. Proceeding to fallback logic (only for DOCX generation).');
+        logDebug('File not found on disk. Checking DB for file_url before fallback...');
 
-        // --- FALLBACK: Generate New Document if validation fails or file not found ---
-        // ONLY if it is meant to be a DOCX or if we have data to fill
+        // --- DB CHECK: file_url varsa proxy et (PDF dahil her dosya türü için) ---
+        let defaultContent = '';
+        try {
+            const { sql } = await import('@vercel/postgres');
+
+            const normFilename = filename.normalize('NFC').toLowerCase();
+            const targetFilename = normFilename.replace('.docx', '').replace('.pdf', '').replace('.xlsx', '');
+            const codeMatch = filename.match(/(FR|GGYS-FR)-(\d{3,4})|CMYO_([A-Za-z0-9_]+)/i);
+            const searchCode = codeMatch ? codeMatch[0] : null;
+
+            logDebug(`Searching DB for: ${targetFilename}${searchCode ? ` (Code: ${searchCode})` : ''}`);
+
+            const dbQuery = searchCode
+                ? await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename ILIKE ${'%' + searchCode + '%'} LIMIT 1`
+                : await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE LOWER(filename) LIKE ${'%' + targetFilename + '%'} LIMIT 1`;
+
+            if (dbQuery.rows.length > 0) {
+                if (dbQuery.rows[0].file_url) {
+                    logDebug(`Found file_url in DB: ${dbQuery.rows[0].file_url}. Proxying...`);
+                    try {
+                        const fileRes = await fetch(dbQuery.rows[0].file_url);
+                        if (fileRes.ok) {
+                            const ext = filename.toLowerCase().split('.').pop();
+                            let contentType = fileRes.headers.get('Content-Type') || 'application/octet-stream';
+                            if (ext === 'pdf') contentType = 'application/pdf';
+                            if (ext === 'docx') contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                            if (ext === 'xlsx') contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                            return new NextResponse(fileRes.body, {
+                                headers: {
+                                    'Content-Type': contentType,
+                                    'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+                                },
+                            });
+                        }
+                    } catch (fetchErr) {
+                        logDebug(`Proxy failed: ${fetchErr}`);
+                    }
+                }
+                defaultContent = dbQuery.rows[0].content || '';
+            }
+        } catch (dbErr) {
+            console.error('DB query failed:', dbErr);
+        }
+
+        // --- FALLBACK: DOCX oluştur (sadece .docx için, PDF üretilemez) ---
         if (filename.endsWith('.pdf')) {
             return NextResponse.json({ error: 'PDF belgesi bulunamadı. Lütfen yöneticiye bildirin.' }, { status: 404 });
         }
@@ -137,62 +180,6 @@ export async function POST(req: Request) {
                     })
                 );
             }
-        }
-
-        // Search the database for the form content if available
-        let defaultContent = '';
-        try {
-            const { sql } = await import('@vercel/postgres');
-            
-            // Normalize inputs for cross-platform matching (NFC/NFD issue)
-            const normFilename = filename.normalize('NFC').toLowerCase();
-            const targetFilename = normFilename.replace('.docx', '').replace('.pdf', '');
-            
-            // --- NEW: Try to match by code (like FR-504) first ---
-            const codeMatch = filename.match(/(FR|GGYS-FR)-(\d{3,4})|CMYO_([A-Za-z0-9_]+)/i);
-            const searchCode = codeMatch ? codeMatch[0] : null;
-            
-            logDebug(`Searching DB for: ${targetFilename}${searchCode ? ` (Code: ${searchCode})` : ''}`);
-            
-            let dbQuery;
-            if (searchCode) {
-                // If we have a code, use it as anchor (much more reliable than full Turkish title)
-                dbQuery = await sql`
-                    SELECT filename, content, file_url FROM knowledge_documents 
-                    WHERE filename ILIKE ${'%' + searchCode + '%'}
-                    LIMIT 1
-                `;
-            } else {
-                dbQuery = await sql`
-                    SELECT filename, content, file_url FROM knowledge_documents 
-                    WHERE LOWER(filename) LIKE ${'%' + targetFilename + '%'}
-                    LIMIT 1
-                `;
-            }
-            if (dbQuery.rows.length > 0) {
-                // If we have an original file URL, proxy the download!
-                if (dbQuery.rows[0].file_url) {
-                    logDebug(`Found original file URL in DB: ${dbQuery.rows[0].file_url}. Proxying download...`);
-                    try {
-                        const fileRes = await fetch(dbQuery.rows[0].file_url);
-                        if (fileRes.ok) {
-                            return new NextResponse(fileRes.body, {
-                                headers: {
-                                    'Content-Type': fileRes.headers.get('Content-Type') || 'application/octet-stream',
-                                    'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
-                                }
-                            });
-                        }
-                    } catch (fetchErr) {
-                        logDebug(`Failed to proxy file from UploadThing: ${fetchErr}`);
-                        // Fall back to generating docx if proxy fails
-                    }
-                }
-                
-                defaultContent = dbQuery.rows[0].content;
-            }
-        } catch (dbErr) {
-            console.error('Failed to query DB for file generation:', dbErr);
         }
 
         const documentChildren: (Paragraph | Table)[] = [
