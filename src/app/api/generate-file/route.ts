@@ -116,16 +116,31 @@ export async function POST(req: Request) {
         try {
             const { sql } = await import('@vercel/postgres');
 
-            const normFilename = filename.normalize('NFC').toLowerCase();
-            const targetFilename = normFilename.replace('.docx', '').replace('.pdf', '').replace('.xlsx', '');
+            // Uzantıyı kaldır (Türkçe karakterlere dokunmadan — toLowerCase bozuyor)
+            const filenameNoExt = filename.replace(/\.(pdf|docx|xlsx)$/i, '');
             const codeMatch = filename.match(/(FR|GGYS-FR)-(\d{3,4})|CMYO_([A-Za-z0-9_]+)/i);
             const searchCode = codeMatch ? codeMatch[0] : null;
 
-            logDebug(`Searching DB for: ${targetFilename}${searchCode ? ` (Code: ${searchCode})` : ''}`);
+            logDebug(`Searching DB for: "${filenameNoExt}"${searchCode ? ` (Code: ${searchCode})` : ''}`);
 
-            const dbQuery = searchCode
-                ? await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename ILIKE ${'%' + searchCode + '%'} LIMIT 1`
-                : await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE LOWER(filename) LIKE ${'%' + targetFilename + '%'} LIMIT 1`;
+            // 1. Deneme: exact match (Türkçe karakterleri bozmaz, en güvenilir)
+            let dbQuery = await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename = ${filenameNoExt} LIMIT 1`;
+
+            // 2. Deneme: kod ile ILIKE (FR-346 gibi formlar için)
+            if (dbQuery.rows.length === 0 && searchCode) {
+                dbQuery = await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename ILIKE ${'%' + searchCode + '%'} LIMIT 1`;
+            }
+
+            // 3. Deneme: ASCII parçalarla keyword arama (exact match başarısız olunca)
+            if (dbQuery.rows.length === 0) {
+                const asciiKeywords = filenameNoExt.split(/[\s\-]+/).filter((w: string) => /^[a-zA-Z0-9]{3,}$/.test(w));
+                logDebug(`ASCII keywords: ${asciiKeywords.join(', ')}`);
+                if (asciiKeywords.length >= 2) {
+                    dbQuery = await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename LIKE ${'%' + asciiKeywords[0] + '%'} AND filename LIKE ${'%' + asciiKeywords[1] + '%'} AND file_url IS NOT NULL ORDER BY priority DESC, updated_at DESC LIMIT 1`;
+                } else if (asciiKeywords.length === 1) {
+                    dbQuery = await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename LIKE ${'%' + asciiKeywords[0] + '%'} AND file_url IS NOT NULL ORDER BY priority DESC, updated_at DESC LIMIT 1`;
+                }
+            }
 
             if (dbQuery.rows.length > 0) {
                 if (dbQuery.rows[0].file_url) {

@@ -301,7 +301,10 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
     const TAKVIM_TRIGGERS = ['akademik takvim', 'akademik takvimi', 'sınav tarihi', 'sınav takvimi',
         'ara sınav ne zaman', 'ara sınavlar ne zaman', 'final ne zaman', 'final sınavı ne zaman',
         'bütünleme ne zaman', 'ders kaydı ne zaman', 'kayıt tarihi', 'tatil ne zaman', 'resmi tatil',
-        'dönem başlangıcı', 'ders dönemi ne zaman'];
+        'dönem başlangıcı', 'ders dönemi ne zaman',
+        'yarıyıl ne zaman', 'yarıyıl bitiyor', 'dönem ne zaman bitiyor', 'dönem ne zaman başlıyor',
+        'bahar yarıyılı', 'güz yarıyılı', 'bahar dönemi ne zaman', 'güz dönemi ne zaman',
+        'dönem bitiş', 'dönem sonu', 'ders sonu', 'sınav haftası'];
     if (TAKVIM_TRIGGERS.some(t => queryLower.includes(t))) {
         const takvimdocs = knowledgeBase
             // Türkçe "İ" (U+0130) için toLocaleLowerCase kullan — /takvim/i regex'i "TAKVİMİ"yi eşleştiremez
@@ -635,7 +638,7 @@ export function buildContext(relevantDocs: Document[]): string {
       AŞAĞIDAKİ BELGELER BULUNDU. KULLANICI BU BELGELER HAKKINDA SORU SORUYOR VEYA BU BELGELERİ İSTİYOR OLABİLİR.
       
       ${relevantDocs.map(d => {
-            const maxLen = d.filename.includes('BOLOGNA') ? 8000 : 3000;
+            const maxLen = (d.filename.includes('BOLOGNA') || d.filename.toLocaleLowerCase('tr-TR').includes('takvim')) ? 10000 : 3000;
             const truncated = d.content ? (d.content.length > maxLen ? d.content.substring(0, maxLen) + '... (kısaltıldı)' : d.content) : "(İçerik çekilemedi)";
             const ext = d.filename?.toLowerCase().split('.').pop() || '';
             const canDownload = (d.file_url || ext === 'docx' || ext === 'xlsx') ? "Evet" : "Hayır";
