@@ -80,3 +80,13 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--neon-blue);
 }
+
+/* Su dalgası halka animasyonu */
+@keyframes waterRing {
+  0%   { transform: rotate(0deg)   scale(1);    border-radius: 50%; }
+  20%  { transform: rotate(72deg)  scale(0.93); border-radius: 42% 58% 52% 48% / 48% 52% 58% 42%; }
+  40%  { transform: rotate(144deg) scale(1.04); border-radius: 58% 42% 45% 55% / 55% 45% 42% 58%; }
+  60%  { transform: rotate(216deg) scale(0.95); border-radius: 46% 54% 58% 42% / 42% 58% 54% 46%; }
+  80%  { transform: rotate(288deg) scale(1.03); border-radius: 54% 46% 42% 58% / 58% 42% 46% 54%; }
+  100% { transform: rotate(360deg) scale(1);    border-radius: 50%; }
+}

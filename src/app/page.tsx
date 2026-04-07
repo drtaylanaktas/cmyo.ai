@@ -1072,8 +1072,8 @@ export default function Home() {
             {isLoading && (
               <div className="flex justify-start w-full gap-4 pl-2">
                 <div className="relative w-8 h-8 shrink-0">
-                  {/* Dönen gradyan halka */}
-                  <div className="absolute inset-0 rounded-full animate-spin" style={{ background: 'conic-gradient(from 0deg, #3b82f6, #8b5cf6, #06b6d4, #3b82f6)', animationDuration: '2s' }} />
+                  {/* Su dalgası gradyan halka */}
+                  <div className="absolute inset-0" style={{ background: 'conic-gradient(from 0deg, #3b82f6, #8b5cf6, #06b6d4, #3b82f6)', animation: 'waterRing 2.8s ease-in-out infinite' }} />
                   {/* Koyu merkez */}
                   <div className="absolute inset-[2.5px] rounded-full bg-[#050a14]" />
                   {/* Merkez nokta */}
