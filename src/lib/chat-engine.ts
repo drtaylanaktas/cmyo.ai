@@ -315,6 +315,17 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         if (takvimdocs.length > 0) return takvimdocs;
     }
 
+    // BLOK 9c: Form kodu ile doğrudan arama (FR-585, GGYS-FR-001 vb.)
+    // Tetikleyici: Sorguda "FR-NNN" veya "GGYS-FR-NNN" pattern'i var
+    const formCodeMatch = query.match(/\b((?:ggys[-\s]?)?fr[-\s]?\d{3,4})\b/i);
+    if (formCodeMatch) {
+        const formCode = formCodeMatch[1].replace(/\s/g, '-').toUpperCase();
+        const codeDocs = knowledgeBase
+            .filter((d: Document) => d.filename.toUpperCase().includes(formCode))
+            .map((d: Document) => ({ ...d, score: 96 }));
+        if (codeDocs.length > 0) return codeDocs;
+    }
+
     // BLOK 10: Kurumsal keyword inject (bölüm/kadro keyword'leri kaldırıldı — üstteki bloklar hallediyor)
     const institutionalKeywords: Record<string, string[]> = {
         'CMYO_Akademik_Kadro.txt': ['ahmet aslan', 'deniz aygören', 'filiz özlem', 'burak ata', 'emine doğan'],
