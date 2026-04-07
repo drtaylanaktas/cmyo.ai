@@ -302,7 +302,9 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
     if (TAKVIM_TRIGGERS.some(t => queryLower.includes(t))) {
         const takvimdocs = knowledgeBase
             .filter((d: Document) => /takvim/i.test(d.filename))
-            .map((d: Document) => ({ ...d, score: 95 }));
+            // Admin'den yüklenen dosyalar (file_url'si olanlar) önce gelsin
+            .map((d: Document) => ({ ...d, score: d.file_url ? 98 : 85 }))
+            .sort((a: Document, b: Document) => ((b.score as number) || 0) - ((a.score as number) || 0));
         if (takvimdocs.length > 0) return takvimdocs;
     }
 
