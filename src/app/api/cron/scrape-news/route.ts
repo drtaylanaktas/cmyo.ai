@@ -75,7 +75,7 @@ function parseArchivePage(html: string): { newsLines: string[]; bodyText: string
                 const date = $(el).find('.tarih, .date, time').first().text().trim() || '';
                 if (title && url.includes(BASE_URL) && !seen.has(url)) {
                     seen.add(url);
-                    newsLines.push(date ? `[${date}] ${title} — ${url}` : `${title} — ${url}`);
+                    newsLines.push(date ? `- [${title}](${url}) — ${date}` : `- [${title}](${url})`);
                 }
             });
             if (newsLines.length > 0) { matched = true; break; }
@@ -97,7 +97,7 @@ function parseArchivePage(html: string): { newsLines: string[]; bodyText: string
                 !seen.has(fullUrl)
             ) {
                 seen.add(fullUrl);
-                newsLines.push(`${title} — ${fullUrl}`);
+                newsLines.push(`- [${title}](${fullUrl})`);
             }
         });
     }
