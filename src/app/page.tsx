@@ -29,6 +29,9 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState(0);
+  const [streamingId, setStreamingId] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [attachment, setAttachment] = useState<{ name: string, content: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -396,6 +399,32 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [isBlocked, blockTimer]);
 
+  // Bekleme sırasında dönen durum yazıları
+  const LOADING_PHASES = ['Düşünüyor...', 'Kaynakları inceliyor...', 'Yanıt hazırlanıyor...'];
+  useEffect(() => {
+    if (!isLoading) { setLoadingPhase(0); return; }
+    const interval = setInterval(() => {
+      setLoadingPhase((p) => (p + 1) % LOADING_PHASES.length);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
+  // Typewriter efekti — cevap gelince karakter karakter göster
+  useEffect(() => {
+    if (!streamingId) return;
+    const targetMsg = messages.find((m) => m.id === streamingId);
+    if (!targetMsg) return;
+    const fullText = targetMsg.content;
+    if (streamingText.length >= fullText.length) {
+      setStreamingId(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setStreamingText(fullText.slice(0, streamingText.length + 1));
+    }, 8);
+    return () => clearTimeout(timer);
+  }, [streamingId, streamingText, messages]);
+
   const handleSend = async () => {
     if (!input.trim() || isBlocked) return;
 
@@ -525,12 +554,15 @@ export default function Home() {
         }
       }
 
+      const newMsgId = (Date.now() + 1).toString();
       setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
+        id: newMsgId,
         role: 'assistant',
         content: botContent,
         attachments: attachment ? [attachment] : undefined
       }]);
+      setStreamingId(newMsgId);
+      setStreamingText('');
 
     } catch (error: any) {
       console.error('Error sending message:', error);
@@ -1022,8 +1054,13 @@ export default function Home() {
                               ),
                             }}
                           >
-                            {stripJsonBlock(msg.content)}
+                            {streamingId === msg.id
+                              ? stripJsonBlock(streamingText)
+                              : stripJsonBlock(msg.content)}
                           </ReactMarkdown>
+                          {streamingId === msg.id && (
+                            <span className="inline-block w-0.5 h-4 bg-blue-400 animate-pulse ml-0.5 align-middle" />
+                          )}
                         </div>
                       )}
                     </div>
@@ -1037,10 +1074,10 @@ export default function Home() {
                 <div className="w-8 h-8 rounded-full bg-slate-900 border border-blue-500/30 flex items-center justify-center shrink-0 overflow-hidden">
                   <Image src="/logo.png" alt="Loading" width={32} height={32} className="w-full h-full object-cover animate-pulse" />
                 </div>
-                <div className="bg-slate-800/50 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-700/50 flex items-center gap-1.5">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span>
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-100"></span>
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-200"></span>
+                <div className="bg-slate-800/50 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-700/50 flex items-center">
+                  <span className="text-sm text-blue-400 animate-pulse font-medium">
+                    {LOADING_PHASES[loadingPhase]}
+                  </span>
                 </div>
               </div>
             )}
