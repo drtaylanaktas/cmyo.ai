@@ -1007,7 +1007,23 @@ export default function Home() {
                         </div>
                       ) : (
                         <div className="prose prose-invert prose-sm max-w-none prose-headings:text-blue-200 prose-strong:text-blue-100 prose-a:text-blue-400 prose-code:text-green-300 prose-code:bg-slate-900/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-900/80 prose-pre:border prose-pre:border-slate-700/50 prose-table:border-collapse [&_th]:bg-slate-800/50 [&_th]:border [&_th]:border-slate-700/50 [&_th]:px-3 [&_th]:py-2 [&_td]:border [&_td]:border-slate-700/50 [&_td]:px-3 [&_td]:py-2 prose-li:marker:text-blue-400">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripJsonBlock(msg.content)}</ReactMarkdown>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              a: ({ href, children }) => (
+                                <a
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-400 underline underline-offset-2 hover:text-blue-300 transition-colors"
+                                >
+                                  {children}
+                                </a>
+                              ),
+                            }}
+                          >
+                            {stripJsonBlock(msg.content)}
+                          </ReactMarkdown>
                         </div>
                       )}
                     </div>
