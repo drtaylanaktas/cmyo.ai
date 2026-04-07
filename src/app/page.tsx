@@ -615,6 +615,7 @@ export default function Home() {
 
   // Quick start suggestions
   const quickSuggestions = [
+    { icon: '📰', text: 'Bugünün haberleri', query: 'Okuldaki son haberler neler?' },
     { icon: '📅', text: 'Ders programını göster', query: 'Haftalık ders programını gösterir misin?' },
     { icon: '📝', text: 'Staj başvurusu nasıl yapılır?', query: 'Staj başvurusu nasıl yapılır?' },
     { icon: '🏫', text: 'Çiçekdağı MYO hakkında', query: 'Çiçekdağı MYO hakkında bilgi ver' },
