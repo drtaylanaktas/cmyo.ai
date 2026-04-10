@@ -534,18 +534,27 @@ export default function Home() {
                 const url = window.URL.createObjectURL(blob);
                 attachment = url;
 
-                const isPdf = targetFilename.toLowerCase().endsWith('.pdf');
-                const extension = isPdf ? 'pdf' : 'docx';
+                // Content-Disposition header'dan gerçek dosya adını al, yoksa targetFilename kullan
+                const disposition = fileRes.headers.get('Content-Disposition') || '';
+                const nameMatch = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^;"'\n]+)["']?/i);
+                const serverFilename = nameMatch ? decodeURIComponent(nameMatch[1].trim()) : targetFilename;
 
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `${targetFilename.replace(/\.[^/.]+$/, "")}_Gen.${extension}`;
+                a.download = serverFilename;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
+
+                const isPdf = serverFilename.toLowerCase().endsWith('.pdf');
                 botContent += `\n\n✅ Belgeniz hazırlandı ve indirildi (${isPdf ? 'PDF' : 'Word'} formatında).`;
               } else {
-                botContent += "\n\n❌ Belge oluşturulurken hata oluştu.";
+                let errMsg = 'Belge oluşturulurken hata oluştu.';
+                try {
+                  const errData = await fileRes.json();
+                  if (errData.error) errMsg = errData.error;
+                } catch {}
+                botContent += `\n\n❌ ${errMsg}`;
               }
             }
           }

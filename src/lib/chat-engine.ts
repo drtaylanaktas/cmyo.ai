@@ -411,7 +411,7 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
     return scores
         .filter((s: { score: number }) => s.score > 0)
         .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-        .slice(0, 6)
+        .slice(0, 12)
         .map((s: { doc: Document }) => s.doc);
 }
 
@@ -599,34 +599,17 @@ export function buildSystemPrompt(user: any, role: string, context: string, weat
     HİTABET VE TONLAMA:
     Kullanıcının rolü: "${role}"
     
-    STAJ BAŞVURU FORMU KURALI (CRITICAL):
-    Kullanıcı staj formu isterse bölümünü kontrol et ve doğru PDF'i ver.
-    
-    BÖLÜM - DOSYA EŞLEŞTİRMESİ:
-    - "Bilgisayar Teknolojileri" -> "Bilgisayar Teknolojileri Bölümü Staj Başvuru ve Kabul Formu.pdf"
-    - "Bitkisel ve Hayvansal Üretim" -> "Bitkisel ve Hayvansal Üretim Bölümü Staj Başvuru ve Kabul Formu.pdf"
-    - "Büro Hizmetleri ve Sekreterlik" -> "Büro Hizmetleri ve Sekreterlik Bölümü Staj Başvuru ve Kabul Formui.pdf"
-    - "Çocuk Bakımı ve Gençlik Hizmetleri" -> "Çocuk Bakımı ve Gençlik Hizmetleri Bölümü Staj Başvuru ve Kabul Formu.pdf"
-    - "Veterinerlik" -> "Veterinerlik Bölümü Staj Başvuru ve Kabul Formu.pdf"
+    STAJ BAŞVURU FORMU KURALI:
+    Kullanıcı staj formu isterse, bağlamda hangi bölümlerin staj formu varsa onları listele. Bölümü belli değilse sor. SADECE bağlamda gördüğün dosya adlarını kullan.
 
-    DERS PROGRAMI KURALI (CRITICAL):
-    Bölüme göre doğru ders programı dosyasını ver. Veterinerlik için 3 şube var, önce sor.
-
-    GENEL FORM KURALI:
-    - "Kayıt Sildirme" -> "FR-109 Kayıt Sildirme İsteği Formu.docx"
-    - "Kayıt Dondurma" -> "FR-117 Öğrenime Ara Verme Talep Formu.docx"
-    - "Ders Kayıt" -> "FR-005 Ders Kayıt Formu.docx"
-      - "Ders Muafiyet" -> "FR-004 Ders Muafiyet Formu.docx"
-      - "Sınav Soru - Cevap Kağıdı", "FR-504" -> "FR-504 Sınav Soru - Cevap Kağıdı.docx"
-      - "Tek Ders Sınavı" -> "FR-103 Tek Ders Sınav Talep Formu.docx"
-    - "Mazeret Sınavı" -> "FR-108 Mazeret Sınav Başvuru Formu.docx"
-    - "Yatay Geçiş" -> "FR-104 Yatay Geçiş Başvuru Formu.docx"
+    DERS PROGRAMI KURALI:
+    Bölüme göre doğru ders programı dosyasını ver. Bağlamda birden fazla şube varsa (örn. Veterinerlik 1. ŞUBE, 2. ŞUBE) önce hangisini istediklerini sor. SADECE bağlamda gördüğün dosya adlarını kullan.
 
     Eğer kullanıcı AKADEMİSYEN ise: "Sayın Hocam" hitabı, resmi ton.
     Eğer kullanıcı ÖĞRENCİ ise: Yardımsever, teşvik edici ton.
     
     Kullanıcı belge istediğinde MUTLAKA JSON_START / JSON_END formatıyla dosya ver. BU ETİKETLER OLMADAN ASLA JSON YAZMA.
-    
+
     Örnek Zorunlu Format (Başka hiçbir şekilde yazma):
     JSON_START
     {
@@ -635,9 +618,20 @@ export function buildSystemPrompt(user: any, role: string, context: string, weat
     }
     JSON_END
 
-    Genel Kural: Eğer bağlamda (context) bir belge "İndirilebilir: Evet" olarak işaretlenmişse ve kullanıcı bu belgeyi istiyorsa, o belgenin tam adıyla 'generate_file' action'ını mutlaka tetikle. Anahtar kelime kesinlikle 'filename' olmalıdır.
+    KRİTİK KURAL 1 — SADECE BAĞLAMDA OLAN DOSYAYI VER:
+    Dosya adı YALNIZCA bağlamda (context) gördüğün "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX değeri olabilir. Bağlamda olmayan hiçbir dosya adı üretme, tahmin etme veya hatırladığını sanma. Bağlamda yoksa "Bu belge sistemde bulunamadı" de.
 
-    KRİTİK KURAL — DOSYA ADI: filename değeri olarak MUTLAKA bağlamdaki "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX değerini aynen kopyala. Asla kısaltma, çeviri, alt çizgi veya farklı bir isim uydurma. Örnek doğru kullanım: "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 1. ŞUBE.pdf"
+    KRİTİK KURAL 2 — ÇOKLU BELGE DURUMU:
+    Bağlamda birden fazla belge varsa ve kullanıcının tam olarak hangisini istediği belli değilse:
+    - Tüm eşleşen belgeleri numaralı liste olarak göster
+    - "Hangisini istersiniz?" diye sor
+    - Kullanıcı seçim yaptıktan SONRA generate_file tetikle
+    Örnek: Kullanıcı "tutanak ver" dedi, bağlamda 3 farklı tutanak belgesi var → hepsini listele, seçtir.
+
+    KRİTİK KURAL 3 — DOSYA ADI KOPYALAMA:
+    filename değeri olarak MUTLAKA bağlamdaki "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX değerini HARF HARF aynen kopyala. Asla kısaltma, çeviri, alt çizgi veya tahmin etme. Örnek: "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 1. ŞUBE.pdf"
+
+    Genel Kural: Eğer bağlamda (context) bir belge "İndirilebilir: Evet" olarak işaretlenmişse ve kullanıcı bu belgeyi istiyorsa, o belgenin tam adıyla 'generate_file' action'ını mutlaka tetikle.
 
     YAPAY ZEKA KURALLARI (GÖRÜNÜM):
     1. JSON_START ve JSON_END bloklarını kullanıcıya asla ham metin olarak gösterme. Bu bloklar sadece sistemin aksiyon alması içindir.
