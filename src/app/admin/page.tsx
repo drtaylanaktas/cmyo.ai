@@ -172,7 +172,7 @@ export default function AdminDashboard() {
                 setCurrentDoc(prev => ({
                     ...prev,
                     content: (prev.content ? prev.content + '\n\n' : '') + data.text,
-                    filename: prev.filename || data.filename,
+                    filename: prev.filename || (data.filename || '').replace(/\.(pdf|docx|xlsx|xls)$/i, ''),
                     file_url: uploadedUrl || prev.file_url
                 }));
             } else {

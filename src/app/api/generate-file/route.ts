@@ -52,8 +52,8 @@ export async function POST(req: Request) {
                 // Check NFD equality
                 if (f.normalize('NFD') === filename.normalize('NFD')) return true;
 
-                // Check case-insensitive equality
-                if (normF.toLowerCase() === normTarget.toLowerCase()) return true;
+                // Check case-insensitive equality (Turkish-safe)
+                if (normF.toLocaleLowerCase('tr-TR') === normTarget.toLocaleLowerCase('tr-TR')) return true;
 
                 return false;
             });
@@ -63,15 +63,15 @@ export async function POST(req: Request) {
                 targetFilePath = path.join(dataDir, foundFile);
             } else {
                 logDebug('File NOT found via exact or normalization checks.');
-                // LAST RESORT: Try to find a file that matches major keywords
-                // This helps if there are extra spaces or minor differences
-                // We split the filename by spaces and see if any file contains MOST of the terms
-                const targetTerms = filename.toLowerCase().replace('.pdf', '').split(' ').filter((t: string) => t.length > 3);
+                // LAST RESORT: fuzzy keyword search — Turkish-safe, all word lengths ≥3
+                const targetTerms = filename.normalize('NFC').replace(/\.(pdf|docx|xlsx|xls)$/i, '')
+                    .split(/[\s\-\/\.]+/)
+                    .filter((t: string) => t.length >= 3)
+                    .map((t: string) => t.toLocaleLowerCase('tr-TR'));
 
                 if (targetTerms.length > 0) {
                     const fuzzyMatch = files.find(f => {
-                        const fLower = f.toLowerCase();
-                        // Check if file contains ALL major terms
+                        const fLower = f.normalize('NFC').toLocaleLowerCase('tr-TR');
                         return targetTerms.every((term: string) => fLower.includes(term));
                     });
 
@@ -116,29 +116,29 @@ export async function POST(req: Request) {
         try {
             const { sql } = await import('@vercel/postgres');
 
-            // Uzantıyı kaldır (Türkçe karakterlere dokunmadan — toLowerCase bozuyor)
-            const filenameNoExt = filename.replace(/\.(pdf|docx|xlsx)$/i, '');
+            // Uzantıyı kaldır (her iki varyant için — DB'de uzantısız veya uzantılı kaydedilmiş olabilir)
+            const filenameNoExt = filename.replace(/\.(pdf|docx|xlsx|xls)$/i, '');
             const codeMatch = filename.match(/(FR|GGYS-FR)-(\d{3,4})|CMYO_([A-Za-z0-9_]+)/i);
             const searchCode = codeMatch ? codeMatch[0] : null;
 
-            logDebug(`Searching DB for: "${filenameNoExt}"${searchCode ? ` (Code: ${searchCode})` : ''}`);
+            logDebug(`Searching DB for: "${filenameNoExt}" or "${filename}"${searchCode ? ` (Code: ${searchCode})` : ''}`);
 
-            // 1. Deneme: exact match (Türkçe karakterleri bozmaz, en güvenilir)
-            let dbQuery = await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename = ${filenameNoExt} LIMIT 1`;
+            // 1. Deneme: exact match — uzantısız VE uzantılı hali dene (admin her iki şekilde kaydediyor olabilir)
+            let dbQuery = await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename = ${filenameNoExt} OR filename = ${filename} LIMIT 1`;
 
             // 2. Deneme: kod ile ILIKE (FR-346 gibi formlar için)
             if (dbQuery.rows.length === 0 && searchCode) {
                 dbQuery = await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename ILIKE ${'%' + searchCode + '%'} LIMIT 1`;
             }
 
-            // 3. Deneme: ASCII parçalarla keyword arama (exact match başarısız olunca)
+            // 3. Deneme: Türkçe-güvenli keyword arama — tüm kelimeler, ILIKE (case+accent insensitive)
             if (dbQuery.rows.length === 0) {
-                const asciiKeywords = filenameNoExt.split(/[\s\-]+/).filter((w: string) => /^[a-zA-Z0-9]{3,}$/.test(w));
-                logDebug(`ASCII keywords: ${asciiKeywords.join(', ')}`);
-                if (asciiKeywords.length >= 2) {
-                    dbQuery = await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename LIKE ${'%' + asciiKeywords[0] + '%'} AND filename LIKE ${'%' + asciiKeywords[1] + '%'} AND file_url IS NOT NULL ORDER BY priority DESC, updated_at DESC LIMIT 1`;
-                } else if (asciiKeywords.length === 1) {
-                    dbQuery = await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename LIKE ${'%' + asciiKeywords[0] + '%'} AND file_url IS NOT NULL ORDER BY priority DESC, updated_at DESC LIMIT 1`;
+                const keywords = filenameNoExt.split(/[\s\-\/\.]+/).filter((w: string) => w.length >= 3);
+                logDebug(`Keywords: ${keywords.join(', ')}`);
+                if (keywords.length >= 2) {
+                    dbQuery = await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename ILIKE ${'%' + keywords[0] + '%'} AND filename ILIKE ${'%' + keywords[1] + '%'} AND file_url IS NOT NULL ORDER BY priority DESC, updated_at DESC LIMIT 1`;
+                } else if (keywords.length === 1) {
+                    dbQuery = await sql`SELECT filename, content, file_url FROM knowledge_documents WHERE filename ILIKE ${'%' + keywords[0] + '%'} AND file_url IS NOT NULL ORDER BY priority DESC, updated_at DESC LIMIT 1`;
                 }
             }
 
@@ -148,15 +148,18 @@ export async function POST(req: Request) {
                     try {
                         const fileRes = await fetch(dbQuery.rows[0].file_url);
                         if (fileRes.ok) {
-                            const ext = filename.toLowerCase().split('.').pop();
+                            // content-type'ı dosya adı uzantısından belirle (DB'deki gerçek adı kullan)
+                            const dbFilename = dbQuery.rows[0].filename as string;
+                            const serveFilename = dbFilename.match(/\.(pdf|docx|xlsx|xls)$/i) ? dbFilename : filename;
+                            const ext = serveFilename.split('.').pop()?.toLowerCase() || '';
                             let contentType = fileRes.headers.get('Content-Type') || 'application/octet-stream';
                             if (ext === 'pdf') contentType = 'application/pdf';
                             if (ext === 'docx') contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-                            if (ext === 'xlsx') contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                            if (ext === 'xlsx' || ext === 'xls') contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
                             return new NextResponse(fileRes.body, {
                                 headers: {
                                     'Content-Type': contentType,
-                                    'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+                                    'Content-Disposition': `attachment; filename="${encodeURIComponent(serveFilename)}"`,
                                 },
                             });
                         }

@@ -53,9 +53,10 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
                 // Sorgudaki bölüm adı dosya adıyla eşleşiyorsa daha yüksek skor ver
                 const fn = d.filename.toLocaleLowerCase('tr-TR');
                 const matchBonus = queryTerms.reduce((acc: number, t: string) => acc + (fn.includes(t) ? 10 : 0), 0);
+                const realContent = d.content || '';
                 return {
                     ...d,
-                    content: `BU BELGE SİSTEMDE MEVCUTTUR. Haftalık Ders Programı. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sun. DOSYA ADI OLARAK TAM OLARAK ŞU DEĞERI KULLAN: "${d.filename}"`,
+                    content: realContent + `\n\n[SİSTEM: Bu belge indirilebilir. Kullanıcı dosyayı isterse generate_file action ile sun. Tam dosya adı: "${d.filename}"]`,
                     score: 100 + matchBonus
                 };
             })
@@ -76,9 +77,10 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
             .map((d: Document) => {
                 const fn = d.filename.toLocaleLowerCase('tr-TR');
                 const matchBonus = queryTerms.reduce((acc: number, t: string) => acc + (fn.includes(t) ? 10 : 0), 0);
+                const realContent = d.content || '';
                 return {
                     ...d,
-                    content: `BU BELGE SİSTEMDE MEVCUTTUR. Staj Başvuru ve Kabul Formu. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sun. DOSYA ADI OLARAK TAM OLARAK ŞU DEĞERI KULLAN: "${d.filename}"`,
+                    content: realContent + `\n\n[SİSTEM: Bu belge indirilebilir. Kullanıcı dosyayı isterse generate_file action ile sun. Tam dosya adı: "${d.filename}"]`,
                     score: 100 + matchBonus
                 };
             })
