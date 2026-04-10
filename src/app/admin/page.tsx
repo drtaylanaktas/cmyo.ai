@@ -28,6 +28,8 @@ export default function AdminDashboard() {
     const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [uploadingFile, setUploadingFile] = useState(false);
+    const [syncLoading, setSyncLoading] = useState(false);
+    const [syncResult, setSyncResult] = useState<string>('');
     const [error, setError] = useState('');
     
     // Form state
@@ -137,6 +139,26 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleSyncDiskFiles = async () => {
+        if (!confirm('src/data/ klasöründeki tüm dosyalar veritabanına eklenecek (zaten var olanlar atlanacak). Devam edilsin mi?')) return;
+        setSyncLoading(true);
+        setSyncResult('');
+        try {
+            const res = await fetch('/api/admin/sync-disk-files', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                setSyncResult(`✅ ${data.added} yeni dosya eklendi, ${data.skipped} dosya atlandı (toplam ${data.total_disk_files} disk dosyası).`);
+                fetchDocuments();
+            } else {
+                setSyncResult(`❌ Hata: ${data.error}`);
+            }
+        } catch {
+            setSyncResult('❌ Sunucu bağlantı hatası.');
+        } finally {
+            setSyncLoading(false);
+        }
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -204,18 +226,34 @@ export default function AdminDashboard() {
                     />
                 </div>
                 
-                <button 
-                    onClick={() => {
-                        setCurrentDoc({ filename: '', content: '', category: 'genel', priority: 0 });
-                        setModalMode('create');
-                        setError('');
-                    }}
-                    className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center"
-                >
-                    <Plus size={18} />
-                    <span>Yeni Ekle</span>
-                </button>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <button
+                        onClick={handleSyncDiskFiles}
+                        disabled={syncLoading}
+                        title="src/data/ klasöründeki tüm dosyaları veritabanına ekle"
+                        className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-200 px-4 py-2.5 rounded-xl font-medium transition-all hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center disabled:opacity-50"
+                    >
+                        <RefreshCw size={16} className={syncLoading ? 'animate-spin' : ''} />
+                        <span>{syncLoading ? 'Senkronize ediliyor...' : 'Disk Senkronize Et'}</span>
+                    </button>
+                    <button
+                        onClick={() => {
+                            setCurrentDoc({ filename: '', content: '', category: 'genel', priority: 0 });
+                            setModalMode('create');
+                            setError('');
+                        }}
+                        className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center"
+                    >
+                        <Plus size={18} />
+                        <span>Yeni Ekle</span>
+                    </button>
+                </div>
             </div>
+            {syncResult && (
+                <div className={`text-sm px-4 py-2 rounded-xl border ${syncResult.startsWith('✅') ? 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300' : 'bg-red-900/30 border-red-700/50 text-red-300'}`}>
+                    {syncResult}
+                </div>
+            )}
 
             {/* Data Table */}
             <div className="bg-neutral-900/40 border border-neutral-800/60 rounded-2xl overflow-hidden backdrop-blur-xl shadow-2xl">
