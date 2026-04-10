@@ -452,7 +452,7 @@ export async function generateWithOpenAI(message: string, systemPrompt: string, 
         const openaiHistory = history.map((msg: any) => {
             return {
                 role: msg.role === 'model' ? 'assistant' : msg.role,
-                content: msg.parts[0].text
+                content: msg.parts ? msg.parts[0].text : (msg.content || '')
             };
         });
 
