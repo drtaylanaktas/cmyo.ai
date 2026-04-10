@@ -41,43 +41,50 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
     const queryLower = query.toLocaleLowerCase('tr-TR');
 
     // CRITICAL: Always inject Course Schedule Forms if 'ders programı' is mentioned
+    // Dinamik DB araması — hardcoded liste yok, admin'den yüklenen tüm dosyalar otomatik bulunur
     if (queryLower.includes('ders programı') || queryLower.includes('haftalık ders')) {
-        const scheduleFiles = [
-            "FR-011 Haftalık Ders Programı Formu - Bilgisayar Teknolojileri Bölümü.pdf",
-            "FR-011 Haftalık Ders Programı Formu Bitkisel ve Hayvansal Üretim.pdf",
-            "FR-011 Haftalık Ders Programı Formu Büro Hizmetleri ve Sekreterlik.pdf",
-            "FR-011 Haftalık Ders Programı Formu Çocuk Bakımı ve Gençlik Hizmetleri.pdf",
-            "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 1. ŞUBE.pdf",
-            "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 2. ŞUBE.pdf",
-            "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü ESKİ MÜFREDAT.pdf"
-        ];
+        const queryTerms = queryLower.split(/\s+/).filter((t: string) => t.length > 2);
+        const scheduleDocs = knowledgeBase
+            .filter((d: Document) => {
+                const fn = d.filename.toLocaleLowerCase('tr-TR');
+                return fn.includes('fr-011') || fn.includes('haftalık ders') || fn.includes('ders programı');
+            })
+            .map((d: Document) => {
+                // Sorgudaki bölüm adı dosya adıyla eşleşiyorsa daha yüksek skor ver
+                const fn = d.filename.toLocaleLowerCase('tr-TR');
+                const matchBonus = queryTerms.reduce((acc: number, t: string) => acc + (fn.includes(t) ? 10 : 0), 0);
+                return {
+                    ...d,
+                    content: `BU BELGE SİSTEMDE MEVCUTTUR. Haftalık Ders Programı. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sun. DOSYA ADI OLARAK TAM OLARAK ŞU DEĞERI KULLAN: "${d.filename}"`,
+                    score: 100 + matchBonus
+                };
+            })
+            .sort((a: Document, b: Document) => ((b.score as number) || 0) - ((a.score as number) || 0));
 
-        const injectedDocs = scheduleFiles.map(filename => ({
-            filename: filename,
-            content: `BU BELGE SİSTEMDE MEVCUTTUR. Haftalık Ders Programı. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sun. DOSYA ADI OLARAK TAM OLARAK ŞU DEĞERI KULLAN: "${filename}"`,
-            file_url: 'exists',
-            score: 100
-        }));
-        return [...injectedDocs, ...knowledgeBase.filter(d => scheduleFiles.includes(d.filename) === false).slice(0, 1)];
+        if (scheduleDocs.length > 0) return scheduleDocs;
     }
 
     // CRITICAL: Always inject Internship Forms if 'staj' is mentioned
+    // Dinamik DB araması — hardcoded liste yok
     if (queryLower.includes('staj')) {
-        const internshipFiles = [
-            "Bilgisayar Teknolojileri Bölümü Staj Başvuru ve Kabul Formu.pdf",
-            "Bitkisel ve Hayvansal Üretim Bölümü Staj Başvuru ve Kabul Formu.pdf",
-            "Büro Hizmetleri ve Sekreterlik Bölümü Staj Başvuru ve Kabul Formui.pdf",
-            "Çocuk Bakımı ve Gençlik Hizmetleri Bölümü Staj Başvuru ve Kabul Formu.pdf",
-            "Veterinerlik Bölümü Staj Başvuru ve Kabul Formu.pdf"
-        ];
+        const queryTerms = queryLower.split(/\s+/).filter((t: string) => t.length > 2);
+        const stajFormDocs = knowledgeBase
+            .filter((d: Document) => {
+                const fn = d.filename.toLocaleLowerCase('tr-TR');
+                return fn.includes('staj başvuru') || fn.includes('staj kabul') || fn.includes('staj formu');
+            })
+            .map((d: Document) => {
+                const fn = d.filename.toLocaleLowerCase('tr-TR');
+                const matchBonus = queryTerms.reduce((acc: number, t: string) => acc + (fn.includes(t) ? 10 : 0), 0);
+                return {
+                    ...d,
+                    content: `BU BELGE SİSTEMDE MEVCUTTUR. Staj Başvuru ve Kabul Formu. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sun. DOSYA ADI OLARAK TAM OLARAK ŞU DEĞERI KULLAN: "${d.filename}"`,
+                    score: 100 + matchBonus
+                };
+            })
+            .sort((a: Document, b: Document) => ((b.score as number) || 0) - ((a.score as number) || 0));
 
-        const injectedDocs = internshipFiles.map(filename => ({
-            filename: filename,
-            content: `BU BELGE SİSTEMDE MEVCUTTUR. Staj Başvuru ve Kabul Formu. Kullanıcı bu belgeyi isterse 'generate_file' action'ı ile sun. DOSYA ADI OLARAK TAM OLARAK ŞU DEĞERI KULLAN: "${filename}"`,
-            file_url: 'exists',
-            score: 100
-        }));
-
+        const injectedDocs = stajFormDocs;
         const terms = queryLower.split(' ').filter((t: string) => t.length > 2);
         const scores = knowledgeBase.map((doc: Document) => {
             let score = 0;
