@@ -41,6 +41,12 @@ export async function middleware(request: NextRequest) {
     }
 
     if (protectedRoutes.some(route => pathname.startsWith(route))) {
+        // Internal server-to-server calls (e.g. Telegram webhook → generate-file)
+        const internalSecret = request.headers.get('x-internal-secret');
+        if (internalSecret && process.env.CRON_SECRET && internalSecret === process.env.CRON_SECRET) {
+            return addSecurityHeaders(NextResponse.next());
+        }
+
         const sessionToken = request.cookies.get('cmyo_session')?.value;
 
         if (!sessionToken) {

@@ -129,7 +129,10 @@ async function resolveFile(filename: string, requestOrigin: string): Promise<{
     try {
         const res = await fetch(`${requestOrigin}/api/generate-file`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'x-internal-secret': process.env.CRON_SECRET || '',
+            },
             body: JSON.stringify({ filename }),
         });
         if (res.ok) {
