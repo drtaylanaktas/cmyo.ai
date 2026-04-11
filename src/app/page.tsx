@@ -51,6 +51,7 @@ export default function Home() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef(input);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showTelegramBanner, setShowTelegramBanner] = useState(false);
@@ -324,6 +325,17 @@ export default function Home() {
       setInput(prefix + transcript);
     }
   }, [transcript, isListening]);
+
+  // Auto-resize chat textarea to fit content (capped at max height, then internal scroll)
+  useEffect(() => {
+    const el = chatInputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const maxHeight = 160; // ~6–7 satır, text-sm/base'te rahat okunur
+    const nextHeight = Math.min(el.scrollHeight, maxHeight);
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  }, [input]);
 
   // Capture input state when starting to listen
   const handleMicClick = () => {
@@ -1254,18 +1266,29 @@ export default function Home() {
                 </div>
               )}
 
-              <div className={`relative w-full flex items-center rounded-xl border border-transparent transition-all p-1 overflow-hidden ${remainingQuota === 0 ? 'bg-red-950/20' : 'bg-slate-800 focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:bg-slate-800/80'}`}>
-                <input
+              <div className={`relative w-full flex items-end rounded-xl border border-transparent transition-all p-1 ${remainingQuota === 0 ? 'bg-red-950/20' : 'bg-slate-800 focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:bg-slate-800/80'}`}>
+                <textarea
+                  ref={chatInputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Enter: gönder; Shift+Enter: yeni satır; IME bileşimi sırasında geç
+                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      if (!isLoading && (input.trim() || attachment)) {
+                        handleSend();
+                      }
+                    }
+                  }}
+                  rows={1}
                   disabled={isBlocked || remainingQuota === 0}
-                  placeholder={remainingQuota === 0 ? "Günlük limitiniz doldu. Lütfen yarın tekrar deneyin." : (isBlocked ? `Kısıtlandı: ${blockTimer}s` : (attachment ? "Belge hakkında bir şeyler sorun..." : "Bir şeyler yazın..."))}
-                  className="flex-1 bg-transparent border-0 px-3 sm:px-4 py-2 sm:py-2.5 text-white placeholder-slate-500 focus:ring-0 focus:outline-none min-w-0 text-sm sm:text-base disabled:opacity-70"
+                  placeholder={remainingQuota === 0 ? "Günlük limitiniz doldu. Lütfen yarın tekrar deneyin." : (isBlocked ? `Kısıtlandı: ${blockTimer}s` : (attachment ? "Belge hakkında bir şeyler sorun..." : "Bir şeyler yazın... (Shift+Enter: yeni satır)"))}
+                  className="flex-1 bg-transparent border-0 px-3 sm:px-4 py-2 sm:py-2.5 text-white placeholder-slate-500 focus:ring-0 focus:outline-none min-w-0 text-sm sm:text-base leading-6 resize-none disabled:opacity-70"
                 />
                 <button
                   type="submit"
                   disabled={(!input.trim() && !attachment) || isLoading}
-                  className="p-2 bg-blue-600 rounded-lg text-white hover:bg-blue-500 disabled:opacity-50 disabled:bg-transparent disabled:text-slate-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center shrink-0"
+                  className="p-2 bg-blue-600 rounded-lg text-white hover:bg-blue-500 disabled:opacity-50 disabled:bg-transparent disabled:text-slate-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center shrink-0 self-end mb-0.5"
                 >
                   <Send className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
