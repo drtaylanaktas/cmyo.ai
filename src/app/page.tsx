@@ -1230,7 +1230,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handleMicClick}
-                className={`p-3 rounded-xl transition-all flex items-center justify-center shrink-0 ${isListening
+                className={`h-[50px] w-[50px] sm:h-[54px] sm:w-[54px] rounded-xl transition-all flex items-center justify-center shrink-0 ${isListening
                   ? 'bg-red-500/20 text-red-400 animate-pulse border border-red-500/30'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
                   }`}
@@ -1243,7 +1243,7 @@ export default function Home() {
               type="button"
               onClick={handleAttachClick}
               disabled={isUploading}
-              className={`p-3 rounded-xl transition-all flex items-center justify-center shrink-0 ${isUploading
+              className={`h-[50px] w-[50px] sm:h-[54px] sm:w-[54px] rounded-xl transition-all flex items-center justify-center shrink-0 ${isUploading
                 ? 'bg-blue-500/20 text-blue-400 animate-pulse border border-blue-500/30'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
                 }`}
