@@ -22,6 +22,10 @@ type Message = {
   createdAt?: string;
 };
 
+type Attachment =
+  | { name: string; kind: 'text'; content: string }
+  | { name: string; kind: 'image'; imageDataUrl: string; mime: string };
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -33,7 +37,7 @@ export default function Home() {
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [attachment, setAttachment] = useState<{ name: string, content: string } | null>(null);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [userRole, setUserRole] = useState<'student' | 'academic' | 'admin'>('student'); // Keep for API compatibility but derive from user
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -357,10 +361,20 @@ export default function Home() {
         return;
       }
 
-      setAttachment({
-        name: data.filename,
-        content: data.text
-      });
+      if (data.kind === 'image') {
+        setAttachment({
+          name: data.filename,
+          kind: 'image',
+          imageDataUrl: data.imageDataUrl,
+          mime: data.mime,
+        });
+      } else {
+        setAttachment({
+          name: data.filename,
+          kind: 'text',
+          content: data.text,
+        });
+      }
 
     } catch (error) {
       console.error('Upload failed:', error);
@@ -462,14 +476,31 @@ export default function Home() {
 
       // If there's an attachment, pre-pend it to the last message content or add as context
       let messageToSend = input;
+      let attachmentImagePayload: { name: string; dataUrl: string } | undefined;
       if (currentAttachment) {
-        messageToSend = `[BELGE İÇERİĞİ BAŞLANGICI - ${currentAttachment.name}]\n${currentAttachment.content}\n[BELGE İÇERİĞİ SONU]\n\n${input}`;
+        if (currentAttachment.kind === 'text') {
+          messageToSend = `[BELGE İÇERİĞİ BAŞLANGICI - ${currentAttachment.name}]\n${currentAttachment.content}\n[BELGE İÇERİĞİ SONU]\n\n${input}`;
+        } else {
+          // Görsel attachment: chat history için not ekle, gerçek data URL ayrı alanda gider
+          messageToSend = `[GÖRSEL EKLİ: ${currentAttachment.name}]\n${input}`;
+          attachmentImagePayload = {
+            name: currentAttachment.name,
+            dataUrl: currentAttachment.imageDataUrl,
+          };
+        }
       }
 
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: messageToSend, history: history, user: currentUser, weather: weatherData, conversationId }),
+        body: JSON.stringify({
+          message: messageToSend,
+          history: history,
+          user: currentUser,
+          weather: weatherData,
+          conversationId,
+          attachmentImage: attachmentImagePayload,
+        }),
       });
 
       let botContent = '';
@@ -516,7 +547,65 @@ export default function Home() {
             
             botContent = stripJsonBlock(botContent);
 
-            if ((actionData.action === 'generate_file' || actionData.action === 'generate_pdf') && targetFilename) {
+            if (actionData.action === 'fill_kanit_formu') {
+              // FR-585 Kanıt Formu — kullanıcının yüklediği kanıtla otomatik doldurma
+              setMessages((prev) => [...prev, {
+                id: 'fill-' + Date.now(),
+                role: 'assistant',
+                content: '📝 Kanıtınız analiz ediliyor ve FR-585 Kanıt Formu dolduruluyor...'
+              }]);
+
+              const fillRes = await fetch('/api/fill-kanit-formu', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userMessage: input,
+                  attachmentText:
+                    currentAttachment?.kind === 'text' ? currentAttachment.content : undefined,
+                  attachmentImage:
+                    currentAttachment?.kind === 'image'
+                      ? { name: currentAttachment.name, dataUrl: currentAttachment.imageDataUrl }
+                      : undefined,
+                }),
+              });
+
+              if (fillRes.ok) {
+                const blob = await fillRes.blob();
+                const url = window.URL.createObjectURL(blob);
+                attachment = url;
+
+                const disposition = fillRes.headers.get('Content-Disposition') || '';
+                const nameMatch = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^;"'\n]+)["']?/i);
+                const serverFilename = nameMatch
+                  ? decodeURIComponent(nameMatch[1].trim())
+                  : 'FR-585 Kanit Formu (dolu).docx';
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = serverFilename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+
+                botContent += `\n\n✅ Doldurulmuş FR-585 Kanıt Formu hazırlandı ve indirildi.`;
+
+                const warn = fillRes.headers.get('X-Fill-Warning');
+                if (warn) {
+                  try {
+                    botContent += `\n\n⚠️ ${decodeURIComponent(warn)}`;
+                  } catch {
+                    botContent += `\n\n⚠️ ${warn}`;
+                  }
+                }
+              } else {
+                let errMsg = 'Form otomatik doldurulamadı.';
+                try {
+                  const errData = await fillRes.json();
+                  if (errData.error) errMsg = errData.error;
+                } catch {}
+                botContent += `\n\n❌ ${errMsg} Boş formu indirmek için "FR-585 formunu indir" yazabilirsin.`;
+              }
+            } else if ((actionData.action === 'generate_file' || actionData.action === 'generate_pdf') && targetFilename) {
               setMessages((prev) => [...prev, {
                 id: 'gen-' + Date.now(),
                 role: 'assistant',
@@ -1110,7 +1199,7 @@ export default function Home() {
               type="file"
               ref={fileInputRef}
               onChange={handleFileSelect}
-              accept=".docx,.pdf"
+              accept=".docx,.pdf,.xlsx,.xls,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
               className="hidden"
             />
 

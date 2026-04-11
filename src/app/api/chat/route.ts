@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter';
-import { findRelevantDocuments, generateWithOpenAI, buildSystemPrompt, buildContext, logChatDebug, sanitizeUserMessage } from '@/lib/chat-engine';
+import { findRelevantDocuments, generateWithOpenAI, buildSystemPrompt, buildContext, logChatDebug, sanitizeUserMessage, detectKanitFormuFillIntent } from '@/lib/chat-engine';
 
 export async function POST(req: Request) {
     try {
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
             );
         }
 
-        const { message: rawMessage, history, user, weather, conversationId } = await req.json();
+        const { message: rawMessage, history, user, weather, conversationId, attachmentImage } = await req.json();
 
         // Input validation & sanitization
         if (!rawMessage || typeof rawMessage !== 'string') {
@@ -93,8 +93,19 @@ export async function POST(req: Request) {
         const relevantDocs = await findRelevantDocuments(message);
         logChatDebug(`Found ${relevantDocs.length} relevant docs.`);
 
+        // FR-585 Kanıt Formu otomatik doldurma intent tespiti.
+        // hasAttachment: kullanıcı mesajı [BELGE İÇERİĞİ BAŞLANGICI] ile sarmalanmış (text belge)
+        // veya chat body'de attachmentImage data URL'i gönderilmiş.
+        const hasTextAttachment = /\[BELGE İÇERİĞİ BAŞLANGICI/.test(rawMessage);
+        const hasImageAttachment = !!(attachmentImage && typeof attachmentImage?.dataUrl === 'string');
+        const hasAttachment = hasTextAttachment || hasImageAttachment;
+        const fillKanitFormuIntent = detectKanitFormuFillIntent(message, hasAttachment);
+        if (fillKanitFormuIntent) {
+            logChatDebug('[intent] FR-585 kanit formu fill intent detected.');
+        }
+
         const context = buildContext(relevantDocs);
-        const systemPrompt = buildSystemPrompt(user, role, context, weather);
+        const systemPrompt = buildSystemPrompt(user, role, context, weather, fillKanitFormuIntent);
 
         let reply = "";
         try {

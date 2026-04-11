@@ -16,6 +16,31 @@ export interface Document {
 let globalKnowledgeCache: Document[] = [];
 let lastCacheUpdate = 0;
 
+/**
+ * FR-585 Kanıt Formu otomatik doldurma intent tespiti.
+ *
+ * Bu fonksiyon, maliyet kontrolünün birinci katmanıdır. TRUE döndüğünde
+ * buildSystemPrompt, model'e "fill_kanit_formu" action'ı üretme talimatını
+ * enjekte eder. FALSE ise bu talimat asla prompt'a girmez, dolayısıyla model
+ * başka sohbetlerde yanlışlıkla bu action'ı uyduramaz.
+ *
+ * Koşullar (üçü de şart):
+ *   (a) Kullanıcı mesajında FR-585 veya "kanıt formu" referansı
+ *   (b) "doldur / hazırla / oluştur" gibi bir doldurma fiili
+ *   (c) Kullanıcı en az bir kanıt (belge metni VEYA görsel) eklemiş
+ */
+export function detectKanitFormuFillIntent(
+    userMessage: string,
+    hasAttachment: boolean
+): boolean {
+    if (!hasAttachment) return false;
+    if (!userMessage) return false;
+    const m = userMessage.toLocaleLowerCase('tr-TR');
+    const refsFr585 = /\bfr[-\s]?585\b|kan[ıi]t ?form/.test(m);
+    const wantsFill = /(doldur|haz[ıi]rla|olu[şs]tur)/.test(m);
+    return refsFr585 && wantsFill;
+}
+
 export async function getKnowledgeBase(): Promise<Document[]> {
     try {
         const now = Date.now();
@@ -487,7 +512,13 @@ export async function generateWithOpenAI(message: string, systemPrompt: string, 
 }
 
 // Build system prompt
-export function buildSystemPrompt(user: any, role: string, context: string, weather: any): string {
+export function buildSystemPrompt(
+    user: any,
+    role: string,
+    context: string,
+    weather: any,
+    fillKanitFormuIntent: boolean = false
+): string {
     return `
     Sen Çiçekdağı Meslek Yüksekokulu'nun (ÇMYO.AI) yapay zeka asistanısın. Çiçekdağı MYO'ya özel olarak hizmet veriyorsun.
     ŞU ANKİ TARİH VE SAAT: ${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', dateStyle: 'full', timeStyle: 'short' })}
@@ -601,6 +632,17 @@ export function buildSystemPrompt(user: any, role: string, context: string, weat
     
     STAJ BAŞVURU FORMU KURALI:
     Kullanıcı staj formu isterse, bağlamda hangi bölümlerin staj formu varsa onları listele. Bölümü belli değilse sor. SADECE bağlamda gördüğün dosya adlarını kullan.
+${fillKanitFormuIntent ? `
+    FR-585 KANIT FORMU OTOMATİK DOLDURMA KURALI (ÖNCELİKLİ):
+    Kullanıcı FR-585 Kanıt Formu'nu kendi gönderdiği kanıt (belge veya görsel) ile doldurmak istiyor.
+    ÖNCE kısa bir onay cümlesi yaz (örn: "Kanıtınızı inceleyerek FR-585 Kanıt Formu'nu dolduruyorum..."),
+    ARDINDAN cevabının SONUNA ŞU JSON bloğunu aynen, değişiklik yapmadan ekle:
+    JSON_START
+    {"action":"fill_kanit_formu","filename":"FR-585 Kanıt Formu.docx"}
+    JSON_END
+    Bu action SADECE FR-585 Kanıt Formu için geçerlidir. Başka hiçbir belge için bu action'ı ASLA kullanma.
+    Bu durumda normal generate_file action'ı ÜRETME — yalnızca fill_kanit_formu kullan.
+` : ''}
 
     DERS PROGRAMI KURALI:
     Bölüme göre doğru ders programı dosyasını ver. Bağlamda birden fazla şube varsa (örn. Veterinerlik 1. ŞUBE, 2. ŞUBE) önce hangisini istediklerini sor. SADECE bağlamda gördüğün dosya adlarını kullan.
