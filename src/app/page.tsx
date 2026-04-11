@@ -425,13 +425,13 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [isBlocked, blockTimer]);
 
-  // Bekleme sırasında dönen durum yazıları
-  const LOADING_PHASES = ['Düşünüyor...', 'Kaynakları inceliyor...', 'Yanıt hazırlanıyor...'];
+  // Bekleme sırasında dönen durum yazıları (Claude tarzı shimmer ile)
+  const LOADING_PHASES = ['Düşünüyor', 'Kaynakları inceliyor', 'Yanıt hazırlanıyor'];
   useEffect(() => {
     if (!isLoading) { setLoadingPhase(0); return; }
     const interval = setInterval(() => {
       setLoadingPhase((p) => (p + 1) % LOADING_PHASES.length);
-    }, 1500);
+    }, 2200);
     return () => clearInterval(interval);
   }, [isLoading]);
 
@@ -1181,23 +1181,34 @@ export default function Home() {
             </AnimatePresence>
 
             {isLoading && (
-              <div className="flex justify-start w-full gap-4 pl-2">
-                <div className="relative w-8 h-8 shrink-0">
-                  {/* Su dalgası gradyan halka */}
-                  <div className="absolute inset-0" style={{ background: 'conic-gradient(from 0deg, #3b82f6, #8b5cf6, #06b6d4, #3b82f6)', animation: 'waterRing 2.8s ease-in-out infinite' }} />
-                  {/* Koyu merkez */}
-                  <div className="absolute inset-[2.5px] rounded-full bg-[#050a14]" />
-                  {/* Merkez nokta */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                  </div>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                className="flex justify-start w-full gap-4"
+              >
+                {/* Avatar — mevcut asistan mesajlarıyla aynı stil, yumuşak nabız parıltısı */}
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 border border-blue-500/30 bg-slate-900 overflow-hidden mt-1 think-glow">
+                  <Image src="/logo.png" alt="Bot" width={40} height={40} className="w-full h-full object-cover" />
                 </div>
-                <div className="bg-slate-800/50 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-700/50 flex items-center">
-                  <span className="text-sm text-blue-400 animate-pulse font-medium">
-                    {LOADING_PHASES[loadingPhase]}
-                  </span>
+
+                {/* Shimmer text pill */}
+                <div className="bg-slate-800/60 px-4 py-3 rounded-2xl rounded-tl-none border border-white/5 flex items-center min-h-[44px]">
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={loadingPhase}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                      className="think-shimmer text-sm font-medium select-none tracking-tight"
+                    >
+                      {LOADING_PHASES[loadingPhase]}
+                    </motion.span>
+                  </AnimatePresence>
+                  <span className="think-shimmer text-sm font-medium select-none ml-0.5">…</span>
                 </div>
-              </div>
+              </motion.div>
             )}
             <div ref={messagesEndRef} className="h-4" />
           </div>

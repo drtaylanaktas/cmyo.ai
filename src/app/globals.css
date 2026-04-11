@@ -90,3 +90,52 @@ body {
   80%  { transform: rotate(288deg) scale(1.03); border-radius: 54% 46% 42% 58% / 58% 42% 46% 54%; }
   100% { transform: rotate(360deg) scale(1);    border-radius: 50%; }
 }
+
+/* Düşünme animasyonu — Claude tarzı shimmer text */
+@keyframes thinkShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.think-shimmer {
+  background: linear-gradient(
+    110deg,
+    rgba(148, 163, 184, 0.35) 25%,
+    rgba(226, 232, 240, 1) 50%,
+    rgba(148, 163, 184, 0.35) 75%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: thinkShimmer 2.2s linear infinite;
+}
+
+/* Avatar çevresinde yumuşak nabız parıltısı */
+@keyframes thinkGlow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0   rgba(59, 130, 246, 0.00),
+      0 0 14px 0 rgba(59, 130, 246, 0.20);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(59, 130, 246, 0.15),
+      0 0 26px 4px rgba(139, 92, 246, 0.35);
+  }
+}
+
+.think-glow {
+  animation: thinkGlow 2.4s ease-in-out infinite;
+}
+
+/* Reduced-motion: animasyonları kapat */
+@media (prefers-reduced-motion: reduce) {
+  .think-shimmer {
+    animation: none;
+    color: rgb(203, 213, 225); /* slate-300 */
+    -webkit-text-fill-color: rgb(203, 213, 225);
+  }
+  .think-glow { animation: none; }
+}
