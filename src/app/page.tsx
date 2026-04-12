@@ -55,6 +55,7 @@ export default function Home() {
   const router = useRouter();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showTelegramBanner, setShowTelegramBanner] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,11 +66,21 @@ export default function Home() {
     if (!bannerDismissed) {
       setShowTelegramBanner(true);
     }
+    // v1.5 "Yenilikler" modal'ı — her kullanıcıya bir kez göster
+    const whatsNewSeen = localStorage.getItem('cmyo_whats_new_v1.5');
+    if (!whatsNewSeen) {
+      setShowWhatsNew(true);
+    }
   }, []);
 
   const dismissTelegramBanner = () => {
     setShowTelegramBanner(false);
     localStorage.setItem('telegram_banner_dismissed', 'true');
+  };
+
+  const dismissWhatsNew = () => {
+    setShowWhatsNew(false);
+    localStorage.setItem('cmyo_whats_new_v1.5', 'true');
   };
 
   // Auth check useEffect
@@ -1355,6 +1366,92 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* v1.5 Yenilikler Modal */}
+      <AnimatePresence>
+        {showWhatsNew && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          >
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={dismissWhatsNew} />
+
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 24 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl shadow-2xl shadow-blue-500/10 overflow-hidden"
+            >
+              {/* Gradient header strip */}
+              <div className="h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500" />
+
+              <div className="p-6 sm:p-8">
+                {/* Title */}
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-10 h-10 rounded-full bg-slate-800 border border-blue-500/30 flex items-center justify-center overflow-hidden shrink-0">
+                    <Image src="/logo.png" alt="CMYO.AI" width={40} height={40} className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">CMYO.AI v1.5</h2>
+                    <p className="text-xs text-slate-400">Nisan 2026</p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-slate-300 mt-4 mb-5 leading-relaxed">
+                  Yeni ozellikler ve iyilestirmeler ile karsinizda!
+                </p>
+
+                {/* Feature list */}
+                <div className="space-y-3.5">
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <Sparkles className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">FR-585 Kanit Formu Otomatik Doldurma</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Gorsel veya belge yukleyin, &quot;FR-585 kanit formunu doldur&quot; deyin — yapay zeka alanlari cikarip dolu DOCX&apos;i indirmenize sunar.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <Paperclip className="w-4 h-4 text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">Gorsel Yukleme Destegi</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Artik JPG, PNG ve WEBP gorselleri de chat&apos;e yukleyebilirsiniz.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <Edit2 className="w-4 h-4 text-purple-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">Yenilenen Chat Deneyimi</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Otomatik buyuyen metin alani, Shift+Enter ile paragraf olusturma ve yeni dusunme animasyonu.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CTA */}
+                <button
+                  onClick={dismissWhatsNew}
+                  className="w-full mt-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-blue-600/20"
+                >
+                  Anladim, Kesfetmeye Basla
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
