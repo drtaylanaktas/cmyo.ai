@@ -231,7 +231,7 @@ export default function LoginPage() {
                     <h1
                         className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-green-400 to-blue-400 tracking-tight"
                     >
-                        ÇMYO.AI v1.0
+                        ÇMYO.AI v1.5
                     </h1>
                 </div>
 
