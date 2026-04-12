@@ -1398,13 +1398,13 @@ export default function Home() {
                     <Image src="/logo.png" alt="CMYO.AI" width={40} height={40} className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-white">CMYO.AI v1.5</h2>
+                    <h2 className="text-lg font-bold text-white">{"\u00C7"}MYO.AI v1.5</h2>
                     <p className="text-xs text-slate-400">Nisan 2026</p>
                   </div>
                 </div>
 
                 <p className="text-sm text-slate-300 mt-4 mb-5 leading-relaxed">
-                  Yeni ozellikler ve iyilestirmeler ile karsinizda!
+                  Yeni {"\u00F6"}zellikler ve iyile{"\u015F"}tirmeler ile kar{"\u015F\u0131"}n{"\u0131"}zda!
                 </p>
 
                 {/* Feature list */}
@@ -1414,8 +1414,8 @@ export default function Home() {
                       <Sparkles className="w-4 h-4 text-emerald-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">FR-585 Kanit Formu Otomatik Doldurma</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Gorsel veya belge yukleyin, &quot;FR-585 kanit formunu doldur&quot; deyin — yapay zeka alanlari cikarip dolu DOCX&apos;i indirmenize sunar.</p>
+                      <h3 className="text-sm font-semibold text-white">FR-585 Kan{"\u0131"}t Formu Otomatik Doldurma</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">G{"\u00F6"}rsel veya belge y{"\u00FC"}kleyin, &quot;FR-585 kan{"\u0131"}t formunu doldur&quot; deyin — yapay zek{"\u00E2"} alanlar{"\u0131"} {"\u00E7\u0131"}kar{"\u0131"}p dolu DOCX&apos;i indirmenize sunar.</p>
                     </div>
                   </div>
 
@@ -1424,8 +1424,8 @@ export default function Home() {
                       <Paperclip className="w-4 h-4 text-blue-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">Gorsel Yukleme Destegi</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Artik JPG, PNG ve WEBP gorselleri de chat&apos;e yukleyebilirsiniz.</p>
+                      <h3 className="text-sm font-semibold text-white">G{"\u00F6"}rsel Y{"\u00FC"}kleme Deste{"\u011F"}i</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Art{"\u0131"}k JPG, PNG ve WEBP g{"\u00F6"}rselleri de chat&apos;e y{"\u00FC"}kleyebilirsiniz.</p>
                     </div>
                   </div>
 
@@ -1435,7 +1435,7 @@ export default function Home() {
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold text-white">Yenilenen Chat Deneyimi</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Otomatik buyuyen metin alani, Shift+Enter ile paragraf olusturma ve yeni dusunme animasyonu.</p>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Otomatik b{"\u00FC"}y{"\u00FC"}yen metin alan{"\u0131"}, Shift+Enter ile paragraf olu{"\u015F"}turma ve yeni d{"\u00FC\u015F\u00FC"}nme animasyonu.</p>
                     </div>
                   </div>
                 </div>
@@ -1445,7 +1445,7 @@ export default function Home() {
                   onClick={dismissWhatsNew}
                   className="w-full mt-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-blue-600/20"
                 >
-                  Anladim, Kesfetmeye Basla
+                  Anlad{"\u0131"}m, Ke{"\u015F"}fetmeye Ba{"\u015F"}la
                 </button>
               </div>
             </motion.div>
