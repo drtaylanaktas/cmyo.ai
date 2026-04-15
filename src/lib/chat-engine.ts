@@ -318,12 +318,26 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
             .sort((a: Document, b: Document) => ((b.score as number) || 0) - ((a.score as number) || 0))
             .slice(0, 5);
         // Günlük otomatik scraping ile eklenen güncel haberler (WEB_HABER_*.txt)
+        // Kaynak ayrımı: Ahi Evran Üniversitesi (WEB_HABER_AHIEVRAN-*) vs Çiçekdağı MYO (WEB_HABER_ARSIV-*)
+        const isCmyoKaynak = /\bçiçekdağı\b|\bcmyo\b|\bmyo\b|meslek yüksekokul/.test(queryLower);
+        const isAhievranKaynak = /ahi\s?evran|ahievran|üniversite|rektörlük/.test(queryLower);
+        const haberKaynak: 'cmyo' | 'ahievran' | 'ambiguous' =
+            isCmyoKaynak && !isAhievranKaynak ? 'cmyo' :
+            isAhievranKaynak && !isCmyoKaynak ? 'ahievran' :
+            'ambiguous';
+
         const topHaberler = knowledgeBase
-            .filter((d: Document) => d.filename.startsWith('WEB_HABER_'))
+            .filter((d: Document) => {
+                if (!d.filename.startsWith('WEB_HABER_')) return false;
+                const isAhievranDoc = d.filename.includes('AHIEVRAN');
+                if (haberKaynak === 'cmyo') return !isAhievranDoc;
+                if (haberKaynak === 'ahievran') return isAhievranDoc;
+                return true;
+            })
             .map((d: Document) => {
                 const content = d.content ? d.content.toLocaleLowerCase('tr-TR') : '';
                 const score = duyuruTerms.reduce((acc: number, t: string) => acc + (content.includes(t) ? 3 : 0), 82);
-                return { ...d, score };
+                return { ...d, score, __haberKaynak: haberKaynak };
             })
             .sort((a: Document, b: Document) => ((b.score as number) || 0) - ((a.score as number) || 0))
             .slice(0, 5);
@@ -632,6 +646,13 @@ export function buildSystemPrompt(
     
     STAJ BAŞVURU FORMU KURALI:
     Kullanıcı staj formu isterse, bağlamda hangi bölümlerin staj formu varsa onları listele. Bölümü belli değilse sor. SADECE bağlamda gördüğün dosya adlarını kullan.
+
+    HABER KAYNAK KURALI (ÇOK ÖNEMLİ):
+    Sistemde iki haber kaynağı vardır: (1) Çiçekdağı Meslek Yüksekokulu (ÇMYO) ve (2) Kırşehir Ahi Evran Üniversitesi ana sayfası.
+    - Eğer BAĞLAM'ın en üstünde [HABER_KAYNAK=AMBIGUOUS] marker'ı varsa: Hiçbir haber listesi verme. YALNIZCA şu soruyu sor ve dur: "Ahi Evran Üniversitesi haberleri mi yoksa Çiçekdağı MYO haberleri mi istiyorsun?"
+    - [HABER_KAYNAK=CMYO] marker'ı varsa: Sadece Çiçekdağı MYO haberlerini (WEB_HABER_ARSIV-HABERLER.txt) özetle ve başlıklarını listele. "Çiçekdağı MYO son haberleri:" başlığıyla ver.
+    - [HABER_KAYNAK=AHIEVRAN] marker'ı varsa: Sadece Ahi Evran Üniversitesi ana sayfa haberlerini (WEB_HABER_AHIEVRAN-ANASAYFA.txt) özetle ve başlıklarını listele. "Ahi Evran Üniversitesi son haberleri:" başlığıyla ver.
+    - Marker yoksa bu kural devre dışıdır, normal davran.
 ${fillKanitFormuIntent ? `
     FR-585 KANIT FORMU OTOMATİK DOLDURMA KURALI (ÖNCELİKLİ):
     Kullanıcı FR-585 Kanıt Formu'nu kendi gönderdiği kanıt (belge veya görsel) ile doldurmak istiyor.

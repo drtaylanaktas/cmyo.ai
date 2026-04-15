@@ -104,7 +104,12 @@ export async function POST(req: Request) {
             logChatDebug('[intent] FR-585 kanit formu fill intent detected.');
         }
 
-        const context = buildContext(relevantDocs);
+        let context = buildContext(relevantDocs);
+        const haberKaynak = relevantDocs.find(d => (d as any).__haberKaynak)?.__haberKaynak as string | undefined;
+        if (haberKaynak) {
+            const marker = `[HABER_KAYNAK=${haberKaynak.toUpperCase()}]`;
+            context = `${marker}\n${context}`;
+        }
         const systemPrompt = buildSystemPrompt(user, role, context, weather, fillKanitFormuIntent);
 
         let reply = "";
