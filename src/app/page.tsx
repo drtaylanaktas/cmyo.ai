@@ -26,6 +26,16 @@ type Attachment =
   | { name: string; kind: 'text'; content: string }
   | { name: string; kind: 'image'; imageDataUrl: string; mime: string };
 
+type WeatherData = {
+  lat: number;
+  lon: number;
+  locationName: string;
+  temp: number | null;
+  code: number | null;
+  unit: string;
+  error?: 'weather';
+};
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -44,7 +54,7 @@ export default function Home() {
   const [remainingQuota, setRemainingQuota] = useState<number | null>(null);
 
   const { isListening, transcript, startListening, stopListening, resetTranscript, hasSupport } = useVoiceInput();
-  const [weatherData, setWeatherData] = useState<any>(null);
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [locationPermission, setLocationPermission] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
   const [showLocationBanner, setShowLocationBanner] = useState(false);
   const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -243,24 +253,29 @@ export default function Home() {
     // Set location immediately so AI has context even if weather fetch fails
     setWeatherData({ lat: latitude, lon: longitude, locationName, temp: null, code: null, unit: '°C' });
 
-    // Weather (best-effort)
+    // Weather (best-effort) — error flag'i UI'ya "Hava yüklenemedi" göstermek için kullanılıyor
     try {
       const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&timezone=auto`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.current) {
-          setWeatherData({
-            temp: data.current.temperature_2m,
-            code: data.current.weather_code,
-            unit: data.current_units?.temperature_2m ?? '°C',
-            lat: latitude,
-            lon: longitude,
-            locationName
-          });
-        }
+      if (!response.ok) {
+        setWeatherData({ lat: latitude, lon: longitude, locationName, temp: null, code: null, unit: '°C', error: 'weather' });
+        return;
+      }
+      const data = await response.json();
+      if (data?.current && typeof data.current.temperature_2m === 'number') {
+        setWeatherData({
+          temp: data.current.temperature_2m,
+          code: typeof data.current.weather_code === 'number' ? data.current.weather_code : null,
+          unit: data.current_units?.temperature_2m ?? '°C',
+          lat: latitude,
+          lon: longitude,
+          locationName
+        });
+      } else {
+        setWeatherData({ lat: latitude, lon: longitude, locationName, temp: null, code: null, unit: '°C', error: 'weather' });
       }
     } catch (e) {
       console.error("Failed to fetch weather", e);
+      setWeatherData({ lat: latitude, lon: longitude, locationName, temp: null, code: null, unit: '°C', error: 'weather' });
     }
   };
 
@@ -294,6 +309,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
+    const showPromptBanner = () => {
+      setLocationPermission('prompt');
+      if (!localStorage.getItem('location_banner_dismissed')) {
+        setShowLocationBanner(true);
+      }
+    };
     const checkPermission = async () => {
       try {
         if (navigator.permissions) {
@@ -304,17 +325,15 @@ export default function Home() {
           } else if (result.state === 'denied') {
             setLocationPermission('denied');
           } else {
-            setLocationPermission('prompt');
-            if (!localStorage.getItem('location_banner_dismissed')) {
-              setShowLocationBanner(true);
-            }
+            showPromptBanner();
           }
         } else {
-          requestLocation();
+          // Permissions API desteklenmiyor (Safari gibi) — direkt konum istemek yerine banner göster
+          showPromptBanner();
         }
       } catch {
-        // permissions API not supported — fall back to direct request
-        requestLocation();
+        // Permissions API query başarısız — yine de banner ile kullanıcıya sor
+        showPromptBanner();
       }
     };
     checkPermission();
@@ -724,12 +743,17 @@ export default function Home() {
     }
   };
 
-  // Weather icon helper
-  const getWeatherIcon = (code: number) => {
+  // Weather icon helper (WMO kodu karşılığı — Open-Meteo reference)
+  const getWeatherIcon = (code: number | null) => {
+    if (code === null) return <Cloud className="w-4 h-4 text-slate-400" />;
     if (code === 0 || code === 1) return <Sun className="w-4 h-4 text-yellow-400" />;
-    if (code >= 2 && code <= 3) return <Cloud className="w-4 h-4 text-slate-400" />;
+    if (code === 2 || code === 3) return <Cloud className="w-4 h-4 text-slate-400" />;
+    if (code === 45 || code === 48) return <Cloud className="w-4 h-4 text-slate-300" />;
     if (code >= 51 && code <= 67) return <CloudRain className="w-4 h-4 text-blue-400" />;
+    if (code === 68 || code === 69) return <CloudRain className="w-4 h-4 text-blue-300" />;
     if (code >= 71 && code <= 77) return <CloudSnow className="w-4 h-4 text-blue-200" />;
+    if (code >= 80 && code <= 82) return <CloudRain className="w-4 h-4 text-blue-500" />;
+    if (code === 85 || code === 86) return <CloudSnow className="w-4 h-4 text-blue-100" />;
     if (code >= 95) return <Zap className="w-4 h-4 text-yellow-400" />;
     return <Cloud className="w-4 h-4 text-slate-400" />;
   };
@@ -962,7 +986,7 @@ export default function Home() {
               >
                 <MapPin className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline text-xs">
-                  {locationPermission === 'denied' ? 'Konum kapalı' : weatherData !== null ? 'Hava yüklenemedi' : 'Konum izni ver'}
+                  {locationPermission === 'denied' ? 'Konum kapalı' : weatherData?.error === 'weather' ? 'Hava yüklenemedi' : 'Konum izni ver'}
                 </span>
               </button>
             )}
