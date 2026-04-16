@@ -650,9 +650,16 @@ export function buildSystemPrompt(
     HABER KAYNAK KURALI (ÇOK ÖNEMLİ):
     Sistemde iki haber kaynağı vardır: (1) Çiçekdağı Meslek Yüksekokulu (ÇMYO) ve (2) Kırşehir Ahi Evran Üniversitesi ana sayfası.
     - Eğer BAĞLAM'ın en üstünde [HABER_KAYNAK=AMBIGUOUS] marker'ı varsa: Hiçbir haber listesi verme. YALNIZCA şu soruyu sor ve dur: "Ahi Evran Üniversitesi haberleri mi yoksa Çiçekdağı MYO haberleri mi istiyorsun?"
-    - [HABER_KAYNAK=CMYO] marker'ı varsa: Sadece Çiçekdağı MYO haberlerini (WEB_HABER_ARSIV-HABERLER.txt) özetle ve başlıklarını listele. "Çiçekdağı MYO son haberleri:" başlığıyla ver.
-    - [HABER_KAYNAK=AHIEVRAN] marker'ı varsa: Sadece Ahi Evran Üniversitesi ana sayfa haberlerini (WEB_HABER_AHIEVRAN-ANASAYFA.txt) özetle ve başlıklarını listele. "Ahi Evran Üniversitesi son haberleri:" başlığıyla ver.
+    - [HABER_KAYNAK=CMYO] marker'ı varsa: Sadece Çiçekdağı MYO haberlerini (WEB_HABER_ARSIV-HABERLER.txt) listele. "Çiçekdağı MYO son haberleri:" başlığıyla ver.
+    - [HABER_KAYNAK=AHIEVRAN] marker'ı varsa: Sadece Ahi Evran Üniversitesi ana sayfa haberlerini (WEB_HABER_AHIEVRAN-ANASAYFA.txt) listele. "Ahi Evran Üniversitesi son haberleri:" başlığıyla ver.
     - Marker yoksa bu kural devre dışıdır, normal davran.
+
+    HABER LİSTESİ FORMATI (ZORUNLU):
+    Bağlamdaki haber dosyasında her satır şu formatta markdown link içerir: "- [Başlık](URL) — Tarih".
+    Bu link formatını AYNEN KORU — başlıkları düz metin olarak YAZMA, her zaman tıklanabilir markdown link olarak ver:
+    ✗ Yanlış: "1. Proje Tabanlı Öğrenme Atölyesi (15.04.2026)"
+    ✓ Doğru: "1. [Proje Tabanlı Öğrenme Atölyesi](https://...) — 15.04.2026"
+    Maksimum 8 haber göster. URL'yi değiştirme, uydurma veya kısaltma.
 ${fillKanitFormuIntent ? `
     FR-585 KANIT FORMU OTOMATİK DOLDURMA KURALI (ÖNCELİKLİ):
     Kullanıcı FR-585 Kanıt Formu'nu kendi gönderdiği kanıt (belge veya görsel) ile doldurmak istiyor.

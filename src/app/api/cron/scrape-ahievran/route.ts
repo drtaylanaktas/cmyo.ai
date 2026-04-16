@@ -6,19 +6,25 @@
  * paralel olarak çeker. Haberler knowledge_documents tablosuna (RAG için),
  * etkinlikler structured events tablosuna (takvim UI için) yazılır.
  *
- * Strateji: Hobby plan 10s limit içinde sığar — iki fetch paraleldir,
- * her biri 4500ms timeout, Promise.allSettled ile kısmi başarı kabul edilir.
+ * Kazıma yöntemi: Ahi Evran sunucusu Vercel IP aralıklarına HTTP 418 döndürüyor
+ * (lokalden de 11-14s sürüyor, 10s Hobby limitini aşar). Bunu bypass etmek için
+ * Jina Reader proxy'si (`r.jina.ai`) kullanılıyor — ücretsiz, API key gerektirmez,
+ * HTML'i LLM-dostu markdown olarak döndürür. Formatı:
+ *   [Başlık](URL)DD.MM.YYYY
+ * bir satırda. Regex ile parse ediyoruz.
  *
  * Güvenlik: Authorization: Bearer <CRON_SECRET> header zorunludur.
  */
 
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
-import * as cheerio from 'cheerio';
 
 const AHIEVRAN_BASE = 'https://ahievran.edu.tr';
 const NEWS_URL = `${AHIEVRAN_BASE}/index.php?option=com_content&view=category&id=8`;
 const EVENTS_URL = `${AHIEVRAN_BASE}/index.php?option=com_content&view=category&id=11`;
+
+// Jina Reader — HTML'i markdown'a çeviren ücretsiz proxy
+const JINA_PREFIX = 'https://r.jina.ai/';
 
 const NEWS_FILENAME = 'WEB_HABER_AHIEVRAN-ANASAYFA.txt';
 const NEWS_CATEGORY = 'web-haber-ahievran';
@@ -41,38 +47,30 @@ async function ensureEventsTable(): Promise<void> {
     await sql`CREATE INDEX IF NOT EXISTS idx_events_date ON events(event_date);`;
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = 4500): Promise<string | null> {
+async function fetchViaJina(targetUrl: string, timeoutMs = 8000): Promise<string | null> {
+    const proxyUrl = `${JINA_PREFIX}${targetUrl}`;
     try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
-        const res = await fetch(url, {
+        const res = await fetch(proxyUrl, {
             signal: controller.signal,
             headers: {
-                // Ahi Evran sitesi "bot" user-agent'larını sessizce timeout'a düşürüyor —
-                // gerçek Chrome UA ile istek attığımızda HTTP 200 dönüyor.
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8',
+                // X-Return-Format: markdown zaten default; Accept ile onaylıyoruz.
+                'Accept': 'text/plain, text/markdown',
             },
         });
         clearTimeout(timer);
         if (!res.ok) {
-            console.warn(`[scrape-ahievran] fetch ${url} → HTTP ${res.status}`);
+            console.warn(`[scrape-ahievran] jina ${targetUrl} → HTTP ${res.status}`);
             return null;
         }
         const body = await res.text();
-        console.log(`[scrape-ahievran] fetch ${url} → HTTP 200, ${body.length} bytes`);
+        console.log(`[scrape-ahievran] jina ${targetUrl} → HTTP 200, ${body.length} bytes`);
         return body;
     } catch (err) {
-        console.warn(`[scrape-ahievran] fetch ${url} → error: ${(err as Error).message}`);
+        console.warn(`[scrape-ahievran] jina ${targetUrl} → error: ${(err as Error).message}`);
         return null;
     }
-}
-
-function absolutize(href: string): string {
-    if (!href) return '';
-    if (href.startsWith('http')) return href;
-    return `${AHIEVRAN_BASE}${href.startsWith('/') ? '' : '/'}${href}`;
 }
 
 interface ParsedItem {
@@ -83,52 +81,58 @@ interface ParsedItem {
     intro: string;
 }
 
-// Ahi Evran sitesi tablo-tabanlı yapı kullanıyor:
-//   <tr><td><a href="/arsiv-haberler/9781-...">Başlık</a></td><td>16.04.2026</td></tr>
-// Bu parser href pattern'ine göre bağlantıları toplar ve satır metninden
-// dd.mm.yyyy tarihini çıkarır.
-function parseByHrefPattern(html: string, hrefPattern: RegExp): ParsedItem[] {
-    const $ = cheerio.load(html);
-    $('header, footer, nav, .navbar, .sidebar, script, style, .breadcrumb, .pagination').remove();
-
+// Jina Reader çıktısı her satırda "[Başlık](URL)DD.MM.YYYY" pattern'i içerir.
+// Aynı URL'ye birden fazla link olabilir (thumbnail + title) — dedup gerekir.
+// Tarih linkin yanında bitişik olabilir veya başka satırda — en yakın tarihi alıyoruz.
+function parseJinaMarkdown(markdown: string, hrefPattern: RegExp): ParsedItem[] {
     const items: ParsedItem[] = [];
     const seen = new Set<string>();
 
-    $('a[href]').each((_, node) => {
-        const a = $(node);
-        const href = a.attr('href') || '';
-        const url = absolutize(href);
-        if (!hrefPattern.test(url)) return;
+    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+    const dateRegex = /(\d{2})\.(\d{2})\.(\d{4})/;
 
-        const title = a.text().trim().replace(/\s+/g, ' ');
-        if (!title || title.length < 5) return;
-        if (seen.has(url)) return;
-        seen.add(url);
+    const lines = markdown.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        linkRegex.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = linkRegex.exec(line)) !== null) {
+            const title = m[1].trim().replace(/\s+/g, ' ');
+            const url = m[2];
 
-        // En yakın satır/öğe konteynerini bul — tarih aynı satırda yazılı
-        const parent = a.closest('tr, li, article, .item, div').first();
-        const parentText = (parent.length ? parent.text() : a.parent().text()) || '';
-        const m = parentText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-        let dateIso: string | null = null;
-        let dateText = '';
-        if (m) {
-            dateText = `${m[1]}.${m[2]}.${m[3]}`;
-            const iso = `${m[3]}-${m[2]}-${m[1]}`;
-            const d = new Date(iso);
-            if (!isNaN(d.getTime())) dateIso = iso;
+            if (!hrefPattern.test(url)) continue;
+            if (!title || title.length < 5) continue;
+            // Jina bazen "Image N" veya "![...]" alt-text'i link olarak verir — filtrele
+            if (/^image\s*\d*$/i.test(title)) continue;
+            if (seen.has(url)) continue;
+            seen.add(url);
+
+            // Satırda veya komşu satırlarda tarih ara
+            let dateMatch = line.match(dateRegex);
+            if (!dateMatch && i + 1 < lines.length) dateMatch = lines[i + 1].match(dateRegex);
+            if (!dateMatch && i - 1 >= 0) dateMatch = lines[i - 1].match(dateRegex);
+
+            let dateIso: string | null = null;
+            let dateText = '';
+            if (dateMatch) {
+                dateText = `${dateMatch[1]}.${dateMatch[2]}.${dateMatch[3]}`;
+                const iso = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+                const d = new Date(iso);
+                if (!isNaN(d.getTime())) dateIso = iso;
+            }
+
+            items.push({ title, url, dateText, dateIso, intro: '' });
         }
-
-        items.push({ title, url, dateText, dateIso, intro: '' });
-    });
+    }
 
     return items.slice(0, 60);
 }
 
 async function scrapeNews(): Promise<{ count: number; saved: boolean }> {
-    const html = await fetchWithTimeout(NEWS_URL);
-    if (!html) return { count: 0, saved: false };
+    const md = await fetchViaJina(NEWS_URL);
+    if (!md) return { count: 0, saved: false };
 
-    const items = parseByHrefPattern(html, /\/arsiv-haberler\//);
+    const items = parseJinaMarkdown(md, /\/arsiv-haberler\//);
     if (items.length === 0) return { count: 0, saved: false };
 
     const scrapedAt = new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
@@ -161,10 +165,10 @@ async function scrapeNews(): Promise<{ count: number; saved: boolean }> {
 }
 
 async function scrapeEvents(): Promise<{ count: number; saved: number }> {
-    const html = await fetchWithTimeout(EVENTS_URL);
-    if (!html) return { count: 0, saved: 0 };
+    const md = await fetchViaJina(EVENTS_URL);
+    if (!md) return { count: 0, saved: 0 };
 
-    const items = parseByHrefPattern(html, /\/arsiv-etkinlikler\//);
+    const items = parseJinaMarkdown(md, /\/arsiv-etkinlikler\//);
     if (items.length === 0) return { count: 0, saved: 0 };
 
     let saved = 0;
