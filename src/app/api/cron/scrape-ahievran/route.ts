@@ -48,15 +48,23 @@ async function fetchWithTimeout(url: string, timeoutMs = 4500): Promise<string |
         const res = await fetch(url, {
             signal: controller.signal,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; CMYO-AI-Bot/1.0; +https://cmyoai.com)',
-                'Accept': 'text/html,application/xhtml+xml',
-                'Accept-Language': 'tr-TR,tr;q=0.9',
+                // Ahi Evran sitesi "bot" user-agent'larını sessizce timeout'a düşürüyor —
+                // gerçek Chrome UA ile istek attığımızda HTTP 200 dönüyor.
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8',
             },
         });
         clearTimeout(timer);
-        if (!res.ok) return null;
-        return await res.text();
-    } catch {
+        if (!res.ok) {
+            console.warn(`[scrape-ahievran] fetch ${url} → HTTP ${res.status}`);
+            return null;
+        }
+        const body = await res.text();
+        console.log(`[scrape-ahievran] fetch ${url} → HTTP 200, ${body.length} bytes`);
+        return body;
+    } catch (err) {
+        console.warn(`[scrape-ahievran] fetch ${url} → error: ${(err as Error).message}`);
         return null;
     }
 }
