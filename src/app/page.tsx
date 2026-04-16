@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft, Trash2, Edit2, Pin, MoreHorizontal, X, Paperclip, Cloud, CloudRain, Sun, CloudSnow, Zap, MapPin, Calendar } from 'lucide-react';
 import Link from 'next/link';
+import MiniCalendar from '@/components/MiniCalendar';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
@@ -1128,6 +1129,16 @@ export default function Home() {
                       </motion.button>
                     ))}
                   </div>
+
+                  {/* Ahi Evran Etkinlik Ajandası */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="mt-8 w-full flex justify-center"
+                  >
+                    <MiniCalendar />
+                  </motion.div>
                 </div>
               )}
 

@@ -75,88 +75,52 @@ interface ParsedItem {
     intro: string;
 }
 
-function parseJoomlaCategory(html: string): ParsedItem[] {
+// Ahi Evran sitesi tablo-tabanlı yapı kullanıyor:
+//   <tr><td><a href="/arsiv-haberler/9781-...">Başlık</a></td><td>16.04.2026</td></tr>
+// Bu parser href pattern'ine göre bağlantıları toplar ve satır metninden
+// dd.mm.yyyy tarihini çıkarır.
+function parseByHrefPattern(html: string, hrefPattern: RegExp): ParsedItem[] {
     const $ = cheerio.load(html);
     $('header, footer, nav, .navbar, .sidebar, script, style, .breadcrumb, .pagination').remove();
 
     const items: ParsedItem[] = [];
     const seen = new Set<string>();
 
-    const pickDate = (el: cheerio.Cheerio<any>): { dateText: string; dateIso: string | null } => {
-        const time = el.find('time[datetime]').first();
-        if (time.length) {
-            const dt = time.attr('datetime') || '';
-            const txt = time.text().trim() || dt;
-            const d = new Date(dt);
-            if (!isNaN(d.getTime())) return { dateText: txt, dateIso: d.toISOString().slice(0, 10) };
-            return { dateText: txt, dateIso: null };
+    $('a[href]').each((_, node) => {
+        const a = $(node);
+        const href = a.attr('href') || '';
+        const url = absolutize(href);
+        if (!hrefPattern.test(url)) return;
+
+        const title = a.text().trim().replace(/\s+/g, ' ');
+        if (!title || title.length < 5) return;
+        if (seen.has(url)) return;
+        seen.add(url);
+
+        // En yakın satır/öğe konteynerini bul — tarih aynı satırda yazılı
+        const parent = a.closest('tr, li, article, .item, div').first();
+        const parentText = (parent.length ? parent.text() : a.parent().text()) || '';
+        const m = parentText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+        let dateIso: string | null = null;
+        let dateText = '';
+        if (m) {
+            dateText = `${m[1]}.${m[2]}.${m[3]}`;
+            const iso = `${m[3]}-${m[2]}-${m[1]}`;
+            const d = new Date(iso);
+            if (!isNaN(d.getTime())) dateIso = iso;
         }
-        const txt = el.find('.published, .create, .modified, .item-date, .tarih').first().text().trim();
-        if (txt) {
-            const m = txt.match(/(\d{2})[.\-\/](\d{2})[.\-\/](\d{4})/);
-            if (m) {
-                const iso = `${m[3]}-${m[2]}-${m[1]}`;
-                const d = new Date(iso);
-                if (!isNaN(d.getTime())) return { dateText: txt, dateIso: iso };
-            }
-            return { dateText: txt, dateIso: null };
-        }
-        return { dateText: '', dateIso: null };
-    };
 
-    const selectors = [
-        'div.items-leading div.item',
-        'div.items-row div.item',
-        'div.category-list table.category tr',
-        'ul.category li',
-        'div.blog div.items-leading article',
-        'div.blog article',
-    ];
+        items.push({ title, url, dateText, dateIso, intro: '' });
+    });
 
-    for (const sel of selectors) {
-        const nodes = $(sel);
-        if (nodes.length === 0) continue;
-        nodes.each((_, node) => {
-            const el = $(node);
-            const a = el.find('h2.item-title a, h3.item-title a, .page-header a, a.url, td.list-title a, a').first();
-            const href = a.attr('href');
-            if (!href) return;
-            const url = absolutize(href);
-            if (!/com_content|\/haber|\/etkinlik|id=\d+/.test(url)) return;
-            const title = a.text().trim();
-            if (!title || title.length < 4) return;
-            if (seen.has(url)) return;
-            seen.add(url);
-
-            const { dateText, dateIso } = pickDate(el);
-            const intro = el.find('.introtext p, p').first().text().trim().slice(0, 400);
-
-            items.push({ title, url, dateText, dateIso, intro });
-        });
-        if (items.length > 0) break;
-    }
-
-    if (items.length === 0) {
-        $('a[href*="option=com_content"]').each((_, node) => {
-            const el = $(node);
-            const href = el.attr('href') || '';
-            const url = absolutize(href);
-            const title = el.text().trim();
-            if (!title || title.length < 6) return;
-            if (seen.has(url)) return;
-            seen.add(url);
-            items.push({ title, url, dateText: '', dateIso: null, intro: '' });
-        });
-    }
-
-    return items.slice(0, 40);
+    return items.slice(0, 60);
 }
 
 async function scrapeNews(): Promise<{ count: number; saved: boolean }> {
     const html = await fetchWithTimeout(NEWS_URL);
     if (!html) return { count: 0, saved: false };
 
-    const items = parseJoomlaCategory(html);
+    const items = parseByHrefPattern(html, /\/arsiv-haberler\//);
     if (items.length === 0) return { count: 0, saved: false };
 
     const scrapedAt = new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
@@ -192,7 +156,7 @@ async function scrapeEvents(): Promise<{ count: number; saved: number }> {
     const html = await fetchWithTimeout(EVENTS_URL);
     if (!html) return { count: 0, saved: 0 };
 
-    const items = parseJoomlaCategory(html);
+    const items = parseByHrefPattern(html, /\/arsiv-etkinlikler\//);
     if (items.length === 0) return { count: 0, saved: 0 };
 
     let saved = 0;
