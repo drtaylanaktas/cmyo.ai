@@ -4,48 +4,40 @@ import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ExternalLink, Calendar as CalendarIcon } from 'lucide-react';
 
-export type EventItem = {
+export type NewsSource = 'cmyo' | 'ahievran';
+
+export type NewsItem = {
     id: number;
+    source: NewsSource;
     title: string;
-    description: string | null;
-    event_date: string | null;
-    event_date_text: string | null;
-    external_url: string;
+    url: string;
+    dateText: string | null;
 };
 
 type Props = {
     monthLabel: string;
     year: number;
     monthIndex: number;
-    dated: EventItem[];
-    undated: EventItem[];
+    itemsByDay: Record<string, NewsItem[]>;
+    counts: { cmyo: number; ahievran: number };
+    totalCount: number;
 };
 
 const WEEKDAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
-function dayKey(dateStr: string | null): string | null {
-    if (!dateStr) return null;
-    return dateStr.slice(0, 10);
-}
+const ORANGE = '#ff7b1a';
+
+const SOURCE_LABEL: Record<NewsSource, string> = {
+    cmyo: 'Çiçekdağı MYO',
+    ahievran: 'Ahi Evran Üniversitesi',
+};
 
 function formatDayLabel(y: number, m: number, d: number): string {
     return `${d} ${new Date(y, m, d).toLocaleString('tr-TR', { month: 'long' })} ${y}`;
 }
 
-export default function EventCalendar({ monthLabel, year, monthIndex, dated, undated }: Props) {
+export default function EventCalendar({ monthLabel, year, monthIndex, itemsByDay, counts, totalCount }: Props) {
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
-
-    const eventsByDay = useMemo(() => {
-        const map = new Map<string, EventItem[]>();
-        for (const e of dated) {
-            const k = dayKey(e.event_date);
-            if (!k) continue;
-            const arr = map.get(k) || [];
-            arr.push(e);
-            map.set(k, arr);
-        }
-        return map;
-    }, [dated]);
 
     const grid = useMemo(() => {
         const firstOfMonth = new Date(year, monthIndex, 1);
@@ -69,7 +61,9 @@ export default function EventCalendar({ monthLabel, year, monthIndex, dated, und
         return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
     })();
 
-    const selectedEvents = selectedDay ? (eventsByDay.get(selectedDay) || []) : [];
+    const selectedItems = selectedDay ? (itemsByDay[selectedDay] || []) : [];
+    const selectedCmyo = selectedItems.filter(i => i.source === 'cmyo');
+    const selectedAhi = selectedItems.filter(i => i.source === 'ahievran');
 
     return (
         <div className="w-full max-w-5xl mx-auto">
@@ -82,8 +76,20 @@ export default function EventCalendar({ monthLabel, year, monthIndex, dated, und
                 </div>
                 <div>
                     <h1 className="text-xl md:text-2xl font-bold text-white capitalize">{monthLabel}</h1>
-                    <p className="text-xs text-slate-400">Kırşehir Ahi Evran Üniversitesi — Yaklaşan Etkinlikler</p>
+                    <p className="text-xs text-slate-400">Çiçekdağı MYO + Ahi Evran Üniversitesi — Haber Takvimi</p>
                 </div>
+            </div>
+
+            <div className="flex items-center gap-4 mb-4 text-xs">
+                <span className="inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full" style={{ background: ORANGE, boxShadow: `0 0 6px ${ORANGE}` }} />
+                    <span className="text-slate-300">Çiçekdağı MYO ({counts.cmyo})</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full" style={{ background: 'var(--neon-green)', boxShadow: '0 0 6px var(--neon-green)' }} />
+                    <span className="text-slate-300">Ahi Evran ({counts.ahievran})</span>
+                </span>
+                <span className="text-slate-500 ml-auto">Toplam {totalCount} haber</span>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-[#050a14]/60 backdrop-blur-sm p-3 md:p-5">
@@ -99,39 +105,49 @@ export default function EventCalendar({ monthLabel, year, monthIndex, dated, und
                             return <div key={idx} className="aspect-square rounded-lg bg-transparent" />;
                         }
                         const iso = cell.iso!;
-                        const events = eventsByDay.get(iso) || [];
+                        const items = itemsByDay[iso] || [];
                         const isToday = iso === todayIso;
-                        const hasEvent = events.length > 0;
+                        const hasItem = items.length > 0;
+                        const sources = Array.from(new Set(items.map(i => i.source))) as NewsSource[];
+                        const hasCmyo = sources.includes('cmyo');
+                        const hasAhi = sources.includes('ahievran');
 
                         return (
                             <button
                                 key={idx}
                                 type="button"
-                                onClick={() => hasEvent && setSelectedDay(iso)}
-                                disabled={!hasEvent}
+                                onClick={() => hasItem && setSelectedDay(iso)}
+                                disabled={!hasItem}
                                 className={`aspect-square rounded-lg border text-xs md:text-sm flex flex-col items-center justify-center gap-1 transition-all relative
-                                    ${hasEvent ? 'cursor-pointer hover:scale-[1.03]' : 'cursor-default opacity-80'}
+                                    ${hasItem ? 'cursor-pointer hover:scale-[1.03]' : 'cursor-default opacity-80'}
                                     ${isToday ? 'ring-1' : ''}
                                 `}
                                 style={{
-                                    background: hasEvent ? 'rgba(0,128,255,0.10)' : 'rgba(255,255,255,0.02)',
-                                    borderColor: hasEvent ? 'rgba(0,128,255,0.35)' : 'rgba(255,255,255,0.06)',
+                                    background: hasItem
+                                        ? 'linear-gradient(135deg, rgba(255,123,26,0.12), rgba(0,255,136,0.10))'
+                                        : 'rgba(255,255,255,0.02)',
+                                    borderColor: hasItem ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
                                     boxShadow: isToday ? '0 0 0 1px var(--neon-green) inset, 0 0 10px rgba(57,255,20,0.25)' : undefined,
                                 }}
                             >
                                 <span className={`font-semibold ${isToday ? 'text-white' : 'text-slate-200'}`}>{cell.date!.getDate()}</span>
-                                {hasEvent && (
+                                {hasItem && (
                                     <span
-                                        className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-0.5"
-                                        aria-label={`${events.length} etkinlik`}
+                                        className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1"
+                                        aria-label={`${items.length} haber`}
                                     >
-                                        {Array.from({ length: Math.min(events.length, 3) }).map((_, i) => (
+                                        {hasCmyo && (
                                             <span
-                                                key={i}
                                                 className="w-1.5 h-1.5 rounded-full"
-                                                style={{ background: 'var(--neon-gold)', boxShadow: '0 0 6px var(--neon-gold)' }}
+                                                style={{ background: ORANGE, boxShadow: `0 0 6px ${ORANGE}` }}
                                             />
-                                        ))}
+                                        )}
+                                        {hasAhi && (
+                                            <span
+                                                className="w-1.5 h-1.5 rounded-full"
+                                                style={{ background: 'var(--neon-green)', boxShadow: '0 0 6px var(--neon-green)' }}
+                                            />
+                                        )}
                                     </span>
                                 )}
                             </button>
@@ -140,34 +156,8 @@ export default function EventCalendar({ monthLabel, year, monthIndex, dated, und
                 </div>
             </div>
 
-            {undated.length > 0 && (
-                <div className="mt-6 rounded-2xl border border-white/10 bg-[#050a14]/60 backdrop-blur-sm p-4 md:p-5">
-                    <h2 className="text-sm font-semibold text-slate-200 mb-3">Tarihi Belirsiz Etkinlikler</h2>
-                    <ul className="space-y-2">
-                        {undated.map(e => (
-                            <li key={e.id} className="flex items-start justify-between gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5">
-                                <div className="min-w-0">
-                                    <div className="text-sm text-white truncate">{e.title}</div>
-                                    {e.event_date_text && (
-                                        <div className="text-xs text-slate-400 mt-0.5">{e.event_date_text}</div>
-                                    )}
-                                </div>
-                                <a
-                                    href={e.external_url}
-                                    target="_blank"
-                                    rel="noreferrer noopener"
-                                    className="shrink-0 inline-flex items-center gap-1 text-xs text-slate-300 hover:text-white px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-colors"
-                                >
-                                    Detay <ExternalLink className="w-3 h-3" />
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
-
             <p className="mt-4 text-xs text-slate-500 text-center">
-                Sadece içinde bulunulan ayın etkinlikleri gösterilir. Kaynak: ahievran.edu.tr
+                Sadece içinde bulunulan ayın haberleri gösterilir. Kaynaklar: cicekdagimyo.ahievran.edu.tr, ahievran.edu.tr
             </p>
 
             <AnimatePresence>
@@ -188,7 +178,7 @@ export default function EventCalendar({ monthLabel, year, monthIndex, dated, und
                         >
                             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
                                 <div>
-                                    <div className="text-xs text-slate-400">Etkinlikler</div>
+                                    <div className="text-xs text-slate-400">Haberler</div>
                                     <div className="text-base font-semibold text-white">
                                         {formatDayLabel(year, monthIndex, parseInt(selectedDay.slice(-2), 10))}
                                     </div>
@@ -201,24 +191,64 @@ export default function EventCalendar({ monthLabel, year, monthIndex, dated, und
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
-                            <ul className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
-                                {selectedEvents.map(e => (
-                                    <li key={e.id} className="rounded-xl bg-white/[0.02] border border-white/10 p-4">
-                                        <div className="text-sm font-semibold text-white">{e.title}</div>
-                                        {e.description && (
-                                            <p className="mt-1.5 text-xs text-slate-300 line-clamp-4">{e.description}</p>
-                                        )}
-                                        <a
-                                            href={e.external_url}
-                                            target="_blank"
-                                            rel="noreferrer noopener"
-                                            className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/30 text-slate-200 hover:text-white transition-colors"
-                                        >
-                                            Detayları gör <ExternalLink className="w-3 h-3" />
-                                        </a>
-                                    </li>
-                                ))}
-                            </ul>
+                            <div className="p-5 space-y-5 max-h-[60vh] overflow-y-auto">
+                                {selectedCmyo.length > 0 && (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span
+                                                className="inline-block w-2 h-2 rounded-full"
+                                                style={{ background: ORANGE, boxShadow: `0 0 6px ${ORANGE}` }}
+                                            />
+                                            <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: ORANGE }}>
+                                                {SOURCE_LABEL.cmyo}
+                                            </span>
+                                        </div>
+                                        <ul className="space-y-2">
+                                            {selectedCmyo.map(item => (
+                                                <li key={item.id} className="rounded-xl bg-white/[0.02] border border-white/10 p-4">
+                                                    <a
+                                                        href={item.url}
+                                                        target="_blank"
+                                                        rel="noreferrer noopener"
+                                                        className="text-sm font-semibold text-white hover:text-[color:var(--neon-blue)] inline-flex items-start gap-1.5 leading-snug"
+                                                    >
+                                                        <span>{item.title}</span>
+                                                        <ExternalLink className="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-60" />
+                                                    </a>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                                {selectedAhi.length > 0 && (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span
+                                                className="inline-block w-2 h-2 rounded-full"
+                                                style={{ background: 'var(--neon-green)', boxShadow: '0 0 6px var(--neon-green)' }}
+                                            />
+                                            <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: 'var(--neon-green)' }}>
+                                                {SOURCE_LABEL.ahievran}
+                                            </span>
+                                        </div>
+                                        <ul className="space-y-2">
+                                            {selectedAhi.map(item => (
+                                                <li key={item.id} className="rounded-xl bg-white/[0.02] border border-white/10 p-4">
+                                                    <a
+                                                        href={item.url}
+                                                        target="_blank"
+                                                        rel="noreferrer noopener"
+                                                        className="text-sm font-semibold text-white hover:text-[color:var(--neon-blue)] inline-flex items-start gap-1.5 leading-snug"
+                                                    >
+                                                        <span>{item.title}</span>
+                                                        <ExternalLink className="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-60" />
+                                                    </a>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}

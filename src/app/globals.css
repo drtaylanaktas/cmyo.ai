@@ -24,6 +24,8 @@
   /* Glowing Green */
   --neon-gold: #ffd700;
   /* Glowing Gold */
+  --neon-orange: #ff7b1a;
+  /* Glowing Orange — ÇMYO haber rengi */
 
   --primary: var(--neon-blue);
   --secondary: #111827;

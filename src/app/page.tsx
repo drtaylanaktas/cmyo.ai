@@ -967,10 +967,10 @@ export default function Home() {
             <Link
               href="/etkinlikler"
               className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
-              title="Ahi Evran Üniversitesi Yaklaşan Etkinlikleri"
+              title="Çiçekdağı + Ahi Evran Haber Takvimi"
             >
               <Calendar className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Etkinlikler</span>
+              <span className="hidden sm:inline">Haber Takvimi</span>
             </Link>
             {/* Weather: temp available → full display */}
             {weatherData?.temp !== null && weatherData !== null && (
@@ -1096,52 +1096,54 @@ export default function Home() {
 
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative z-10 w-full min-h-0">
+          {messages.length === 0 ? (
+            <div className="max-w-5xl mx-auto h-full flex flex-col md:flex-row md:items-center md:justify-center gap-8 md:gap-12 opacity-90 relative z-10">
+              {/* Sol: brand + quick cards */}
+              <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left">
+                <div className="relative w-24 h-24 md:w-28 md:h-28 mb-4 animate-float">
+                  <Image
+                    src="/logo.png"
+                    alt="ÇMYO Logo"
+                    fill
+                    className="object-contain drop-shadow-[0_0_25px_rgba(0,128,255,0.3)]"
+                  />
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2">ÇMYO.AI Asistan</h2>
+                <p className="text-slate-400 max-w-md mb-6 text-sm">
+                  Çiçekdağı MYO hakkında merak ettiklerinizi sorabilir, akademik ve idari süreçler hakkında yardım alabilirsiniz.
+                </p>
+
+                {/* Quick Start Cards */}
+                <div className="grid grid-cols-2 gap-3 max-w-lg w-full">
+                  {quickSuggestions.map((s, i) => (
+                    <motion.button
+                      key={i}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.1 }}
+                      onClick={() => { setInput(s.query); }}
+                      className="flex items-center gap-3 p-3 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-blue-500/30 rounded-xl text-left text-sm text-slate-300 hover:text-white transition-all group"
+                    >
+                      <span className="text-lg">{s.icon}</span>
+                      <span className="group-hover:text-blue-300 transition-colors">{s.text}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sağ: Haber Takvimi */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="shrink-0 flex justify-center"
+              >
+                <MiniCalendar />
+              </motion.div>
+            </div>
+          ) : (
           <div className="max-w-3xl mx-auto space-y-6">
             <AnimatePresence initial={false}>
-              {messages.length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-80 mt-[-50px] relative z-10">
-                  <div className="relative w-32 h-32 mb-6 animate-float">
-                    <Image
-                      src="/logo.png"
-                      alt="ÇMYO Logo"
-                      fill
-                      className="object-contain drop-shadow-[0_0_25px_rgba(0,128,255,0.3)]"
-                    />
-                  </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">ÇMYO.AI Asistan</h2>
-                  <p className="text-slate-400 max-w-md mb-8">
-                    Çiçekdağı MYO hakkında merak ettiklerinizi sorabilir, akademik ve idari süreçler hakkında yardım alabilirsiniz.
-                  </p>
-
-                  {/* Quick Start Cards */}
-                  <div className="grid grid-cols-2 gap-3 max-w-lg w-full">
-                    {quickSuggestions.map((s, i) => (
-                      <motion.button
-                        key={i}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        onClick={() => { setInput(s.query); }}
-                        className="flex items-center gap-3 p-3 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-blue-500/30 rounded-xl text-left text-sm text-slate-300 hover:text-white transition-all group"
-                      >
-                        <span className="text-lg">{s.icon}</span>
-                        <span className="group-hover:text-blue-300 transition-colors">{s.text}</span>
-                      </motion.button>
-                    ))}
-                  </div>
-
-                  {/* Ahi Evran Etkinlik Ajandası */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="mt-8 w-full flex justify-center"
-                  >
-                    <MiniCalendar />
-                  </motion.div>
-                </div>
-              )}
-
               {messages.map((msg) => (
                 <motion.div
                   key={msg.id}
@@ -1267,6 +1269,7 @@ export default function Home() {
             )}
             <div ref={messagesEndRef} className="h-4" />
           </div>
+          )}
         </div>
 
         {/* Input Area */}
