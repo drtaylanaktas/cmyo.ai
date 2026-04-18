@@ -483,10 +483,10 @@ export function logChatDebug(message: string) {
     console.log(`[${timestamp}] ${message}`);
 }
 
-// Generate with OpenAI GPT-4o Mini
-export async function generateWithOpenAI(message: string, systemPrompt: string, history: any[] = []) {
+// Generate with OpenAI GPT-4o
+export async function generateWithOpenAI(message: string, systemPrompt: string, history: any[] = [], imageDataUrl?: string) {
     try {
-        logChatDebug(`Sending request to GPT-4o Mini...`);
+        logChatDebug(`Sending request to GPT-4o...`);
 
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
@@ -504,6 +504,15 @@ export async function generateWithOpenAI(message: string, systemPrompt: string, 
             };
         });
 
+        // Build user message content (text or multimodal with image)
+        let userContent: any = message;
+        if (imageDataUrl) {
+            userContent = [
+                { type: 'text' as const, text: message },
+                { type: 'image_url' as const, image_url: { url: imageDataUrl, detail: 'low' as const } },
+            ];
+        }
+
         const response = await openai.chat.completions.create({
             model: "gpt-4o",
             max_tokens: 2000,
@@ -511,7 +520,7 @@ export async function generateWithOpenAI(message: string, systemPrompt: string, 
             messages: [
                 { role: "system", content: systemPrompt },
                 ...openaiHistory,
-                { role: "user", content: message }
+                { role: "user", content: userContent }
             ]
         });
 

@@ -1,42 +1,262 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { findRelevantDocuments, generateWithOpenAI, buildSystemPrompt, buildContext, logChatDebug, sanitizeUserMessage } from '@/lib/chat-engine';
+import { parseDocument } from '@/lib/file-parser';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
+const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
-// Send message to Telegram
-async function sendTelegramMessage(chatId: number, text: string, parseMode: string = 'Markdown') {
-    // Telegram markdown can be picky — if send fails with Markdown, retry with plain text
-    try {
-        const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                text: text,
-                parse_mode: parseMode,
-            }),
-        });
+const SUPPORTED_DOCUMENT_TYPES: Record<string, string> = {
+    'application/pdf': 'PDF',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'XLSX',
+    'application/vnd.ms-excel': 'XLS',
+};
 
-        if (!res.ok) {
-            const errorData = await res.json();
-            // If markdown parse error, retry without parse_mode
-            if (errorData.description?.includes('parse') && parseMode === 'Markdown') {
-                return sendTelegramMessage(chatId, text, '');
-            }
-            console.error('Telegram sendMessage error:', errorData);
+const SUGGESTION_BUTTONS = {
+    inline_keyboard: [
+        [{ text: '📅 Ders programı nedir?', callback_data: 'suggest:Ders programı hakkında bilgi verir misin?' }],
+        [{ text: '📋 Staj başvurusu nasıl yapılır?', callback_data: 'suggest:Staj başvurusu nasıl yapılır?' }],
+        [{ text: '🏫 Kayıt işlemleri', callback_data: 'suggest:Kayıt işlemleri hakkında bilgi verir misin?' }],
+    ],
+};
+
+const PERSISTENT_KEYBOARD = {
+    keyboard: [
+        [{ text: '📝 Yeni Sohbet' }, { text: '📚 Geçmiş' }, { text: '❓ Yardım' }],
+    ],
+    resize_keyboard: true,
+    one_time_keyboard: false,
+};
+
+// ─── Telegram API helpers ────────────────────────────────────────
+
+function escapeMarkdownV2(text: string): string {
+    return text.replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+}
+
+function convertToTelegramMarkdown(text: string): string {
+    let result = text;
+
+    // Preserve code blocks first (don't escape inside them)
+    const codeBlocks: string[] = [];
+    result = result.replace(/```([\s\S]*?)```/g, (_, code) => {
+        codeBlocks.push(code);
+        return `%%CODEBLOCK_${codeBlocks.length - 1}%%`;
+    });
+
+    const inlineCodes: string[] = [];
+    result = result.replace(/`([^`]+)`/g, (_, code) => {
+        inlineCodes.push(code);
+        return `%%INLINECODE_${inlineCodes.length - 1}%%`;
+    });
+
+    // Convert markdown headers to bold text
+    result = result.replace(/^#{1,6}\s+(.+)$/gm, (_, heading) => `**${heading.trim()}**`);
+
+    // Convert markdown tables to plain text
+    result = result.replace(/\|(.+)\|/g, (match) => {
+        return match.replace(/\|/g, ' │ ').replace(/\s*-+\s*/g, '').trim();
+    });
+    result = result.replace(/^\s*│\s*-+[\s│-]*$/gm, '');
+
+    // Convert bold **text** → *text* (Telegram bold)
+    result = result.replace(/\*\*(.+?)\*\*/g, (_, content) => `*${content}*`);
+
+    // Convert links [text](url) — keep as is (supported in MarkdownV2)
+    const links: string[] = [];
+    result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, linkText, url) => {
+        links.push(`[${escapeMarkdownV2(linkText)}](${url.replace(/\)/g, '\\)')})`);
+        return `%%LINK_${links.length - 1}%%`;
+    });
+
+    // Escape special MarkdownV2 characters in remaining text
+    result = escapeMarkdownV2(result);
+
+    // Restore preserved elements (unescape them)
+    result = result.replace(/%%CODEBLOCK_(\d+)%%/g, (_, i) => `\`\`\`\n${codeBlocks[parseInt(i)]}\n\`\`\``);
+    result = result.replace(/%%INLINECODE_(\d+)%%/g, (_, i) => `\`${inlineCodes[parseInt(i)]}\``);
+    result = result.replace(/%%LINK_(\d+)%%/g, (_, i) => links[parseInt(i)]);
+
+    // Fix double-escaped bold markers
+    result = result.replace(/\\\*/g, '*');
+
+    return result;
+}
+
+function splitTelegramMessage(text: string, maxLen: number = 4096): string[] {
+    if (text.length <= maxLen) return [text];
+
+    const parts: string[] = [];
+    let remaining = text;
+
+    while (remaining.length > 0) {
+        if (remaining.length <= maxLen) {
+            parts.push(remaining);
+            break;
         }
-        return res;
-    } catch (error) {
-        console.error('Failed to send Telegram message:', error);
+
+        let splitIndex = maxLen;
+
+        // Try to split at paragraph boundary
+        const paragraphBreak = remaining.lastIndexOf('\n\n', maxLen);
+        if (paragraphBreak > maxLen * 0.3) {
+            splitIndex = paragraphBreak;
+        } else {
+            // Try line break
+            const lineBreak = remaining.lastIndexOf('\n', maxLen);
+            if (lineBreak > maxLen * 0.3) {
+                splitIndex = lineBreak;
+            }
+        }
+
+        // Don't split inside code blocks
+        const beforeSplit = remaining.slice(0, splitIndex);
+        const openCodeBlocks = (beforeSplit.match(/```/g) || []).length;
+        if (openCodeBlocks % 2 !== 0) {
+            const codeEnd = remaining.indexOf('```', splitIndex);
+            if (codeEnd !== -1 && codeEnd < maxLen * 1.5) {
+                splitIndex = codeEnd + 3;
+            }
+        }
+
+        parts.push(remaining.slice(0, splitIndex).trim());
+        remaining = remaining.slice(splitIndex).trim();
+    }
+
+    return parts;
+}
+
+async function sendTelegramMessage(
+    chatId: number,
+    text: string,
+    options: {
+        parseMode?: string;
+        replyMarkup?: any;
+        retryPlain?: boolean;
+    } = {}
+) {
+    const { parseMode = 'MarkdownV2', replyMarkup, retryPlain = true } = options;
+
+    const parts = splitTelegramMessage(text);
+
+    for (let i = 0; i < parts.length; i++) {
+        const partText = parseMode === 'MarkdownV2' ? convertToTelegramMarkdown(parts[i]) : parts[i];
+        const isLast = i === parts.length - 1;
+
+        const payload: any = {
+            chat_id: chatId,
+            text: partText,
+        };
+        if (parseMode) payload.parse_mode = parseMode;
+        if (isLast && replyMarkup) payload.reply_markup = replyMarkup;
+
+        try {
+            const res = await fetch(`${TELEGRAM_API}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                if (retryPlain && errorData.description?.includes('parse')) {
+                    // Retry without formatting
+                    const plainPayload: any = { chat_id: chatId, text: parts[i] };
+                    if (isLast && replyMarkup) plainPayload.reply_markup = replyMarkup;
+                    await fetch(`${TELEGRAM_API}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(plainPayload),
+                    });
+                } else {
+                    console.error('Telegram sendMessage error:', errorData);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to send Telegram message:', error);
+        }
+
+        if (i < parts.length - 1) {
+            await new Promise(r => setTimeout(r, 300));
+        }
     }
 }
 
-// Parse JSON_START/JSON_END file action from AI reply
+async function sendTelegramDocument(
+    chatId: number,
+    fileSource: string | Buffer,
+    filename: string,
+    caption?: string
+) {
+    try {
+        if (typeof fileSource === 'string') {
+            const res = await fetch(`${TELEGRAM_API}/sendDocument`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, document: fileSource, caption: caption || '' }),
+            });
+            if (!res.ok) console.error('Telegram sendDocument (URL) error:', await res.json());
+        } else {
+            const formData = new FormData();
+            formData.append('chat_id', String(chatId));
+            formData.append('document', new Blob([new Uint8Array(fileSource)]), filename);
+            if (caption) formData.append('caption', caption);
+            const res = await fetch(`${TELEGRAM_API}/sendDocument`, { method: 'POST', body: formData });
+            if (!res.ok) console.error('Telegram sendDocument (buffer) error:', await res.json());
+        }
+    } catch (e) {
+        console.error('sendTelegramDocument failed:', e);
+    }
+}
+
+async function sendTypingAction(chatId: number) {
+    try {
+        await fetch(`${TELEGRAM_API}/sendChatAction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, action: 'typing' }),
+        });
+    } catch (_) {}
+}
+
+async function answerCallbackQuery(callbackQueryId: string, text?: string) {
+    try {
+        await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
+        });
+    } catch (_) {}
+}
+
+async function downloadTelegramFile(fileId: string): Promise<Buffer | null> {
+    try {
+        const fileRes = await fetch(`${TELEGRAM_API}/getFile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: fileId }),
+        });
+        const fileData = await fileRes.json();
+        if (!fileData.ok || !fileData.result?.file_path) return null;
+
+        const downloadRes = await fetch(`https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${fileData.result.file_path}`);
+        if (!downloadRes.ok) return null;
+
+        return Buffer.from(await downloadRes.arrayBuffer());
+    } catch (e) {
+        console.error('downloadTelegramFile failed:', e);
+        return null;
+    }
+}
+
+// ─── File action parser ──────────────────────────────────────────
+
 function parseFileAction(reply: string): { filename: string | null; cleanReply: string } {
     const match = reply.match(/JSON_START\s*([\s\S]*?)\s*JSON_END/);
     if (!match) return { filename: null, cleanReply: reply.trim() };
@@ -50,52 +270,14 @@ function parseFileAction(reply: string): { filename: string | null; cleanReply: 
     }
 }
 
-// Send a document (file) to Telegram — either by URL or buffer
-async function sendTelegramDocument(
-    chatId: number,
-    fileSource: string | Buffer,
-    filename: string,
-    caption?: string
-) {
-    try {
-        const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
-        if (typeof fileSource === 'string') {
-            // URL-based: Telegram servers download it directly (works for BKYS forms)
-            const res = await fetch(`${TELEGRAM_API}/sendDocument`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, document: fileSource, caption: caption || '' }),
-            });
-            if (!res.ok) {
-                const err = await res.json();
-                console.error('Telegram sendDocument (URL) error:', err);
-            }
-        } else {
-            // Buffer-based: multipart/form-data upload (local/generated files)
-            const formData = new FormData();
-            formData.append('chat_id', String(chatId));
-            formData.append('document', new Blob([new Uint8Array(fileSource)]), filename);
-            if (caption) formData.append('caption', caption);
-            const res = await fetch(`${TELEGRAM_API}/sendDocument`, { method: 'POST', body: formData });
-            if (!res.ok) {
-                const err = await res.json();
-                console.error('Telegram sendDocument (buffer) error:', err);
-            }
-        }
-    } catch (e) {
-        console.error('sendTelegramDocument failed:', e);
-    }
-}
+// ─── File resolver (DB → local → generate) ──────────────────────
 
-// Resolve file: DB file_url lookup → local file → generate-file fallback
 async function resolveFile(filename: string, requestOrigin: string): Promise<{
     source: string | Buffer;
     resolvedFilename: string;
 } | null> {
-    // Build search term: remove extension, use as wildcard keyword
     const searchTerm = '%' + filename.replace(/\.[^.]+$/, '').trim() + '%';
 
-    // 1. DB lookup — exact match first, then keyword wildcard (covers BKYS forms)
     try {
         let result = await sql`
             SELECT file_url, filename FROM knowledge_documents
@@ -112,7 +294,7 @@ async function resolveFile(filename: string, requestOrigin: string): Promise<{
         }
     } catch (_) {}
 
-    // 2. Local file lookup in src/data/
+    // Local file lookup in src/data/
     try {
         const dataDir = path.join(process.cwd(), 'src/data');
         const files = fs.readdirSync(dataDir);
@@ -125,7 +307,6 @@ async function resolveFile(filename: string, requestOrigin: string): Promise<{
         }
     } catch (_) {}
 
-    // 3. Fallback: call generate-file endpoint (on-the-fly DOCX generation)
     try {
         const res = await fetch(`${requestOrigin}/api/generate-file`, {
             method: 'POST',
@@ -144,308 +325,464 @@ async function resolveFile(filename: string, requestOrigin: string): Promise<{
     return null;
 }
 
-// Send "typing" action
-async function sendTypingAction(chatId: number) {
+// ─── Conversation management ─────────────────────────────────────
+
+type HistoryMessage = { role: 'user' | 'assistant'; content: string };
+
+async function getOrCreateConversation(
+    userId: string,
+    userEmail: string,
+    activeConvId: string | null,
+    lastUpdated: Date | null
+): Promise<{ conversationId: string; history: HistoryMessage[]; isNew: boolean }> {
+    const INACTIVITY_MS = 30 * 60 * 1000;
+
+    // Check if active conversation is still valid (within 30min)
+    if (activeConvId && lastUpdated) {
+        const elapsed = Date.now() - new Date(lastUpdated).getTime();
+        if (elapsed < INACTIVITY_MS) {
+            const historyResult = await sql`
+                SELECT role, content FROM messages
+                WHERE conversation_id = ${activeConvId}
+                ORDER BY created_at ASC
+            `;
+            const history = historyResult.rows.map(r => ({
+                role: r.role as 'user' | 'assistant',
+                content: r.content,
+            })).slice(-20);
+            return { conversationId: activeConvId, history, isNew: false };
+        }
+    }
+
+    // Create new conversation
+    const result = await sql`
+        INSERT INTO conversations (user_email, title, channel)
+        VALUES (${userEmail}, 'Telegram Sohbet', 'telegram')
+        RETURNING id;
+    `;
+    const newId = result.rows[0].id;
+
+    await sql`
+        UPDATE users SET active_telegram_conversation_id = ${newId}
+        WHERE id = ${userId}
+    `;
+
+    return { conversationId: newId, history: [], isNew: true };
+}
+
+async function saveMessage(conversationId: string, role: 'user' | 'assistant', content: string) {
+    await sql`
+        INSERT INTO messages (conversation_id, role, content)
+        VALUES (${conversationId}, ${role}, ${content})
+    `;
+    await sql`
+        UPDATE conversations SET updated_at = NOW() WHERE id = ${conversationId}
+    `;
+}
+
+// ─── Command handlers ────────────────────────────────────────────
+
+async function handleStartCommand(chatId: number, firstName: string) {
+    await sendTelegramMessage(chatId,
+        `🎓 *ÇMYO\\.AI Telegram Asistanı*\n\n` +
+        `Merhaba ${escapeMarkdownV2(firstName)}\\! Çiçekdağı Meslek Yüksekokulu yapay zeka asistanına hoş geldiniz\\.\n\n` +
+        `Bu botu kullanabilmek için önce ÇMYO\\.AI hesabınızı bağlamanız gerekiyor\\.\n\n` +
+        `📌 *Komutlar:*\n` +
+        `/baglanti \`e\\-posta\` — Hesabınızı bağlayın\n` +
+        `/durum — Bağlantı durumunuzu kontrol edin\n` +
+        `/yardim — Yardım menüsü`,
+        { parseMode: 'MarkdownV2' }
+    );
+}
+
+async function handleHelpCommand(chatId: number) {
+    await sendTelegramMessage(chatId,
+        `📚 ÇMYO.AI Yardım\n\n` +
+        `Bu bot, Çiçekdağı MYO hakkında sorularınıza yapay zeka destekli yanıtlar verir.\n\n` +
+        `Neler sorabilirsiniz:\n` +
+        `• Ders programı\n` +
+        `• Staj süreçleri\n` +
+        `• Kayıt işlemleri\n` +
+        `• Akademik takvim\n` +
+        `• Yemekhane, ulaşım bilgileri\n` +
+        `• ve daha fazlası...\n\n` +
+        `Komutlar:\n` +
+        `/yenisohbet — Yeni sohbet başlat\n` +
+        `/gecmis — Son konuşmalar\n` +
+        `/baglanti e-posta — Hesap bağlama\n` +
+        `/durum — Bağlantı durumu\n` +
+        `/kopar — Hesap bağlantısını kaldır\n\n` +
+        `⚠️ Yapay zeka yanıtlarını resmi kaynaklardan doğrulayın.`,
+        { parseMode: '', replyMarkup: PERSISTENT_KEYBOARD }
+    );
+}
+
+async function handleStatusCommand(chatId: number) {
     try {
-        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendChatAction`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, action: 'typing' }),
-        });
+        const userResult = await sql`
+            SELECT name, surname, email, role, telegram_linked
+            FROM users WHERE telegram_chat_id = ${chatId}
+        `;
+        if (userResult.rows.length > 0 && userResult.rows[0].telegram_linked) {
+            const u = userResult.rows[0];
+            const roleText = u.role === 'academic' ? 'Akademisyen' : (u.role === 'admin' ? 'Admin' : 'Öğrenci');
+            await sendTelegramMessage(chatId,
+                `✅ Hesabınız bağlı\n\n` +
+                `👤 ${u.name} ${u.surname}\n` +
+                `📧 ${u.email}\n` +
+                `🎓 ${roleText}`,
+                { parseMode: '', replyMarkup: PERSISTENT_KEYBOARD }
+            );
+        } else {
+            await sendTelegramMessage(chatId,
+                `❌ Hesabınız henüz bağlı değil.\n\nBağlamak için: /baglanti e-posta@ahievran.edu.tr`,
+                { parseMode: '' }
+            );
+        }
     } catch (e) {
-        // Non-critical, ignore
+        console.error('Status command error:', e);
+        await sendTelegramMessage(chatId, '⚠️ Durum kontrol edilirken bir hata oluştu.', { parseMode: '' });
     }
 }
 
-export async function POST(req: Request) {
+async function handleUnlinkCommand(chatId: number) {
     try {
-        const body = await req.json();
+        await sql`
+            UPDATE users
+            SET telegram_chat_id = NULL, telegram_linked = FALSE, telegram_link_code = NULL,
+                active_telegram_conversation_id = NULL
+            WHERE telegram_chat_id = ${chatId}
+        `;
+        await sendTelegramMessage(chatId,
+            '✅ Hesap bağlantınız kaldırıldı. Tekrar bağlamak için /baglanti komutunu kullanabilirsiniz.',
+            { parseMode: '' }
+        );
+    } catch (e) {
+        console.error('Unlink command error:', e);
+        await sendTelegramMessage(chatId, '⚠️ Bağlantı kaldırılırken bir hata oluştu.', { parseMode: '' });
+    }
+}
 
-        // Telegram sends update objects
-        const message = body.message;
-        if (!message || !message.text) {
-            return NextResponse.json({ ok: true });
-        }
+async function handleLinkCommand(chatId: number, text: string) {
+    const parts = text.split(' ');
+    if (parts.length < 2) {
+        await sendTelegramMessage(chatId,
+            `📧 Lütfen e-posta adresinizi girin:\n\n/baglanti ornek@ahievran.edu.tr`,
+            { parseMode: '' }
+        );
+        return;
+    }
 
-        const chatId = message.chat.id;
-        const text = message.text.trim();
-        const telegramFirstName = message.from?.first_name || 'Kullanıcı';
+    const email = parts[1].toLowerCase().trim();
 
-        // --- COMMAND HANDLING ---
+    if (!email.endsWith('@ahievran.edu.tr') && !email.endsWith('@ogr.ahievran.edu.tr')) {
+        await sendTelegramMessage(chatId,
+            '❌ Sadece @ahievran.edu.tr veya @ogr.ahievran.edu.tr uzantılı e-posta adresleri kabul edilmektedir.',
+            { parseMode: '' }
+        );
+        return;
+    }
 
-        // /start command
-        if (text === '/start') {
-            await sendTelegramMessage(chatId,
-                `🎓 *ÇMYO.AI Telegram Asistanı*\n\n` +
-                `Merhaba ${telegramFirstName}! Çiçekdağı Meslek Yüksekokulu yapay zeka asistanına hoş geldiniz.\n\n` +
-                `Bu botu kullanabilmek için önce ÇMYO.AI hesabınızı bağlamanız gerekiyor.\n\n` +
-                `📌 *Komutlar:*\n` +
-                `/baglanti \`e-posta\` — Hesabınızı bağlayın\n` +
-                `/durum — Bağlantı durumunuzu kontrol edin\n` +
-                `/yardim — Yardım menüsü\n\n` +
-                `Başlamak için: /baglanti ornek@ahievran.edu.tr`
-            );
-            return NextResponse.json({ ok: true });
-        }
+    const userResult = await sql`SELECT id, name, surname, telegram_linked FROM users WHERE email = ${email}`;
+    if (userResult.rows.length === 0) {
+        await sendTelegramMessage(chatId,
+            '❌ Bu e-posta adresi sistemde kayıtlı değil.\n\nÖnce cmyoai.com web sitesinden kayıt olmalısınız.',
+            { parseMode: '' }
+        );
+        return;
+    }
 
-        // /yardim command  
-        if (text === '/yardim') {
-            await sendTelegramMessage(chatId,
-                `📚 *ÇMYO.AI Yardım*\n\n` +
-                `Bu bot, Çiçekdağı MYO hakkında sorularınıza yapay zeka destekli yanıtlar verir.\n\n` +
-                `*Neler sorabilirsiniz:*\n` +
-                `• Ders programı\n` +
-                `• Staj süreçleri\n` +
-                `• Kayıt işlemleri\n` +
-                `• Akademik takvim\n` +
-                `• Yemekhane, ulaşım bilgileri\n` +
-                `• ve daha fazlası...\n\n` +
-                `*Komutlar:*\n` +
-                `/baglanti \`e-posta\` — Hesap bağlama\n` +
-                `/durum — Bağlantı durumu\n` +
-                `/kopar — Hesap bağlantısını kaldır\n\n` +
-                `⚠️ Yapay zeka yanıtlarını resmi kaynaklardan doğrulayın.`
-            );
-            return NextResponse.json({ ok: true });
-        }
+    if (userResult.rows[0].telegram_linked) {
+        await sendTelegramMessage(chatId,
+            '⚠️ Bu hesap zaten bir Telegram hesabına bağlı. Önce /kopar komutu ile mevcut bağlantıyı kaldırın.',
+            { parseMode: '' }
+        );
+        return;
+    }
 
-        // /durum command
-        if (text === '/durum') {
-            try {
-                const userResult = await sql`
-                    SELECT name, surname, email, role, telegram_linked 
-                    FROM users WHERE telegram_chat_id = ${chatId}
-                `;
-                if (userResult.rows.length > 0 && userResult.rows[0].telegram_linked) {
-                    const u = userResult.rows[0];
-                    await sendTelegramMessage(chatId,
-                        `✅ *Hesabınız bağlı*\n\n` +
-                        `👤 ${u.name} ${u.surname}\n` +
-                        `📧 ${u.email}\n` +
-                        `🎓 ${u.role === 'academic' ? 'Akademisyen' : 'Öğrenci'}`
-                    );
-                } else {
-                    await sendTelegramMessage(chatId,
-                        `❌ Hesabınız henüz bağlı değil.\n\n` +
-                        `Bağlamak için: /baglanti e-posta@ahievran.edu.tr`
-                    );
-                }
-            } catch (e) {
-                await sendTelegramMessage(chatId, '⚠️ Durum kontrol edilirken bir hata oluştu.');
-            }
-            return NextResponse.json({ ok: true });
-        }
+    const code = crypto.randomInt(10000000, 99999999).toString();
 
-        // /kopar command (unlink)
-        if (text === '/kopar') {
-            try {
-                await sql`
-                    UPDATE users 
-                    SET telegram_chat_id = NULL, telegram_linked = FALSE, telegram_link_code = NULL
-                    WHERE telegram_chat_id = ${chatId}
-                `;
-                await sendTelegramMessage(chatId, '✅ Hesap bağlantınız kaldırıldı. Tekrar bağlamak için /baglanti komutunu kullanabilirsiniz.');
-            } catch (e) {
-                await sendTelegramMessage(chatId, '⚠️ Bağlantı kaldırılırken bir hata oluştu.');
-            }
-            return NextResponse.json({ ok: true });
-        }
+    await sql`
+        UPDATE users
+        SET telegram_link_code = ${code}, telegram_chat_id = ${chatId}
+        WHERE email = ${email}
+    `;
 
-        // /baglanti command
-        if (text.startsWith('/baglanti')) {
-            const parts = text.split(' ');
-            if (parts.length < 2) {
-                await sendTelegramMessage(chatId,
-                    `📧 Lütfen e-posta adresinizi girin:\n\n` +
-                    `/baglanti ornek@ahievran.edu.tr`
-                );
-                return NextResponse.json({ ok: true });
-            }
+    try {
+        const nodemailer = require('nodemailer');
+        const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'smtp.gmail.com',
+            port: parseInt(process.env.SMTP_PORT || '587'),
+            secure: false,
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+        });
 
-            const email = parts[1].toLowerCase().trim();
+        await transporter.sendMail({
+            from: `"ÇMYO.AI" <${process.env.SMTP_USER}>`,
+            to: email,
+            subject: 'ÇMYO.AI Telegram Doğrulama Kodu',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; background: #0a0f1e; color: #e2e8f0; padding: 30px; border-radius: 16px;">
+                    <h2 style="color: #60a5fa; text-align: center;">🔐 Telegram Doğrulama Kodu</h2>
+                    <p style="text-align: center; color: #94a3b8;">Telegram hesabınızı ÇMYO.AI'ye bağlamak için aşağıdaki kodu Telegram'da bota gönderin:</p>
+                    <div style="text-align: center; margin: 25px 0;">
+                        <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #60a5fa; background: #1e293b; padding: 15px 30px; border-radius: 12px; border: 1px solid #334155;">${code}</span>
+                    </div>
+                    <p style="text-align: center; color: #64748b; font-size: 12px;">Bu kod 10 dakika geçerlidir.</p>
+                    <hr style="border-color: #1e293b; margin: 20px 0;" />
+                    <p style="text-align: center; color: #475569; font-size: 11px;">ÇMYO.AI — Çiçekdağı Meslek Yüksekokulu</p>
+                </div>
+            `,
+        });
 
-            // Validate email
-            if (!email.endsWith('@ahievran.edu.tr') && !email.endsWith('@ogr.ahievran.edu.tr')) {
-                await sendTelegramMessage(chatId,
-                    '❌ Sadece @ahievran.edu.tr veya @ogr.ahievran.edu.tr uzantılı e-posta adresleri kabul edilmektedir.'
-                );
-                return NextResponse.json({ ok: true });
-            }
+        await sendTelegramMessage(chatId,
+            `✅ Doğrulama kodu ${email} adresine gönderildi.\n\n📩 E-postanızdaki 8 haneli kodu buraya yazın.`,
+            { parseMode: '' }
+        );
+    } catch (emailError) {
+        console.error('Telegram link email error:', emailError);
+        await sendTelegramMessage(chatId,
+            '⚠️ Doğrulama kodu gönderilemedi. Lütfen daha sonra tekrar deneyin.',
+            { parseMode: '' }
+        );
+    }
+}
 
-            // Check if user exists
-            const userResult = await sql`SELECT id, name, surname, telegram_linked FROM users WHERE email = ${email}`;
-            if (userResult.rows.length === 0) {
-                await sendTelegramMessage(chatId,
-                    '❌ Bu e-posta adresi sistemde kayıtlı değil.\n\nÖnce cmyo.ai web sitesinden kayıt olmalısınız.'
-                );
-                return NextResponse.json({ ok: true });
-            }
+async function handleCodeVerification(chatId: number, code: string): Promise<boolean> {
+    const codeRateCheck = await checkRateLimit(`telegram_code:${chatId}`, RATE_LIMITS.telegramCode);
+    if (!codeRateCheck.allowed) {
+        await sendTelegramMessage(chatId,
+            `⚠️ Çok fazla hatalı deneme. ${codeRateCheck.resetIn} saniye sonra tekrar deneyin.`,
+            { parseMode: '' }
+        );
+        return true;
+    }
 
-            if (userResult.rows[0].telegram_linked) {
-                await sendTelegramMessage(chatId,
-                    '⚠️ Bu hesap zaten bir Telegram hesabına bağlı. Önce /kopar komutu ile mevcut bağlantıyı kaldırın.'
-                );
-                return NextResponse.json({ ok: true });
-            }
+    const userResult = await sql`
+        SELECT id, name, surname, email, telegram_link_code
+        FROM users WHERE telegram_chat_id = ${chatId} AND telegram_linked = FALSE
+    `;
 
-            // Generate 8-digit verification code (100M olasılık — 6 haneli 1M'dan çok daha güçlü)
-            const code = crypto.randomInt(10000000, 99999999).toString();
-
-            // Save code and chat_id temporarily
+    if (userResult.rows.length > 0) {
+        const user = userResult.rows[0];
+        if (user.telegram_link_code === code) {
             await sql`
-                UPDATE users 
-                SET telegram_link_code = ${code}, telegram_chat_id = ${chatId}
-                WHERE email = ${email}
+                UPDATE users
+                SET telegram_linked = TRUE, telegram_link_code = NULL
+                WHERE id = ${user.id}
             `;
+            await sendTelegramMessage(chatId,
+                `🎉 Hesabınız başarıyla bağlandı!\n\n` +
+                `👤 ${user.name} ${user.surname}\n` +
+                `📧 ${user.email}\n\n` +
+                `Artık doğrudan mesaj yazarak ÇMYO.AI asistanını kullanabilirsiniz.`,
+                { parseMode: '', replyMarkup: PERSISTENT_KEYBOARD }
+            );
+            return true;
+        } else {
+            await sendTelegramMessage(chatId, '❌ Yanlış doğrulama kodu. Lütfen tekrar deneyin.', { parseMode: '' });
+            return true;
+        }
+    }
+    return false;
+}
 
-            // Send verification code via email
-            try {
-                // Reuse existing email infrastructure — send a simple code email
-                const nodemailer = require('nodemailer');
-                const transporter = nodemailer.createTransport({
-                    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                    port: parseInt(process.env.SMTP_PORT || '587'),
-                    secure: false,
-                    auth: {
-                        user: process.env.SMTP_USER,
-                        pass: process.env.SMTP_PASS,
-                    },
-                });
+async function handleNewChatCommand(chatId: number, userId: string) {
+    await sql`UPDATE users SET active_telegram_conversation_id = NULL WHERE id = ${userId}`;
+    await sendTelegramMessage(chatId,
+        '✅ Yeni sohbet başlatıldı. İlk sorunuzu yazabilirsiniz.',
+        {
+            parseMode: '',
+            replyMarkup: {
+                ...PERSISTENT_KEYBOARD,
+                inline_keyboard: SUGGESTION_BUTTONS.inline_keyboard,
+            },
+        }
+    );
+}
 
-                await transporter.sendMail({
-                    from: `"ÇMYO.AI" <${process.env.SMTP_USER}>`,
-                    to: email,
-                    subject: 'ÇMYO.AI Telegram Doğrulama Kodu',
-                    html: `
-                        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; background: #0a0f1e; color: #e2e8f0; padding: 30px; border-radius: 16px;">
-                            <h2 style="color: #60a5fa; text-align: center;">🔐 Telegram Doğrulama Kodu</h2>
-                            <p style="text-align: center; color: #94a3b8;">Telegram hesabınızı ÇMYO.AI'ye bağlamak için aşağıdaki kodu Telegram'da bota gönderin:</p>
-                            <div style="text-align: center; margin: 25px 0;">
-                                <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #60a5fa; background: #1e293b; padding: 15px 30px; border-radius: 12px; border: 1px solid #334155;">${code}</span>
-                            </div>
-                            <p style="text-align: center; color: #64748b; font-size: 12px;">Bu kod 10 dakika geçerlidir.</p>
-                            <hr style="border-color: #1e293b; margin: 20px 0;" />
-                            <p style="text-align: center; color: #475569; font-size: 11px;">ÇMYO.AI — Çiçekdağı Meslek Yüksekokulu</p>
-                        </div>
-                    `,
-                });
+async function handleHistoryCommand(chatId: number, userEmail: string) {
+    try {
+        const result = await sql`
+            SELECT id, title, updated_at FROM conversations
+            WHERE user_email = ${userEmail} AND channel = 'telegram'
+            ORDER BY updated_at DESC
+            LIMIT 5
+        `;
 
-                await sendTelegramMessage(chatId,
-                    `✅ Doğrulama kodu *${email}* adresine gönderildi.\n\n` +
-                    `📩 E-postanızdaki 8 haneli kodu buraya yazın.`
-                );
-            } catch (emailError) {
-                console.error('Telegram link email error:', emailError);
-                await sendTelegramMessage(chatId,
-                    '⚠️ Doğrulama kodu gönderilemedi. Lütfen daha sonra tekrar deneyin.'
-                );
-            }
-
-            return NextResponse.json({ ok: true });
+        if (result.rows.length === 0) {
+            await sendTelegramMessage(chatId,
+                '📭 Henüz Telegram üzerinden bir sohbet geçmişiniz yok.',
+                { parseMode: '', replyMarkup: PERSISTENT_KEYBOARD }
+            );
+            return;
         }
 
-        // --- CHECK IF CODE VERIFICATION (8-digit number) ---
-        if (/^\d{8}$/.test(text)) {
-            // Rate limit: chatId başına 10 dakikada 3 deneme
-            const codeRateCheck = await checkRateLimit(`telegram_code:${chatId}`, RATE_LIMITS.telegramCode);
-            if (!codeRateCheck.allowed) {
-                await sendTelegramMessage(chatId, `⚠️ Çok fazla hatalı deneme. ${codeRateCheck.resetIn} saniye sonra tekrar deneyin.`);
-                return NextResponse.json({ ok: true });
+        const buttons = result.rows.map(row => {
+            const date = new Date(row.updated_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+            const title = row.title.length > 30 ? row.title.substring(0, 30) + '...' : row.title;
+            return [{ text: `📝 ${title} | ${date}`, callback_data: `history:${row.id}` }];
+        });
+
+        await sendTelegramMessage(chatId,
+            '📚 Son konuşmalarınız:',
+            {
+                parseMode: '',
+                replyMarkup: { inline_keyboard: buttons },
             }
+        );
+    } catch (e) {
+        console.error('History command error:', e);
+        await sendTelegramMessage(chatId, '⚠️ Geçmiş yüklenirken bir hata oluştu.', { parseMode: '' });
+    }
+}
 
-            try {
-                const userResult = await sql`
-                    SELECT id, name, surname, email, telegram_link_code
-                    FROM users WHERE telegram_chat_id = ${chatId} AND telegram_linked = FALSE
-                `;
+// ─── Callback query handler ─────────────────────────────────────
 
-                if (userResult.rows.length > 0) {
-                    const user = userResult.rows[0];
-                    if (user.telegram_link_code === text) {
-                        // Code matches — link the account!
-                        await sql`
-                            UPDATE users 
-                            SET telegram_linked = TRUE, telegram_link_code = NULL
-                            WHERE id = ${user.id}
-                        `;
+async function handleCallbackQuery(callbackQuery: any) {
+    const chatId = callbackQuery.message?.chat?.id;
+    const data = callbackQuery.data;
+    if (!chatId || !data) return;
 
-                        await sendTelegramMessage(chatId,
-                            `🎉 *Hesabınız başarıyla bağlandı!*\n\n` +
-                            `👤 ${user.name} ${user.surname}\n` +
-                            `📧 ${user.email}\n\n` +
-                            `Artık doğrudan mesaj yazarak ÇMYO.AI asistanını kullanabilirsiniz.`
-                        );
-                        return NextResponse.json({ ok: true });
-                    } else {
-                        await sendTelegramMessage(chatId, '❌ Yanlış doğrulama kodu. Lütfen tekrar deneyin.');
-                        return NextResponse.json({ ok: true });
-                    }
-                }
-            } catch (e) {
-                console.error('Code verification error:', e);
-            }
-            // If no pending verification, fall through to chat
-        }
+    await answerCallbackQuery(callbackQuery.id);
 
-        // --- ENSURE HISTORY COLUMNS EXIST (auto-migration, no-op after first run) ---
-        try {
-            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_history JSONB DEFAULT '[]'::jsonb`;
-            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_history_updated_at TIMESTAMPTZ`;
-        } catch (_) {}
-
-        // --- CHECK IF USER IS LINKED ---
-        let linkedUser: any = null;
+    if (data.startsWith('history:')) {
+        const convId = data.replace('history:', '');
         try {
             const userResult = await sql`
-                SELECT id, name, surname, email, role, title, academic_unit, daily_message_count, last_message_date,
-                       telegram_history, telegram_history_updated_at
-                FROM users WHERE telegram_chat_id = ${chatId} AND telegram_linked = TRUE
+                SELECT id FROM users WHERE telegram_chat_id = ${chatId} AND telegram_linked = TRUE
             `;
             if (userResult.rows.length > 0) {
-                linkedUser = userResult.rows[0];
+                await sql`
+                    UPDATE users SET active_telegram_conversation_id = ${convId}
+                    WHERE id = ${userResult.rows[0].id}
+                `;
+
+                const convResult = await sql`
+                    SELECT title FROM conversations WHERE id = ${convId}
+                `;
+                const title = convResult.rows[0]?.title || 'Sohbet';
+
+                await sendTelegramMessage(chatId,
+                    `📝 "${title}" konuşmasına geçildi. Devam edebilirsiniz.`,
+                    { parseMode: '', replyMarkup: PERSISTENT_KEYBOARD }
+                );
             }
         } catch (e) {
-            console.error('User lookup error:', e);
+            console.error('History callback error:', e);
+            await sendTelegramMessage(chatId, '⚠️ Konuşmaya geçilirken bir hata oluştu.', { parseMode: '' });
+        }
+        return;
+    }
+
+    if (data.startsWith('suggest:')) {
+        const question = data.replace('suggest:', '');
+        // Process as a regular message by simulating it
+        await processChat(chatId, question);
+        return;
+    }
+}
+
+// ─── Main chat processing ────────────────────────────────────────
+
+async function processChat(chatId: number, text: string, attachmentContent?: string, attachmentImage?: string) {
+    let linkedUser: any = null;
+    try {
+        const userResult = await sql`
+            SELECT id, name, surname, email, role, title, academic_unit,
+                   daily_message_count, last_message_date,
+                   active_telegram_conversation_id
+            FROM users WHERE telegram_chat_id = ${chatId} AND telegram_linked = TRUE
+        `;
+        if (userResult.rows.length > 0) {
+            linkedUser = userResult.rows[0];
+        }
+    } catch (e) {
+        console.error('User lookup error:', e);
+        await sendTelegramMessage(chatId, '⚠️ Bir hata oluştu. Lütfen tekrar deneyin.', { parseMode: '' });
+        return;
+    }
+
+    if (!linkedUser) {
+        await sendTelegramMessage(chatId,
+            `🔒 Bu botu kullanmak için hesabınızı bağlamalısınız.\n\n👉 /baglanti e-posta@ahievran.edu.tr`,
+            { parseMode: '' }
+        );
+        return;
+    }
+
+    // Quota check
+    const role = linkedUser.role || 'student';
+    let remainingQuota: number | null = null;
+
+    if (role !== 'admin') {
+        let { daily_message_count, last_message_date } = linkedUser;
+        const todayStr = new Date().toDateString();
+        const lastDateStr = last_message_date ? new Date(last_message_date).toDateString() : '';
+
+        if (todayStr !== lastDateStr) {
+            daily_message_count = 0;
         }
 
-        if (!linkedUser) {
+        if (daily_message_count >= 100) {
             await sendTelegramMessage(chatId,
-                `🔒 Bu botu kullanmak için hesabınızı bağlamalısınız.\n\n` +
-                `👉 /baglanti e-posta@ahievran.edu.tr`
+                '⚠️ Günlük mesaj limitinize (100) ulaştınız. Yarın tekrar deneyebilirsiniz.',
+                { parseMode: '', replyMarkup: PERSISTENT_KEYBOARD }
             );
-            return NextResponse.json({ ok: true });
+            return;
         }
+        remainingQuota = 100 - (daily_message_count + 1);
+    }
 
-        // --- QUOTA CHECK ---
-        const role = linkedUser.role || 'student';
-        let remainingQuota: number | null = null;
+    // Start periodic typing indicator
+    await sendTypingAction(chatId);
+    const typingInterval = setInterval(() => sendTypingAction(chatId), 4000);
 
-        if (role !== 'admin') {
-            let { daily_message_count, last_message_date } = linkedUser;
-            const todayStr = new Date().toDateString();
-            const lastDateStr = last_message_date ? new Date(last_message_date).toDateString() : '';
-
-            if (todayStr !== lastDateStr) {
-                daily_message_count = 0;
-            }
-
-            if (daily_message_count >= 100) {
-                await sendTelegramMessage(chatId,
-                    '⚠️ Günlük mesaj limitinize (100) ulaştınız. Yarın tekrar deneyebilirsiniz.'
-                );
-                return NextResponse.json({ ok: true });
-            }
-            remainingQuota = 100 - (daily_message_count + 1);
-        }
-
-        // --- SEND TYPING ACTION ---
-        await sendTypingAction(chatId);
-
-        // --- RAG + AI GENERATION ---
+    try {
         logChatDebug(`--- Telegram Chat Request from ${linkedUser.email} ---`);
 
-        const sanitizedText = sanitizeUserMessage(text.slice(0, 4000));
-        const relevantDocs = await findRelevantDocuments(sanitizedText);
+        // Get or create conversation
+        let convUpdatedAt: Date | null = null;
+        if (linkedUser.active_telegram_conversation_id) {
+            try {
+                const convCheck = await sql`
+                    SELECT updated_at FROM conversations
+                    WHERE id = ${linkedUser.active_telegram_conversation_id}
+                `;
+                if (convCheck.rows.length > 0) {
+                    convUpdatedAt = convCheck.rows[0].updated_at;
+                }
+            } catch (_) {}
+        }
+
+        const { conversationId, history } = await getOrCreateConversation(
+            linkedUser.id,
+            linkedUser.email,
+            linkedUser.active_telegram_conversation_id,
+            convUpdatedAt
+        );
+
+        // Build message with attachment if present
+        let fullMessage = text;
+        if (attachmentContent) {
+            fullMessage = `${text}\n\n[BELGE İÇERİĞİ BAŞLANGICI]\n${attachmentContent}\n[BELGE İÇERİĞİ SONU]`;
+        }
+
+        const sanitizedText = sanitizeUserMessage(fullMessage.slice(0, 4000));
+
+        // Enrich RAG query with recent conversation context for follow-up questions
+        let ragQuery = sanitizedText;
+        if (history.length > 0) {
+            const recentContext = history.slice(-4).map(m => m.content).join(' ');
+            const keywords = recentContext.match(/FR-\d+|[A-ZÇĞİÖŞÜ][a-zçğıöşü]+\s(?:Formu|Belgesi|Programı|Tablosu)/g);
+            if (keywords && keywords.length > 0) {
+                ragQuery = `${sanitizedText} ${[...new Set(keywords)].join(' ')}`;
+            }
+        }
+        const relevantDocs = await findRelevantDocuments(ragQuery);
         logChatDebug(`Found ${relevantDocs.length} relevant docs for Telegram.`);
 
         const context = buildContext(relevantDocs);
@@ -458,89 +795,268 @@ export async function POST(req: Request) {
         };
 
         const systemPrompt = buildSystemPrompt(user, role, context, null) +
-            '\n\nÖNEMLİ: Bu mesaj Telegram üzerinden geldi. Kullanıcı dosya istediğinde JSON_START/JSON_END formatını KULLAN — dosyalar Telegram üzerinden otomatik gönderilecek. Dosya adı olarak knowledge base\'deki tam ve eksiksiz dosya adını kullan (örn: "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 1. ŞUBE.pdf"). Asla kısaltma veya tahmin etme. Dosya dışı cevaplarda normal Telegram Markdown kullan.';
+            '\n\nÖNEMLİ TELEGRAM TALİMATLARI:\n' +
+            '1. Bu mesaj Telegram üzerinden geldi.\n' +
+            '2. Kullanıcı bir dosya istediğinde (indirmek, görmek, tekrar göndermek dahil) MUTLAKA şu formatı kullan:\n' +
+            '   JSON_START {"action":"generate_file","filename":"TAM_DOSYA_ADI.uzantı"} JSON_END\n' +
+            '3. Dosya adı olarak knowledge base\'deki tam ve eksiksiz dosya adını kullan. Asla kısaltma veya tahmin etme.\n' +
+            '4. "Tekrar gönder", "dosyayı ver", "indir" gibi ifadelerde de JSON_START/JSON_END formatını KULLAN — önceki mesajlardaki dosya adını hatırla.\n' +
+            '5. Dosya dışı cevaplarda normal Markdown kullan (başlıklar için kalın metin, listeler için • kullan).\n' +
+            '6. Asla "aşağıda bulabilirsiniz" veya "indirme linki" gibi ifadeler kullanma — dosya otomatik gönderilecek, sadece JSON formatını yaz.';
 
-        // --- LOAD CONVERSATION HISTORY ---
-        type HistoryMessage = { role: 'user' | 'assistant'; content: string };
-        let conversationHistory: HistoryMessage[] = [];
-        try {
-            if (linkedUser.telegram_history && linkedUser.telegram_history_updated_at) {
-                const historyAgeMs = Date.now() - new Date(linkedUser.telegram_history_updated_at).getTime();
-                if (historyAgeMs < 30 * 60 * 1000) { // 30 minutes TTL
-                    conversationHistory = linkedUser.telegram_history as HistoryMessage[];
-                }
-            }
-        } catch (_) {}
+        // Save user message
+        await saveMessage(conversationId, 'user', sanitizedText);
 
+        // Generate AI reply (with retry)
         let reply = '';
         try {
-            reply = await generateWithOpenAI(sanitizedText, systemPrompt, conversationHistory);
+            reply = await generateWithOpenAI(sanitizedText, systemPrompt, history, attachmentImage);
         } catch (error: any) {
-            console.error('Telegram AI generation failed:', error);
-            await sendTelegramMessage(chatId, '⚠️ Bir hata oluştu. Lütfen tekrar deneyin.');
-            return NextResponse.json({ ok: true });
+            console.error('Telegram AI generation failed (attempt 1):', error);
+            try {
+                reply = await generateWithOpenAI(sanitizedText, systemPrompt, history, attachmentImage);
+            } catch (retryError: any) {
+                console.error('Telegram AI generation failed (attempt 2):', retryError);
+                await sendTelegramMessage(chatId,
+                    '⚠️ Yapay zeka şu an meşgul. Lütfen 30 saniye sonra tekrar deneyin.',
+                    { parseMode: '', replyMarkup: PERSISTENT_KEYBOARD }
+                );
+                return;
+            }
         }
 
-        // Parse file action and clean reply text
+        // Parse file action
         const { filename: requestedFile, cleanReply } = parseFileAction(reply);
         let finalReply = cleanReply || (requestedFile ? 'Dosyanız hazırlanıyor...' : 'Bir yanıt oluşturulamadı. Lütfen tekrar deneyin.');
 
-        // --- UPDATE QUOTA + CONVERSATION HISTORY ---
-        const updatedHistory: HistoryMessage[] = [
-            ...conversationHistory,
-            { role: 'user' as const, content: sanitizedText },
-            { role: 'assistant' as const, content: cleanReply || reply.replace(/JSON_START[\s\S]*?JSON_END/g, '').trim() }
-        ].slice(-20); // Keep last 20 messages (10 pairs)
+        // Save assistant message
+        await saveMessage(conversationId, 'assistant', cleanReply || reply);
 
+        // Update active conversation
+        await sql`
+            UPDATE users SET active_telegram_conversation_id = ${conversationId}
+            WHERE id = ${linkedUser.id}
+        `;
+
+        // Update conversation title if new (use first message)
+        const msgCount = await sql`
+            SELECT COUNT(*) as cnt FROM messages WHERE conversation_id = ${conversationId} AND role = 'user'
+        `;
+        if (parseInt(msgCount.rows[0].cnt) === 1) {
+            const title = text.length > 50 ? text.substring(0, 50) + '...' : text;
+            await sql`UPDATE conversations SET title = ${title} WHERE id = ${conversationId}`;
+        }
+
+        // Update quota
         if (role !== 'admin' && remainingQuota !== null) {
-            try {
-                const newCount = 100 - remainingQuota;
-                await sql`
-                    UPDATE users
-                    SET daily_message_count = ${newCount}, last_message_date = CURRENT_TIMESTAMP,
-                        telegram_history = ${JSON.stringify(updatedHistory)}::jsonb,
-                        telegram_history_updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ${linkedUser.id};
-                `;
-            } catch (e) {
-                console.error('Quota update error:', e);
-            }
-        } else {
-            // Admin: still save history
-            try {
-                await sql`
-                    UPDATE users
-                    SET telegram_history = ${JSON.stringify(updatedHistory)}::jsonb,
-                        telegram_history_updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ${linkedUser.id};
-                `;
-            } catch (e) {
-                console.error('History update error:', e);
-            }
+            const newCount = 100 - remainingQuota;
+            await sql`
+                UPDATE users
+                SET daily_message_count = ${newCount}, last_message_date = CURRENT_TIMESTAMP
+                WHERE id = ${linkedUser.id}
+            `;
         }
 
-        // --- SEND REPLY ---
+        // Append quota warning
         if (role !== 'admin' && remainingQuota !== null && remainingQuota <= 10) {
-            finalReply += `\n\n⚠️ _Kalan mesaj hakkınız: ${remainingQuota}/100_`;
+            finalReply += `\n\n⚠️ Kalan mesaj hakkınız: ${remainingQuota}/100`;
         }
 
-        await sendTelegramMessage(chatId, finalReply);
+        // Send reply with persistent keyboard
+        await sendTelegramMessage(chatId, finalReply, {
+            replyMarkup: PERSISTENT_KEYBOARD,
+        });
 
-        // --- SEND FILE IF REQUESTED ---
+        // Send file if requested
         if (requestedFile) {
-            const origin = new URL(req.url).origin;
+            const origin = `https://${process.env.VERCEL_URL || 'cmyoai.com'}`;
             const resolved = await resolveFile(requestedFile, origin);
             if (resolved) {
                 await sendTelegramDocument(chatId, resolved.source, resolved.resolvedFilename, resolved.resolvedFilename);
             } else {
-                await sendTelegramMessage(chatId, '📎 Dosya şu an erişilemiyor. Lütfen https://cmyoai.com adresinden giriş yaparak indirin veya yöneticiyle iletişime geçin.');
+                await sendTelegramMessage(chatId,
+                    '📎 Dosya şu an erişilemiyor. Lütfen https://cmyoai.com adresinden giriş yaparak indirin.',
+                    { parseMode: '' }
+                );
+            }
+        }
+    } finally {
+        clearInterval(typingInterval);
+    }
+}
+
+// ─── Main webhook handler ────────────────────────────────────────
+
+export async function POST(req: Request) {
+    try {
+        // Webhook secret verification
+        if (TELEGRAM_WEBHOOK_SECRET) {
+            const secretHeader = req.headers.get('x-telegram-bot-api-secret-token');
+            if (secretHeader !== TELEGRAM_WEBHOOK_SECRET) {
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
             }
         }
 
+        const body = await req.json();
+
+        // Handle callback queries (inline button presses)
+        if (body.callback_query) {
+            await handleCallbackQuery(body.callback_query);
+            return NextResponse.json({ ok: true });
+        }
+
+        const message = body.message;
+        if (!message) return NextResponse.json({ ok: true });
+
+        // Reject bot messages
+        if (message.from?.is_bot) return NextResponse.json({ ok: true });
+
+        const chatId = message.chat.id;
+        const telegramFirstName = message.from?.first_name || 'Kullanıcı';
+        const text = (message.text || message.caption || '').trim();
+
+        // ─── Handle keyboard button texts ────────────────────
+        if (text === '📝 Yeni Sohbet') {
+            const userResult = await sql`
+                SELECT id FROM users WHERE telegram_chat_id = ${chatId} AND telegram_linked = TRUE
+            `;
+            if (userResult.rows.length > 0) {
+                await handleNewChatCommand(chatId, userResult.rows[0].id);
+            } else {
+                await sendTelegramMessage(chatId, '🔒 Önce hesabınızı bağlayın: /baglanti e-posta@ahievran.edu.tr', { parseMode: '' });
+            }
+            return NextResponse.json({ ok: true });
+        }
+        if (text === '📚 Geçmiş') {
+            const userResult = await sql`
+                SELECT email FROM users WHERE telegram_chat_id = ${chatId} AND telegram_linked = TRUE
+            `;
+            if (userResult.rows.length > 0) {
+                await handleHistoryCommand(chatId, userResult.rows[0].email);
+            }
+            return NextResponse.json({ ok: true });
+        }
+        if (text === '❓ Yardım') {
+            await handleHelpCommand(chatId);
+            return NextResponse.json({ ok: true });
+        }
+
+        // ─── Command routing ────────────────────────────────
+        if (text === '/start') {
+            await handleStartCommand(chatId, telegramFirstName);
+            return NextResponse.json({ ok: true });
+        }
+        if (text === '/yardim') {
+            await handleHelpCommand(chatId);
+            return NextResponse.json({ ok: true });
+        }
+        if (text === '/durum') {
+            await handleStatusCommand(chatId);
+            return NextResponse.json({ ok: true });
+        }
+        if (text === '/kopar') {
+            await handleUnlinkCommand(chatId);
+            return NextResponse.json({ ok: true });
+        }
+        if (text.startsWith('/baglanti')) {
+            await handleLinkCommand(chatId, text);
+            return NextResponse.json({ ok: true });
+        }
+        if (text === '/yenisohbet') {
+            const userResult = await sql`
+                SELECT id FROM users WHERE telegram_chat_id = ${chatId} AND telegram_linked = TRUE
+            `;
+            if (userResult.rows.length > 0) {
+                await handleNewChatCommand(chatId, userResult.rows[0].id);
+            } else {
+                await sendTelegramMessage(chatId, '🔒 Önce hesabınızı bağlayın: /baglanti e-posta@ahievran.edu.tr', { parseMode: '' });
+            }
+            return NextResponse.json({ ok: true });
+        }
+        if (text === '/gecmis') {
+            const userResult = await sql`
+                SELECT email FROM users WHERE telegram_chat_id = ${chatId} AND telegram_linked = TRUE
+            `;
+            if (userResult.rows.length > 0) {
+                await handleHistoryCommand(chatId, userResult.rows[0].email);
+            } else {
+                await sendTelegramMessage(chatId, '🔒 Önce hesabınızı bağlayın: /baglanti e-posta@ahievran.edu.tr', { parseMode: '' });
+            }
+            return NextResponse.json({ ok: true });
+        }
+
+        // ─── 8-digit code verification ──────────────────────
+        if (/^\d{8}$/.test(text)) {
+            const handled = await handleCodeVerification(chatId, text);
+            if (handled) return NextResponse.json({ ok: true });
+        }
+
+        // ─── Photo handling ─────────────────────────────────
+        if (message.photo && message.photo.length > 0) {
+            const photo = message.photo[message.photo.length - 1]; // Highest resolution
+            const photoBuffer = await downloadTelegramFile(photo.file_id);
+            if (photoBuffer) {
+                const base64 = `data:image/jpeg;base64,${photoBuffer.toString('base64')}`;
+                const caption = text || 'Bu görseli incele ve açıkla.';
+                await processChat(chatId, caption, undefined, base64);
+            } else {
+                await sendTelegramMessage(chatId, '⚠️ Fotoğraf indirilemedi. Lütfen tekrar deneyin.', { parseMode: '' });
+            }
+            return NextResponse.json({ ok: true });
+        }
+
+        // ─── Document handling ──────────────────────────────
+        if (message.document) {
+            const doc = message.document;
+            const mimeType = doc.mime_type || '';
+
+            if (!SUPPORTED_DOCUMENT_TYPES[mimeType]) {
+                const supported = Object.values(SUPPORTED_DOCUMENT_TYPES).join(', ');
+                await sendTelegramMessage(chatId,
+                    `⚠️ Bu dosya türü desteklenmiyor. Desteklenen türler: ${supported}`,
+                    { parseMode: '' }
+                );
+                return NextResponse.json({ ok: true });
+            }
+
+            await sendTypingAction(chatId);
+
+            const docBuffer = await downloadTelegramFile(doc.file_id);
+            if (!docBuffer) {
+                await sendTelegramMessage(chatId, '⚠️ Dosya indirilemedi. Lütfen tekrar deneyin.', { parseMode: '' });
+                return NextResponse.json({ ok: true });
+            }
+
+            try {
+                const extractedText = await parseDocument(docBuffer, mimeType);
+                if (!extractedText || extractedText.length < 10) {
+                    await sendTelegramMessage(chatId,
+                        '⚠️ Dosyadan metin çıkarılamadı. Dosya boş veya taranmış (görsel) bir belge olabilir.',
+                        { parseMode: '' }
+                    );
+                    return NextResponse.json({ ok: true });
+                }
+
+                const caption = text || `Bu ${SUPPORTED_DOCUMENT_TYPES[mimeType]} belgesini incele ve özetle.`;
+                const truncatedContent = extractedText.slice(0, 3000);
+                await processChat(chatId, caption, truncatedContent);
+            } catch (parseError) {
+                console.error('Document parsing error:', parseError);
+                await sendTelegramMessage(chatId, '⚠️ Dosya içeriği okunamadı. Farklı bir format deneyin.', { parseMode: '' });
+            }
+            return NextResponse.json({ ok: true });
+        }
+
+        // ─── Regular text message ───────────────────────────
+        if (!text) {
+            return NextResponse.json({ ok: true });
+        }
+
+        await processChat(chatId, text);
         return NextResponse.json({ ok: true });
 
     } catch (error: any) {
         console.error('Telegram webhook error:', error);
-        return NextResponse.json({ ok: true }); // Always return 200 to Telegram
+        return NextResponse.json({ ok: true });
     }
 }
