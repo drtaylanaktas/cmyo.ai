@@ -24,10 +24,10 @@ let lastCacheUpdate = 0;
  * enjekte eder. FALSE ise bu talimat asla prompt'a girmez, dolayısıyla model
  * başka sohbetlerde yanlışlıkla bu action'ı uyduramaz.
  *
- * Koşullar (üçü de şart):
- *   (a) Kullanıcı mesajında FR-585 veya "kanıt formu" referansı
- *   (b) "doldur / hazırla / oluştur" gibi bir doldurma fiili
- *   (c) Kullanıcı en az bir kanıt (belge metni VEYA görsel) eklemiş
+ * Koşullar:
+ *   (a) Kullanıcı en az bir kanıt eklemiş (belge metni VEYA görsel) — HER ZAMAN şart
+ *   (b) Mesajda FR-585 veya "kanıt formu" referansı
+ *   (c) Bir doldurma fiili VEYA ekin varlığı (ek zaten "doldur" sinyali sayılır)
  */
 export function detectKanitFormuFillIntent(
     userMessage: string,
@@ -37,8 +37,10 @@ export function detectKanitFormuFillIntent(
     if (!userMessage) return false;
     const m = userMessage.toLocaleLowerCase('tr-TR');
     const refsFr585 = /\bfr[-\s]?585\b|kan[ıi]t ?form/.test(m);
-    const wantsFill = /(doldur|haz[ıi]rla|olu[şs]tur)/.test(m);
-    return refsFr585 && wantsFill;
+    if (!refsFr585) return false;
+    // Kullanıcı açıkça boş form/şablon istediyse dolu form üretme
+    const wantsEmptyOnly = /(bo[şs] (hali|form|şablon)|şablonu indir|doldurmaya gerek yok|doldurma)/.test(m);
+    return !wantsEmptyOnly;
 }
 
 export async function getKnowledgeBase(): Promise<Document[]> {
@@ -669,6 +671,12 @@ export function buildSystemPrompt(
     ✗ Yanlış: "1. Proje Tabanlı Öğrenme Atölyesi (15.04.2026)"
     ✓ Doğru: "1. [Proje Tabanlı Öğrenme Atölyesi](https://...) — 15.04.2026"
     Maksimum 8 haber göster. URL'yi değiştirme, uydurma veya kısaltma.
+
+    FR-585 KANIT FORMU OTOMATİK DOLDURMA ÖZELLİĞİ (GENEL BİLGİ — HER ZAMAN GEÇERLİ):
+    ÇMYO.AI, FR-585 Kanıt Formu'nu kullanıcının eklediği belge veya görsel kanıtı analiz ederek otomatik doldurabilir. Bu özellik AKTİF ve kullanılabilirdir.
+    - Kullanıcı "FR-585 otomatik doldurma var mı?", "kanıt formunu sistem dolduruyor muydu?" gibi bir soru sorarsa ASLA "bu özellik yok" veya "bu özellik bulunmuyor" DEME. Özelliğin mevcut olduğunu, kullanmak için kanıt belgesini/görselini sohbete eklemesi ve "FR-585 kanıt formunu doldur" demesi gerektiğini söyle.
+    - Kullanıcı FR-585 doldurmak isteyip kanıt EKLEMEDİYSE: Önce kanıt belgesi veya görseli (PDF/DOCX/JPG/PNG) eklemesini iste. Ek olmadan dolduramayacağını, içeriğin kanıttan üretildiğini belirt. Sakın kendi kendine uydurma veri ile formu doldurma.
+    - Kullanıcı boş şablon isterse (ör. "FR-585 boş halini ver", "şablonu indir"): Normal dosya verme akışını kullan (JSON_START ... generate_file ... JSON_END), fill_kanit_formu action'ını kullanma.
 ${fillKanitFormuIntent ? `
     FR-585 KANIT FORMU OTOMATİK DOLDURMA KURALI (ÖNCELİKLİ):
     Kullanıcı FR-585 Kanıt Formu'nu kendi gönderdiği kanıt (belge veya görsel) ile doldurmak istiyor.

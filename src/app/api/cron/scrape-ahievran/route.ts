@@ -6,9 +6,13 @@
  *   1) knowledge_documents → WEB_HABER_AHIEVRAN-ANASAYFA.txt (chat RAG için)
  *   2) news_items → source='ahievran' (takvim UI için)
  *
- * Kazıma yöntemi: Ahi Evran sunucusu Vercel IP aralıklarına HTTP 418 döndürüyor.
- * Jina Reader proxy'si (`r.jina.ai`) ücretsiz, API key gerektirmez ve HTML'i
- * LLM-dostu markdown'a çevirir. Her satır format: `[Başlık](URL)DD.MM.YYYY`.
+ * Kazıma stratejisi (hibrit):
+ *   A) category=8 sayfası → Jina markdown'da `Title<TAB>Date` satırları, tarih sırasına
+ *      göre (en yeni ilk). URL üretmiyor ama güncel sıralamayı tam veriyor.
+ *   B) /arsiv-haberler sayfaları (alfabetik, sayfalı) → title → gerçek URL haritası.
+ *   (A)+(B) merge: tarih sırasını (A) verir, URL'yi mümkünse (B) eşler; eşleşmezse
+ *   synthetic fragment URL (`/arsiv-haberler#<slug>`) yazılır — UNIQUE constraint
+ *   için yeterli, kullanıcı linki arşiv sayfasına gider.
  *
  * Güvenlik: Authorization: Bearer <CRON_SECRET> header zorunludur.
  */
@@ -16,10 +20,16 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 
+export const maxDuration = 60;
+
 const AHIEVRAN_BASE = 'https://ahievran.edu.tr';
-const NEWS_URL = `${AHIEVRAN_BASE}/index.php?option=com_content&view=category&id=8`;
+const CATEGORY_URL = `${AHIEVRAN_BASE}/index.php?option=com_content&view=category&id=8`;
+const ARCHIVE_URL = `${AHIEVRAN_BASE}/arsiv-haberler`;
+// Alfabetik sayfa başına 20 item; 3 sayfa ≈ 60 URL, çoğu güncel haber yakalanır.
+const ARCHIVE_PAGES = [0, 20, 40];
 
 const JINA_PREFIX = 'https://r.jina.ai/';
+const JINA_TIMEOUT_MS = 25000;
 
 const NEWS_FILENAME = 'WEB_HABER_AHIEVRAN-ANASAYFA.txt';
 const NEWS_CATEGORY = 'web-haber-ahievran';
@@ -42,7 +52,7 @@ async function ensureNewsItemsTable(): Promise<void> {
     await sql`CREATE INDEX IF NOT EXISTS idx_news_source ON news_items(source);`;
 }
 
-async function fetchViaJina(targetUrl: string, timeoutMs = 8000): Promise<string | null> {
+async function fetchViaJina(targetUrl: string, timeoutMs = JINA_TIMEOUT_MS): Promise<string | null> {
     const proxyUrl = `${JINA_PREFIX}${targetUrl}`;
     try {
         const controller = new AbortController();
@@ -75,86 +85,108 @@ interface ParsedItem {
     dateIso: string | null;
 }
 
-function parseJinaMarkdown(markdown: string, hrefPattern: RegExp): ParsedItem[] {
-    const items: ParsedItem[] = [];
+/**
+ * Türkçe başlığı unicode-safe slug'a çevirir. UNIQUE URL üretimi için kullanılır.
+ */
+function slugifyTitle(title: string): string {
+    const map: Record<string, string> = { 'ı': 'i', 'İ': 'i', 'ğ': 'g', 'Ğ': 'g', 'ü': 'u', 'Ü': 'u', 'ş': 's', 'Ş': 's', 'ö': 'o', 'Ö': 'o', 'ç': 'c', 'Ç': 'c' };
+    return title
+        .replace(/[ıİğĞüÜşŞöÖçÇ]/g, ch => map[ch] || ch)
+        .toLowerCase()
+        .replace(/['"‘’“”()]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 120);
+}
+
+/**
+ * category=8 çıktısı: tarih sırasına göre `Title<TAB>Date` ya da `Title | Date` satırları.
+ * URL içermez; bu yüzden sadece tarih+başlık döner.
+ */
+function parseDateSortedList(markdown: string): Array<{ title: string; dateText: string; dateIso: string }> {
+    const out: Array<{ title: string; dateText: string; dateIso: string }> = [];
     const seen = new Set<string>();
+    const dateRegex = /(\d{2})\.(\d{2})\.(\d{4})\s*$/; // satır sonunda tarih
 
-    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
-    const dateRegex = /(\d{2})\.(\d{2})\.(\d{4})/;
+    for (const rawLine of markdown.split('\n')) {
+        const line = rawLine.replace(/\|/g, '\t').trim();
+        const m = line.match(dateRegex);
+        if (!m) continue;
+        const title = line.slice(0, m.index).replace(/[\t]+/g, ' ').trim().replace(/\s+/g, ' ');
+        if (title.length < 10) continue;
+        // Tablo header satırlarını ve link etiketlerini ele
+        if (/^(başlık|yayınlanma tarihi|title|date)$/i.test(title)) continue;
+        if (/^\[[^\]]+\]$/.test(title)) continue;
+        if (seen.has(title)) continue;
+        seen.add(title);
 
-    const titleDateMap = new Map<string, { dateText: string; dateIso: string | null }>();
-    const lines = markdown.split('\n');
-    for (const line of lines) {
-        const dm = line.match(dateRegex);
-        if (!dm) continue;
-        const cleanTitle = line.replace(dateRegex, '').replace(/[|\t]+/g, ' ').trim().replace(/\s+/g, ' ');
-        if (cleanTitle.length >= 5) {
-            const dateText = `${dm[1]}.${dm[2]}.${dm[3]}`;
-            const iso = `${dm[3]}-${dm[2]}-${dm[1]}`;
-            const d = new Date(iso);
-            titleDateMap.set(cleanTitle, {
-                dateText,
-                dateIso: !isNaN(d.getTime()) ? iso : null,
-            });
-        }
+        const dateText = `${m[1]}.${m[2]}.${m[3]}`;
+        const iso = `${m[3]}-${m[2]}-${m[1]}`;
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) continue;
+        out.push({ title, dateText, dateIso: iso });
     }
+    return out;
+}
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+/**
+ * /arsiv-haberler?start=N çıktısı: `[Title](URL) | Date` satırları, alfabetik.
+ * Title → URL haritası döner.
+ */
+function parseTitleUrlMap(markdown: string): Map<string, string> {
+    const map = new Map<string, string>();
+    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+    for (const line of markdown.split('\n')) {
         linkRegex.lastIndex = 0;
         let m: RegExpExecArray | null;
         while ((m = linkRegex.exec(line)) !== null) {
             const title = m[1].trim().replace(/\s+/g, ' ');
             const url = m[2];
-
-            if (!hrefPattern.test(url)) continue;
-            if (!title || title.length < 5) continue;
-            if (/^image\s*\d*$/i.test(title)) continue;
-            if (seen.has(url)) continue;
-            seen.add(url);
-
-            let dateIso: string | null = null;
-            let dateText = '';
-
-            const mapped = titleDateMap.get(title);
-            if (mapped) {
-                dateText = mapped.dateText;
-                dateIso = mapped.dateIso;
-            } else {
-                let dateMatch = line.match(dateRegex);
-                if (!dateMatch && i + 1 < lines.length) dateMatch = lines[i + 1].match(dateRegex);
-                if (!dateMatch && i - 1 >= 0) dateMatch = lines[i - 1].match(dateRegex);
-                if (dateMatch) {
-                    dateText = `${dateMatch[1]}.${dateMatch[2]}.${dateMatch[3]}`;
-                    const iso = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
-                    const d = new Date(iso);
-                    if (!isNaN(d.getTime())) dateIso = iso;
-                }
-            }
-
-            items.push({ title, url, dateText, dateIso });
+            if (!/\/arsiv-haberler\/\d+/.test(url)) continue;
+            if (title.length < 10) continue;
+            if (!map.has(title)) map.set(title, url);
         }
     }
-
-    return items.slice(0, 80);
+    return map;
 }
 
 async function scrapeNews(): Promise<{ count: number; saved: boolean; persisted: number }> {
-    const md = await fetchViaJina(NEWS_URL);
-    if (!md) return { count: 0, saved: false, persisted: 0 };
+    // A) Tarih sıralı liste (URL yok)
+    const categoryMd = await fetchViaJina(CATEGORY_URL);
+    if (!categoryMd) return { count: 0, saved: false, persisted: 0 };
+    const dated = parseDateSortedList(categoryMd).slice(0, 60);
+    if (dated.length === 0) return { count: 0, saved: false, persisted: 0 };
 
-    const items = parseJinaMarkdown(md, /\/arsiv-haberler\//);
-    if (items.length === 0) return { count: 0, saved: false, persisted: 0 };
+    // B) Title → URL haritası — alfabetik arşiv sayfalarından merge
+    const titleUrl = new Map<string, string>();
+    for (const start of ARCHIVE_PAGES) {
+        const pageUrl = start === 0 ? ARCHIVE_URL : `${ARCHIVE_URL}?start=${start}`;
+        const md = await fetchViaJina(pageUrl);
+        if (!md) continue;
+        for (const [t, u] of parseTitleUrlMap(md)) {
+            if (!titleUrl.has(t)) titleUrl.set(t, u);
+        }
+    }
+
+    // Merge
+    const items: ParsedItem[] = dated.map(d => {
+        const realUrl = titleUrl.get(d.title);
+        const url = realUrl
+            ? realUrl
+            : `${ARCHIVE_URL}#${slugifyTitle(d.title)}`;
+        return { title: d.title, url, dateText: d.dateText, dateIso: d.dateIso };
+    });
 
     const scrapedAt = new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
-    const lines = items.map(i => i.dateText ? `- [${i.title}](${i.url}) — ${i.dateText}` : `- [${i.title}](${i.url})`);
+    const lines = items.map(i => `- [${i.title}](${i.url}) — ${i.dateText}`);
 
+    const matchedUrl = items.filter(i => !i.url.includes('#')).length;
     const content = [
-        `Kaynak URL: ${NEWS_URL}`,
+        `Kaynak URL: ${CATEGORY_URL}`,
         `Sayfa Başlığı: Kırşehir Ahi Evran Üniversitesi — Ana Sayfa Haberleri`,
         `Kategori: ${NEWS_CATEGORY}`,
         `Kazıma Tarihi: ${scrapedAt}`,
-        `Toplam Haber: ${items.length}`,
+        `Toplam Haber: ${items.length} (direkt URL: ${matchedUrl})`,
         '---',
         '',
         `HABERLER LİSTESİ:`,

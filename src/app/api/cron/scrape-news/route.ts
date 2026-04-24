@@ -12,10 +12,13 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 
+export const maxDuration = 60;
+
 const BASE_URL = 'https://cicekdagimyo.ahievran.edu.tr';
 const NEWS_ARCHIVE_URL = `${BASE_URL}/arsiv-haberler`;
 
 const JINA_PREFIX = 'https://r.jina.ai/';
+const JINA_TIMEOUT_MS = 25000;
 
 const FILENAME = 'WEB_HABER_ARSIV-HABERLER.txt';
 const CATEGORY = 'web-haber';
@@ -38,7 +41,7 @@ async function ensureNewsItemsTable(): Promise<void> {
     await sql`CREATE INDEX IF NOT EXISTS idx_news_source ON news_items(source);`;
 }
 
-async function fetchViaJina(targetUrl: string, timeoutMs = 8000): Promise<string | null> {
+async function fetchViaJina(targetUrl: string, timeoutMs = JINA_TIMEOUT_MS): Promise<string | null> {
     const proxyUrl = `${JINA_PREFIX}${targetUrl}`;
     try {
         const controller = new AbortController();
