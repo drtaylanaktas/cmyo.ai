@@ -486,14 +486,37 @@ export function logChatDebug(message: string) {
 }
 
 // Generate with OpenAI GPT-4o
+// Generate with OpenAI GPT-4o with Agentic Routing
 export async function generateWithOpenAI(message: string, systemPrompt: string, history: any[] = [], imageDataUrl?: string) {
     try {
-        logChatDebug(`Sending request to GPT-4o...`);
-
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
             throw new Error('OpenAI API anahtarı bulunamadı. Lütfen OPENAI_API_KEY ortam değişkenini kontrol edin.');
         }
+
+        // --- AGENTIC ROUTER START ---
+        let modelToUse = 'gpt-4o-mini';
+        const m = message.toLocaleLowerCase('tr-TR');
+        const hasHighComplexity = 
+            !!imageDataUrl || // Multimodal image analysis
+            m.includes('doldur') || 
+            m.includes('fr-585') || 
+            m.includes('kanıt form') ||
+            m.includes('staj başvuru') ||
+            m.includes('staj kabul') ||
+            m.includes('müfredat') || 
+            m.includes('bologna') ||
+            m.includes('akademik takvim') ||
+            m.includes('analiz') ||
+            message.length > 500; // Very long messages or context
+
+        if (hasHighComplexity) {
+            modelToUse = 'gpt-4o';
+            logChatDebug(`[Router] Complex query detected. Routing to premium model: ${modelToUse}`);
+        } else {
+            logChatDebug(`[Router] Lightweight query detected. Routing to fast model: ${modelToUse}`);
+        }
+        // --- AGENTIC ROUTER END ---
 
         const openai = new OpenAI({
             apiKey: apiKey,
@@ -516,7 +539,7 @@ export async function generateWithOpenAI(message: string, systemPrompt: string, 
         }
 
         const response = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: modelToUse,
             max_tokens: 2000,
             temperature: 0.5,
             messages: [

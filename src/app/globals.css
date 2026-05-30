@@ -47,22 +47,109 @@ body {
 }
 
 .glass-card {
-  background: rgba(10, 15, 30, 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 15, 30, 0.65);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(0, 128, 255, 0.25);
+  box-shadow: 0 8px 32px 0 rgba(0, 128, 255, 0.08);
 }
 
 .neon-border {
   border: 1px solid transparent;
-  box-shadow: 0 0 5px var(--neon-blue), inset 0 0 5px var(--neon-blue);
+  box-shadow: 0 0 8px var(--neon-blue), inset 0 0 8px var(--neon-blue);
 }
 
 .neon-text-blue {
-  text-shadow: 0 0 10px var(--neon-blue);
+  text-shadow: 0 0 12px rgba(0, 128, 255, 0.6);
 }
 
 .neon-text-green {
-  text-shadow: 0 0 10px var(--neon-green);
+  text-shadow: 0 0 12px rgba(57, 255, 20, 0.6);
+}
+
+.neon-text-gold {
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+}
+
+/* Premium Nebula Arka Plan Parıltıları */
+.nebula-glow {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  filter: blur(140px);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: screen;
+  animation: nebulaFloat 20s ease-in-out infinite;
+}
+
+@keyframes nebulaFloat {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(80px, -60px) scale(1.15);
+  }
+  66% {
+    transform: translate(-50px, 40px) scale(0.9);
+  }
+}
+
+/* Premium Kullanıcı Rolü Rozetleri */
+.badge-glow-student {
+  background: rgba(0, 128, 255, 0.1);
+  border: 1px solid rgba(0, 128, 255, 0.3);
+  box-shadow: 0 0 8px rgba(0, 128, 255, 0.2);
+  color: #82baff;
+}
+
+.badge-glow-academic {
+  background: rgba(76, 159, 56, 0.1);
+  border: 1px solid rgba(76, 159, 56, 0.35);
+  box-shadow: 0 0 8px rgba(76, 159, 56, 0.2);
+  color: #a3e635;
+}
+
+.badge-glow-admin {
+  background: rgba(253, 185, 19, 0.08);
+  border: 1px solid rgba(253, 185, 19, 0.35);
+  box-shadow: 0 0 8px rgba(253, 185, 19, 0.2);
+  color: #fbbf24;
+}
+
+/* Premium Degrade Kart Sınır Efekti */
+.premium-border-hover {
+  position: relative;
+  border-radius: 12px;
+  background: rgba(10, 15, 30, 0.6);
+  transition: all 0.3s ease;
+}
+
+.premium-border-hover::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 13px;
+  padding: 1px;
+  background: linear-gradient(to right, rgba(0, 128, 255, 0.1), rgba(255, 255, 255, 0.03));
+  -webkit-mask: 
+     linear-gradient(#fff 0 0) content-box, 
+     linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.premium-border-hover:hover::before {
+  background: linear-gradient(135deg, var(--neon-blue), var(--neon-orange), var(--neon-green));
 }
 
 /* Custom Scrollbar */

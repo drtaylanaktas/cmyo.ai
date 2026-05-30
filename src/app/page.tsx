@@ -770,7 +770,13 @@ export default function Home() {
   ];
 
   return (
-    <div className="fixed inset-0 flex w-full overflow-hidden bg-[#050a14] text-white">
+    <div className="fixed inset-0 flex w-full overflow-hidden bg-[#050a14] text-white relative">
+      {/* Premium Arka Plan Nebula Glow Küreleri */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 select-none">
+        <div className="nebula-glow bg-blue-600/20 top-[-10%] left-[-15%]" />
+        <div className="nebula-glow bg-purple-600/15 bottom-[-10%] right-[-10%]" />
+        <div className="nebula-glow bg-emerald-600/10 top-[30%] right-[-15%]" style={{ animationDelay: '-7s' }} />
+      </div>
 
       {/* Sidebar - Desktop (Permanent) & Mobile (Drawer) */}
       <aside className={`
@@ -1122,7 +1128,7 @@ export default function Home() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.1 }}
                       onClick={() => { setInput(s.query); }}
-                      className="flex items-center gap-3 p-3 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-blue-500/30 rounded-xl text-left text-sm text-slate-300 hover:text-white transition-all group"
+                      className="flex items-center gap-3 p-3 premium-border-hover rounded-xl text-left text-sm text-slate-300 hover:text-white transition-all group cursor-pointer"
                     >
                       <span className="text-lg">{s.icon}</span>
                       <span className="group-hover:text-blue-300 transition-colors">{s.text}</span>
@@ -1158,7 +1164,7 @@ export default function Home() {
                       : 'border-slate-600 bg-slate-800'
                       }`}>
                       {msg.role === 'assistant' ? (
-                        <Image src="/logo.png" alt="Bot" width={40} height={40} className="w-full h-full object-cover" />
+                          <Image src="/logo.png" alt="Bot" width={40} height={40} className="w-full h-full object-cover" />
                       ) : (
                         currentUser?.avatar ? (
                           <div className="relative w-full h-full">
@@ -1170,9 +1176,28 @@ export default function Home() {
 
                     {/* Bubble */}
                     <div className={`p-4 md:p-5 rounded-2xl relative overflow-hidden group ${msg.role === 'user'
-                      ? 'bg-blue-600 text-white rounded-tr-none'
-                      : 'bg-slate-800/80 text-blue-50 rounded-tl-none border border-white/5'
+                      ? 'bg-blue-600/90 backdrop-blur text-white rounded-tr-none border border-blue-500/20'
+                      : 'bg-slate-800/85 backdrop-blur text-blue-50 rounded-tl-none border border-white/10'
                       }`}>
+                      {/* Name & Role Badges */}
+                      {msg.role === 'user' ? (
+                        <div className="flex items-center gap-2 mb-1.5 text-[10px] tracking-wide uppercase font-bold text-blue-100/90">
+                          <span>{currentUser?.name || 'Kullanıcı'}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-extrabold ${
+                            currentUser?.role === 'admin'
+                              ? 'badge-glow-admin'
+                              : currentUser?.role === 'academic'
+                              ? 'badge-glow-academic'
+                              : 'badge-glow-student'
+                          }`}>
+                            {currentUser?.role === 'admin' ? 'YÖNETİCİ' : currentUser?.role === 'academic' ? 'HOCA' : 'ÖĞRENCİ'}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 mb-1.5 text-[10px] tracking-wide uppercase font-bold">
+                          <span className="text-blue-400 neon-text-blue font-extrabold">ÇMYO.AI Yapay Zeka</span>
+                        </div>
+                      )}
 
                       {/* Copy Button */}
                       <button
