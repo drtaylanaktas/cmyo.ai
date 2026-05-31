@@ -35,8 +35,8 @@ async function loadNews(): Promise<{
         const result = await sql`
             SELECT id, source, title, external_url, published_date, published_date_text
             FROM news_items
-            WHERE published_date >= date_trunc('month', CURRENT_DATE)
-              AND published_date <  date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
+            WHERE published_date >= date_trunc('month', timezone('Europe/Istanbul', now()))
+              AND published_date <  date_trunc('month', timezone('Europe/Istanbul', now())) + INTERVAL '1 month'
             ORDER BY published_date DESC, source ASC, id DESC;
         `;
         const rows = result.rows as unknown as Row[];
@@ -69,6 +69,9 @@ async function loadNews(): Promise<{
 export default async function EtkinliklerPage() {
     const { itemsByDay, counts, totalCount } = await loadNews();
     const today = new Date();
+    const trDateStr = today.toLocaleString('en-US', { timeZone: 'Europe/Istanbul' });
+    const trDate = new Date(trDateStr);
+    
     const monthLabel = today.toLocaleString('tr-TR', {
         month: 'long',
         year: 'numeric',
@@ -103,8 +106,8 @@ export default async function EtkinliklerPage() {
                 ) : (
                     <EventCalendar
                         monthLabel={monthLabel}
-                        year={today.getFullYear()}
-                        monthIndex={today.getMonth()}
+                        year={trDate.getFullYear()}
+                        monthIndex={trDate.getMonth()}
                         itemsByDay={itemsByDay}
                         counts={counts}
                         totalCount={totalCount}

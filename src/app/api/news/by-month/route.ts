@@ -59,8 +59,8 @@ export async function GET(request: Request) {
         const result = await sql`
             SELECT id, source, title, external_url, published_date, published_date_text
             FROM news_items
-            WHERE published_date >= date_trunc('month', CURRENT_DATE)
-              AND published_date <  date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
+            WHERE published_date >= date_trunc('month', timezone('Europe/Istanbul', now()))
+              AND published_date <  date_trunc('month', timezone('Europe/Istanbul', now())) + INTERVAL '1 month'
             ORDER BY published_date DESC, source ASC, id DESC;
         `;
 
@@ -85,12 +85,17 @@ export async function GET(request: Request) {
         }
 
         const today = new Date();
+        const trDateStr = today.toLocaleString('en-US', { timeZone: 'Europe/Istanbul' });
+        const trDate = new Date(trDateStr);
+        
         const month = today.toLocaleString('tr-TR', { month: 'long', year: 'numeric', timeZone: 'Europe/Istanbul' });
+        const year = trDate.getFullYear();
+        const monthIndex = trDate.getMonth();
 
         return NextResponse.json({
             month,
-            year: today.getFullYear(),
-            monthIndex: today.getMonth(),
+            year,
+            monthIndex,
             itemsByDay,
             totalCount: rows.length,
             counts,
