@@ -544,6 +544,11 @@ export default function Home() {
       setAcademicError('Lütfen analiz edilecek veya dönüştürülecek bir metin girin.');
       return;
     }
+    const wordCount = academicInput.trim().split(/\s+/).length;
+    if (wordCount > 4000) {
+      setAcademicError('Girdiğiniz metin en fazla 4000 kelime olabilir.');
+      return;
+    }
     setAcademicAction(action);
     setAcademicResult(null);
     setAcademicError(null);
@@ -2166,18 +2171,18 @@ export default function Home() {
                       <FileText className="w-4 h-4 text-slate-400" />
                       Akademik Metin Girişi
                     </label>
-                    <span className={`text-xs ${academicInput.length > 7500 ? 'text-rose-400 font-medium' : 'text-slate-500'}`}>
-                      {academicInput.trim() === '' ? 0 : academicInput.trim().split(/\s+/).length} kelime / {academicInput.length} karakter (Maks 8000)
+                    <span className={`text-xs ${
+                      (academicInput.trim() === '' ? 0 : academicInput.trim().split(/\s+/).length) > 4000
+                        ? 'text-rose-400 font-bold animate-pulse'
+                        : 'text-slate-500 font-medium'
+                    }`}>
+                      {academicInput.trim() === '' ? 0 : academicInput.trim().split(/\s+/).length} / 4000 kelime
                     </span>
                   </div>
 
                   <textarea
                     value={academicInput}
-                    onChange={(e) => {
-                      if (e.target.value.length <= 8000) {
-                        setAcademicInput(e.target.value);
-                      }
-                    }}
+                    onChange={(e) => setAcademicInput(e.target.value)}
                     placeholder="Analiz edilmesini veya Turnitin dedektörlerinden geçmesi için insansılaştırılmasını istediğiniz akademik metni buraya yapıştırın (Makale özeti, tez bölümleri, raporlar vb.)..."
                     className="w-full flex-1 min-h-[220px] md:min-h-0 bg-slate-950/60 border border-white/5 rounded-xl p-4 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm sm:text-base leading-relaxed resize-none"
                   />
@@ -2215,7 +2220,7 @@ export default function Home() {
                   <div className="mt-4 sm:mt-6 grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
                     <button
                       onClick={() => handleAcademicProcess('detect')}
-                      disabled={!!academicAction || !academicInput.trim()}
+                      disabled={!!academicAction || !academicInput.trim() || (academicInput.trim().split(/\s+/).length) > 4000}
                       className="group py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 border border-white/10 hover:border-slate-500/50 rounded-xl text-white text-xs sm:text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {academicAction === 'detect' ? (
@@ -2228,7 +2233,7 @@ export default function Home() {
 
                     <button
                       onClick={() => handleAcademicProcess('humanize')}
-                      disabled={!!academicAction || !academicInput.trim()}
+                      disabled={!!academicAction || !academicInput.trim() || (academicInput.trim().split(/\s+/).length) > 4000}
                       className="group py-3 bg-gradient-to-r from-blue-600/90 to-purple-600/90 hover:from-blue-500 hover:to-purple-500 disabled:opacity-40 rounded-xl text-white text-xs sm:text-sm font-bold transition-all shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2 cursor-pointer border border-blue-400/20"
                     >
                       {academicAction === 'humanize' ? (

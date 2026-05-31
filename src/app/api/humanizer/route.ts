@@ -25,8 +25,9 @@ export async function POST(req: Request) {
         if (!text || typeof text !== 'string' || text.trim().length === 0) {
             return NextResponse.json({ error: 'Analiz edilecek metin boş olamaz.' }, { status: 400 });
         }
-        if (text.length > 8000) {
-            return NextResponse.json({ error: 'Metin en fazla 8000 karakter uzunluğunda olabilir.' }, { status: 400 });
+        const wordCount = text.trim().split(/\s+/).length;
+        if (wordCount > 4000) {
+            return NextResponse.json({ error: 'Metin en fazla 4000 kelime uzunluğunda olabilir.' }, { status: 400 });
         }
 
         // 4. Quota Checks (IP-based fallback + Email-based role check)
