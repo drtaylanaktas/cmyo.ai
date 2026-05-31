@@ -16,7 +16,7 @@ export async function POST(req: Request) {
         }
 
         // 2. Parse Body
-        const { action, text, voiceSample, email } = await req.json();
+        const { action, text, voiceSample, email, targetLanguage } = await req.json();
 
         // 3. Validation
         if (!action || !['detect', 'humanize'].includes(action)) {
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
             const result = await detectAI(text);
             return NextResponse.json(result);
         } else {
-            const result = await humanizeText(text, voiceSample);
+            const result = await humanizeText(text, voiceSample, targetLanguage);
             return NextResponse.json(result);
         }
 

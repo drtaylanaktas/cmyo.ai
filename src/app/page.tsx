@@ -8,7 +8,7 @@ import MiniCalendar from '@/components/MiniCalendar';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
-import { Activity, Volume2, Bot, Share2 } from 'lucide-react';
+import { Activity, Volume2, Bot, Share2, Globe } from 'lucide-react';
 import { checkProfanity } from '@/lib/badwords';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -538,6 +538,7 @@ export default function Home() {
   const [academicError, setAcademicError] = useState<string | null>(null);
   const [academicLoadingPhase, setAcademicLoadingPhase] = useState('');
   const [academicActiveTab, setAcademicActiveTab] = useState<'before' | 'after'>('before');
+  const [academicLanguage, setAcademicLanguage] = useState<'auto' | 'tr' | 'en'>('auto');
 
   const handleAcademicProcess = async (action: 'detect' | 'humanize') => {
     if (!academicInput.trim()) {
@@ -584,6 +585,7 @@ export default function Home() {
           action,
           text: academicInput,
           voiceSample: academicVoiceSample || undefined,
+          targetLanguage: action === 'humanize' ? academicLanguage : undefined,
           email: currentUser?.email
         })
       });
@@ -2029,9 +2031,10 @@ export default function Home() {
         </div>
       </main>
 
-      {/* v1.6 Yenilikler Modal */}
-      <AnimatePresence>
-        {showWhatsNew && (
+      {/* Modals Container to escape Flex Parent */}
+      <div>
+        <AnimatePresence>
+          {showWhatsNew && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -2214,6 +2217,43 @@ export default function Home() {
                         />
                       </div>
                     )}
+                  </div>
+
+                  {/* Hedef İnsansılaştırma Dili Seçimi */}
+                  <div className="mt-4 border border-white/5 rounded-xl bg-slate-950/30 p-4 flex flex-col gap-2 shrink-0">
+                    <label className="text-xs font-semibold text-slate-350 flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+                      Hedef İnsansılaştırma Dili
+                    </label>
+                    <div className="grid grid-cols-3 gap-2 bg-slate-900 p-0.5 rounded-lg border border-white/5">
+                      <button
+                        type="button"
+                        onClick={() => setAcademicLanguage('auto')}
+                        className={`py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                          academicLanguage === 'auto' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Otomatik Algıla
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAcademicLanguage('tr')}
+                        className={`py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                          academicLanguage === 'tr' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Türkçe (TR)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAcademicLanguage('en')}
+                        className={`py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                          academicLanguage === 'en' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        English (EN)
+                      </button>
+                    </div>
                   </div>
 
                   {/* Actions buttons */}
@@ -2516,6 +2556,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

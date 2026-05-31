@@ -80,22 +80,37 @@ Do not include any markdown code blocks (\`\`\`json) or conversational text. Ret
 /**
  * 4 aşamalı insansılaştırma playbook'unu uygulayarak metni yeniden yazar.
  */
-export async function humanizeText(text: string, voiceSample?: string): Promise<HumanizeResult> {
+export async function humanizeText(
+    text: string, 
+    voiceSample?: string, 
+    targetLanguage?: 'auto' | 'tr' | 'en'
+): Promise<HumanizeResult> {
     const openai = getOpenAIClient();
 
+    let languageInstruction = "";
+    if (targetLanguage === 'tr') {
+        languageInstruction = "You MUST write the final humanizedText in Turkish (translate the text to Turkish if the input text is in English).";
+    } else if (targetLanguage === 'en') {
+        languageInstruction = "You MUST write the final humanizedText in English (translate the text to English if the input text is in Turkish).";
+    } else {
+        languageInstruction = "You MUST automatically detect the language of the input text (typically Turkish or English) and write the final humanizedText in the EXACT SAME LANGUAGE as the input text. Do not translate the text to another language; only rewrite it to bypass AI detectors in its original language.";
+    }
+
     const systemPrompt = `You are an elite, world-class academic editor and writing humanizer. Your task is to rewrite the input text so that it sounds completely natural, organic, and written by a seasoned academic, effectively bypassing Turnitin and GPTZero detection while preserving 100% of the scientific facts, arguments, tables, and reference markers (like [1], (Smith et al., 2024)).
+
+${languageInstruction}
 
 Follow this 4-pass humanizing playbook:
 1. Style Calibration: If a voiceSample is provided, analyze its rhythm, perplexity profile, active vs passive voice ratio, and average sentence length. Match this writing style closely in your rewrite.
 2. AI-ism Removal: Eliminate ChatGPT/Claude transition slop (e.g. 'moreover', 'furthermore', 'crucial', 'essential', 'delve', 'in conclusion', 'not only... but also', 'it is worth noting', 'revolutionize', 'testament'). Use natural, smooth transition phrasing.
 3. Sentence Length Variance (Burstiness): Mix short, punchy sentences (5-10 words) with longer, detailed academic sentences (20-30 words).
-4. Academic Self-Audit: Verify that no original references, citations, or factual statements are altered, and that the text flows perfectly in Turkish.
+4. Academic Self-Audit: Verify that no original references, citations, or factual statements are altered, and that the text flows perfectly.
 
 You MUST respond ONLY with a raw JSON object matching the following TypeScript interface schema:
 interface HumanizeResult {
-    humanizedText: string; // The fully rewritten, natural humanized text in Turkish (or English if the input was in English).
+    humanizedText: string; // The fully rewritten, natural humanized text in the specified target language.
     aiScoreAfter: number; // Your estimated AI probability score (0-100) after this rewrite. It MUST be less than 10.
-    auditLog: string[]; // List of specific improvements made in Turkish (e.g., '"Moreover" ifadesi doğal geçişle değiştirildi', 'Paragraf 2 cümlesi kısaltılarak burstiness kazandırıldı')
+    auditLog: string[]; // List of specific improvements made.
 }
 
 Do not include any markdown code blocks (\`\`\`json) or conversational text. Return only the raw JSON.`;
