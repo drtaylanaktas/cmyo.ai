@@ -535,8 +535,8 @@ export default function Home() {
     if (!bannerDismissed) {
       setShowTelegramBanner(true);
     }
-    // v1.5 "Yenilikler" modal'ı — her kullanıcıya bir kez göster
-    const whatsNewSeen = localStorage.getItem('cmyo_whats_new_v1.5');
+    // v1.6 "Yenilikler" modal'ı — her kullanıcıya bir kez göster
+    const whatsNewSeen = localStorage.getItem('cmyo_whats_new_v1.6');
     if (!whatsNewSeen) {
       setShowWhatsNew(true);
     }
@@ -549,7 +549,7 @@ export default function Home() {
 
   const dismissWhatsNew = () => {
     setShowWhatsNew(false);
-    localStorage.setItem('cmyo_whats_new_v1.5', 'true');
+    localStorage.setItem('cmyo_whats_new_v1.6', 'true');
   };
 
   // Auth check useEffect
@@ -1936,7 +1936,7 @@ export default function Home() {
         </div>
       </main>
 
-      {/* v1.5 Yenilikler Modal */}
+      {/* v1.6 Yenilikler Modal */}
       <AnimatePresence>
         {showWhatsNew && (
           <motion.div
@@ -1967,13 +1967,13 @@ export default function Home() {
                     <Image src="/logo.png" alt="CMYO.AI" width={40} height={40} className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-white">{"\u00C7"}MYO.AI v1.5</h2>
-                    <p className="text-xs text-slate-400">Nisan 2026</p>
+                    <h2 className="text-lg font-bold text-white">ÇMYO.AI v1.6</h2>
+                    <p className="text-xs text-slate-400">Haziran 2026</p>
                   </div>
                 </div>
 
                 <p className="text-sm text-slate-300 mt-4 mb-5 leading-relaxed">
-                  Yeni {"\u00F6"}zellikler ve iyile{"\u015F"}tirmeler ile kar{"\u015F\u0131"}n{"\u0131"}zda!
+                  Yeni interaktif özellikler ve premium tasarım güncellemeleriyle karşınızdayız!
                 </p>
 
                 {/* Feature list */}
@@ -1983,28 +1983,28 @@ export default function Home() {
                       <Sparkles className="w-4 h-4 text-emerald-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">FR-585 Kan{"\u0131"}t Formu Otomatik Doldurma</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">G{"\u00F6"}rsel veya belge y{"\u00FC"}kleyin, &quot;FR-585 kan{"\u0131"}t formunu doldur&quot; deyin — yapay zek{"\u00E2"} alanlar{"\u0131"} {"\u00E7\u0131"}kar{"\u0131"}p dolu DOCX&apos;i indirmenize sunar.</p>
+                      <h3 className="text-sm font-semibold text-white">3D Dönebilen Flashcard Kartları</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Kelime, terim ve konuları ezberlerken kullanabileceğiniz, canlı yükleme barlı 3D interaktif kartlar.</p>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                      <Paperclip className="w-4 h-4 text-blue-400" />
+                      <Zap className="w-4 h-4 text-blue-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">G{"\u00F6"}rsel Y{"\u00FC"}kleme Deste{"\u011F"}i</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Art{"\u0131"}k JPG, PNG ve WEBP g{"\u00F6"}rselleri de chat&apos;e y{"\u00FC"}kleyebilirsiniz.</p>
+                      <h3 className="text-sm font-semibold text-white">Görsel Akıllı Yanıt Kartları</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Callout kutuları, interaktif akordeon açılır-kapanır menüler, premium tablolar ve görev listeleri.</p>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                      <Edit2 className="w-4 h-4 text-purple-400" />
+                      <Lightbulb className="w-4 h-4 text-purple-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">Yenilenen Chat Deneyimi</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Otomatik b{"\u00FC"}y{"\u00FC"}yen metin alan{"\u0131"}, Shift+Enter ile paragraf olu{"\u015F"}turma ve yeni d{"\u00FC\u015F\u00FC"}nme animasyonu.</p>
+                      <h3 className="text-sm font-semibold text-white">Mobil Desteği ve Hızlı Altyapı</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Gelişmiş veritabanı caching sistemi ve mobil WebView / Android tam uyumluluğu.</p>
                     </div>
                   </div>
                 </div>

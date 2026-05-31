@@ -4,6 +4,14 @@ Tum onemli degisiklikler bu dosyada belgelenir.
 Format [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) ve
 [Semantic Versioning](https://semver.org/lang/tr/) standartlarini takip eder.
 
+## [1.6.0] - 2026-06-01
+
+### Eklenen
+- **3D Flashcard Ezber Sistemi** — Ogrencilerin kelime ve terim ezberlemeleri icin 3D donebilen, canli hazirlanma barina sahip interaktif flashcard kartlari.
+- **Akilli Markdown Kartlari** — Yanitlarda zengin gorsel ogeler; callout bloklari (bilgi, ipucu, uyari), akordeon acilir-kapanir listeler, gelismis tablolar ve yapilacaklar listeleri.
+- **Mobil/Android Uyumlu WebView Altyapisi** — Android uygulamalari icin yuksek performansli WebView optimize calisan arayuz ve database caching.
+- **Flashcard Canli Yukleme Geri Bildirimi** — Kartlar olusturulurken yukleme bari gosterilerek kullaniciya surecle ilgili anlik geri bildirim saglanmasi.
+
 ---
 
 ## [1.5.0] - 2026-04-12
