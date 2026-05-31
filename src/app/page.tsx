@@ -903,9 +903,40 @@ export default function Home() {
             )}
           </div>
 
-          {/* User Profile (Sidebar Footer) */}
-          {currentUser && (
-            <div className="mt-4 pt-4 border-t border-slate-800">
+          {/* Mobile Apps Coming Soon Badge & Socials (Sidebar Footer) */}
+          <div className="mt-auto pt-4 border-t border-slate-800/80 flex flex-col gap-3">
+            <div className="flex justify-center">
+              <div className="group relative flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/40 border border-slate-700/50 hover:bg-slate-800/60 hover:border-slate-600/50 transition-all duration-300 w-full justify-center">
+                <div className="flex items-center gap-1.5">
+                  <svg viewBox="0 0 24 24" className="h-[0.95rem] w-auto text-slate-400 group-hover:text-white transition-colors" fill="currentColor">
+                    <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-1.956.04-3.766 1.146-4.773 2.926-2.04 3.593-.522 8.913 1.473 11.832 1.01 1.493 2.203 3.167 3.834 3.107 1.554-.06 2.146-.99 3.992-.99 1.826 0 2.373.99 3.992.95 1.666-.04 2.684-1.494 3.652-2.926 1.127-1.666 1.593-3.272 1.613-3.352-.04-.01-3.13-1.228-3.15-4.87-.02-3.05 2.455-4.52 2.573-4.58-1.434-2.126-3.666-2.414-4.472-2.473-2.022-.18-3.816 1.206-4.755 1.206-.92 0-2.39-1.206-4.027-1.166v.05zm1.5-3.674c.85-.996 1.423-2.385 1.258-3.785-1.185.05-2.656.79-3.526 1.805-.694.793-1.34 2.213-1.146 3.594 1.334.1 2.564-.626 3.414-1.614z"/>
+                  </svg>
+                  <svg viewBox="0 0 576 512" className="h-[0.9rem] w-auto text-green-500/80 group-hover:text-green-400 transition-colors" fill="currentColor">
+                    <path d="M420.22 165.73l42.6-70.1c4.54-7.46 2.14-17.18-5.35-21.73-7.48-4.55-17.25-2.15-21.8 5.3L392.4 149.3c-31.5-13.84-66.23-21.65-103.14-21.65s-71.6 7.8-103.1 21.64L142.75 79.2C138.2 71.75 128.45 69.34 121 73.9c-7.5 4.54-9.9 14.26-5.35 21.73l42.6 70.1c-96.16 52.84-158.33 147.28-158.33 252.37H578.4c0-105-62.1-199.5-158.18-252.37zM186.27 341.25c-18.06 0-32.8-14.74-32.8-32.8 0-18.08 14.74-32.8 32.8-32.8 18.1 0 32.83 14.73 32.83 32.8 0 18.07-14.75 32.8-32.83 32.8zm203.46 0c-18.1 0-32.8-14.74-32.8-32.8 0-18.08 14.7-32.8 32.8-32.8 18.1 0 32.8 14.73 32.8 32.8 0 18.07-14.73 32.8-32.8 32.8z"/>
+                  </svg>
+                </div>
+                <span className="text-[10px] font-medium text-slate-400 group-hover:text-slate-200 transition-colors">
+                  Uygulamalarımız Yakında
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-center items-center gap-3">
+              <a href="https://github.com/drtaylanaktas" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-slate-300 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.09-.745.083-.729.083-.729 1.205.085 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.4 3-.405 1.02.005 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.605-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"/></svg>
+              </a>
+              <a href="https://www.linkedin.com/in/cmyo" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-slate-300 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+              </a>
+              <a href="https://www.instagram.com/cicekdagimeslekyuksekokulu/" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-slate-300 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
+              </a>
+              <a href="https://x.com/cicekdagimyo" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-slate-300 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              </a>
+            </div>
+
+            {currentUser && (
               <div
                 onClick={() => router.push('/profile')}
                 className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800/50 cursor-pointer transition-colors"
@@ -925,8 +956,8 @@ export default function Home() {
                   <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </aside>
 
@@ -1390,51 +1421,17 @@ export default function Home() {
             </form>
           </div>
 
-          {/* Mobile Apps Coming Soon Badge */}
-          <div className="flex justify-center mt-3 mb-1">
-            <div className="group relative flex items-center gap-3 px-4 py-1.5 rounded-full bg-slate-900/40 border border-slate-700/50 hover:bg-slate-800/60 hover:border-slate-600/50 transition-all duration-300">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              
-              <div className="flex items-center gap-2">
-                <svg viewBox="0 0 24 24" className="h-[1.1rem] w-auto text-slate-300 group-hover:text-white transition-colors" fill="currentColor">
-                  <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-1.956.04-3.766 1.146-4.773 2.926-2.04 3.593-.522 8.913 1.473 11.832 1.01 1.493 2.203 3.167 3.834 3.107 1.554-.06 2.146-.99 3.992-.99 1.826 0 2.373.99 3.992.95 1.666-.04 2.684-1.494 3.652-2.926 1.127-1.666 1.593-3.272 1.613-3.352-.04-.01-3.13-1.228-3.15-4.87-.02-3.05 2.455-4.52 2.573-4.58-1.434-2.126-3.666-2.414-4.472-2.473-2.022-.18-3.816 1.206-4.755 1.206-.92 0-2.39-1.206-4.027-1.166v.05zm1.5-3.674c.85-.996 1.423-2.385 1.258-3.785-1.185.05-2.656.79-3.526 1.805-.694.793-1.34 2.213-1.146 3.594 1.334.1 2.564-.626 3.414-1.614z"/>
-                </svg>
-                <svg viewBox="0 0 576 512" className="h-[1.05rem] w-auto text-green-500/80 group-hover:text-green-400 transition-colors" fill="currentColor">
-                  <path d="M420.22 165.73l42.6-70.1c4.54-7.46 2.14-17.18-5.35-21.73-7.48-4.55-17.25-2.15-21.8 5.3L392.4 149.3c-31.5-13.84-66.23-21.65-103.14-21.65s-71.6 7.8-103.1 21.64L142.75 79.2C138.2 71.75 128.45 69.34 121 73.9c-7.5 4.54-9.9 14.26-5.35 21.73l42.6 70.1c-96.16 52.84-158.33 147.28-158.33 252.37H578.4c0-105-62.1-199.5-158.18-252.37zM186.27 341.25c-18.06 0-32.8-14.74-32.8-32.8 0-18.08 14.74-32.8 32.8-32.8 18.1 0 32.83 14.73 32.83 32.8 0 18.07-14.75 32.8-32.83 32.8zm203.46 0c-18.1 0-32.8-14.74-32.8-32.8 0-18.08 14.7-32.8 32.8-32.8 18.1 0 32.8 14.73 32.8 32.8 0 18.07-14.73 32.8-32.8 32.8z"/>
-                </svg>
-              </div>
-              
-              <div className="h-3.5 w-px bg-slate-700/50"></div>
-              
-              <span className="text-[11px] font-medium bg-gradient-to-r from-slate-300 to-slate-400 bg-clip-text text-transparent group-hover:from-white group-hover:to-slate-200 transition-colors">
-                Mobil Uygulamalarımız Yakında
-              </span>
-            </div>
-          </div>
-
-          <div className="text-center mt-1">
-            <p className="text-[10px] text-slate-600">ÇMYO.AI yanlış bilgiler gösterebilir. Bu nedenle, verdiği yanıtları doğrulayın.</p>
-            <div className="flex justify-center gap-2 mt-1">
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-700 hover:text-blue-400 transition-colors">Kullanım Koşulları</a>
-              <span className="text-[10px] text-slate-800">•</span>
-              <a href="/kvkk" target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-700 hover:text-blue-400 transition-colors">KVKK</a>
-              <span className="text-[10px] text-slate-800">•</span>
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-700 hover:text-blue-400 transition-colors">Gizlilik</a>
-            </div>
-            <div className="flex justify-center items-center gap-2 mt-1.5">
-              <a href="https://github.com/drtaylanaktas" target="_blank" rel="noopener noreferrer" className="text-slate-700 hover:text-slate-500 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.09-.745.083-.729.083-.729 1.205.085 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.4 3-.405 1.02.005 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.605-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"/></svg>
-              </a>
-              <a href="https://www.linkedin.com/in/cmyo" target="_blank" rel="noopener noreferrer" className="text-slate-700 hover:text-slate-500 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-              </a>
-              <a href="https://www.instagram.com/cicekdagimeslekyuksekokulu/" target="_blank" rel="noopener noreferrer" className="text-slate-700 hover:text-slate-500 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
-              </a>
-              <a href="https://x.com/cicekdagimyo" target="_blank" rel="noopener noreferrer" className="text-slate-700 hover:text-slate-500 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-              </a>
-            </div>
+          {/* Compact Disclaimer & Links */}
+          <div className="text-center mt-2.5">
+            <p className="text-[10px] text-slate-600 flex flex-wrap items-center justify-center gap-1.5">
+              <span>ÇMYO.AI yanlış bilgiler gösterebilir. Verilen yanıtları doğrulayın.</span>
+              <span className="text-slate-800 hidden sm:inline">•</span>
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-blue-400 transition-colors">Kullanım Koşulları</a>
+              <span className="text-slate-800">•</span>
+              <a href="/kvkk" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-blue-400 transition-colors">KVKK</a>
+              <span className="text-slate-800">•</span>
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-blue-400 transition-colors">Gizlilik</a>
+            </p>
           </div>
         </div>
       </main>
