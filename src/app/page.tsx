@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft, Trash2, Edit2, Pin, MoreHorizontal, X, Paperclip, Cloud, CloudRain, Sun, CloudSnow, Zap, MapPin, Calendar } from 'lucide-react';
+import { Send, FileText, User, Sparkles, Copy, Check, Mic, MicOff, History, MessageSquare, Plus, ArrowLeft, Trash2, Edit2, Pin, MoreHorizontal, X, Paperclip, Cloud, CloudRain, Sun, CloudSnow, Zap, MapPin, Calendar, ChevronDown, Info, Lightbulb, AlertTriangle, ShieldAlert, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import MiniCalendar from '@/components/MiniCalendar';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +15,463 @@ import remarkGfm from 'remark-gfm';
 // Robust regex for stripping technical JSON action blocks from the UI
 const JSON_CLEAN_REGEX = /(?:```(?:json)?\s*)?JSON_START\s*[\s\S]*?JSON_END(?:\s*```)?/gi;
 const stripJsonBlock = (content: string) => content.replace(JSON_CLEAN_REGEX, '').trim();
+
+// --- v1.6 & v1.7 İnteraktif Markdown, Akıllı Kartlar & 3D Flashcard Geliştirmeleri ---
+
+interface ContentBlock {
+  type: 'markdown' | 'accordion' | 'flashcards';
+  title?: string;
+  content: string;
+  isComplete?: boolean;
+}
+
+const parseContentBlocks = (text: string): ContentBlock[] => {
+  const blocks: ContentBlock[] = [];
+  const regex = /:::\s*(details|flashcards)[^\S\r\n]*([^\n]*)\n([\s\S]*?)(?:\n:::\s*|$)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    const beforeText = text.substring(lastIndex, match.index).trim();
+    if (beforeText) {
+      blocks.push({ type: 'markdown', content: beforeText });
+    }
+
+    const type = match[1].trim() as 'details' | 'flashcards';
+    const title = match[2].trim();
+    const content = match[3].trim();
+    
+    // Check if the block is closed (ends with the closing delimiter :::)
+    const isComplete = match[0].trim().endsWith(':::');
+    
+    blocks.push({ 
+      type: type === 'details' ? 'accordion' : 'flashcards', 
+      title: title || undefined, 
+      content,
+      isComplete
+    });
+
+    lastIndex = regex.lastIndex;
+  }
+
+  const afterText = text.substring(lastIndex).trim();
+  if (afterText) {
+    blocks.push({ type: 'markdown', content: afterText });
+  }
+
+  return blocks;
+};
+
+const getTextContent = (node: any): string => {
+  if (!node) return '';
+  if (typeof node === 'string') return node;
+  if (Array.isArray(node)) return node.map(getTextContent).join('');
+  if (node.props && node.props.children) return getTextContent(node.props.children);
+  return '';
+};
+
+const removeCalloutHeader = (node: any, header: string): any => {
+  if (!node) return node;
+  if (typeof node === 'string') {
+    return node.replace(header, '').replace(/^\s*>\s*/, '').trim();
+  }
+  if (Array.isArray(node)) {
+    return node.map(child => removeCalloutHeader(child, header));
+  }
+  if (node.props && node.props.children) {
+    return {
+      ...node,
+      props: {
+        ...node.props,
+        children: removeCalloutHeader(node.props.children, header)
+      }
+    };
+  }
+  return node;
+};
+
+const CustomBlockquote = ({ children }: any) => {
+  let type: 'note' | 'tip' | 'warning' | 'caution' | 'normal' = 'normal';
+  const textContent = getTextContent(children);
+
+  if (textContent.includes('[!NOTE]')) {
+    type = 'note';
+    children = removeCalloutHeader(children, '[!NOTE]');
+  } else if (textContent.includes('[!TIP]')) {
+    type = 'tip';
+    children = removeCalloutHeader(children, '[!TIP]');
+  } else if (textContent.includes('[!WARNING]')) {
+    type = 'warning';
+    children = removeCalloutHeader(children, '[!WARNING]');
+  } else if (textContent.includes('[!CAUTION]')) {
+    type = 'caution';
+    children = removeCalloutHeader(children, '[!CAUTION]');
+  }
+
+  if (type === 'normal') {
+    return <blockquote className="border-l-4 border-slate-700 pl-4 my-2 text-slate-400 italic">{children}</blockquote>;
+  }
+
+  const styles = {
+    note: {
+      border: 'border-blue-500/30',
+      bg: 'bg-blue-950/20',
+      text: 'text-blue-200',
+      icon: <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />,
+      title: 'NOT'
+    },
+    tip: {
+      border: 'border-emerald-500/30',
+      bg: 'bg-emerald-950/20',
+      text: 'text-emerald-200',
+      icon: <Lightbulb className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />,
+      title: 'İPUCU'
+    },
+    warning: {
+      border: 'border-amber-500/30',
+      bg: 'bg-amber-950/20',
+      text: 'text-amber-200',
+      icon: <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />,
+      title: 'UYARI'
+    },
+    caution: {
+      border: 'border-rose-500/30',
+      bg: 'bg-rose-950/20',
+      text: 'text-rose-200',
+      icon: <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />,
+      title: 'DİKKAT'
+    }
+  }[type];
+
+  return (
+    <div className={`my-4 p-4 rounded-xl border ${styles.border} ${styles.bg} backdrop-blur-sm flex gap-3 shadow-lg`}>
+      {styles.icon}
+      <div className="flex-1">
+        <span className="block text-xs font-bold tracking-wider uppercase mb-1 text-slate-300">{styles.title}</span>
+        <div className={`text-sm ${styles.text} leading-relaxed`}>{children}</div>
+      </div>
+    </div>
+  );
+};
+
+const CustomAccordion = ({ title, children }: { title: string; children: any }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="my-3 rounded-xl border border-slate-800 bg-slate-950/20 backdrop-blur-sm overflow-hidden transition-all duration-300">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-3 flex items-center justify-between text-sm font-bold text-slate-200 hover:bg-slate-900/40 transition-colors cursor-pointer"
+      >
+        <span>{title}</span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+          >
+            <div className="px-4 pb-4 pt-2 border-t border-slate-900/60 text-sm text-slate-300 leading-relaxed overflow-hidden">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const CustomTable = ({ children }: any) => {
+  return (
+    <div className="my-4 w-full overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/20 backdrop-blur-sm shadow-xl">
+      <table className="w-full text-left border-collapse text-sm text-slate-300">
+        {children}
+      </table>
+    </div>
+  );
+};
+
+const CustomThead = ({ children }: any) => {
+  return <thead className="bg-slate-900/50 text-blue-200 font-semibold border-b border-slate-800">{children}</thead>;
+};
+
+const CustomTh = ({ children }: any) => {
+  return <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">{children}</th>;
+};
+
+const CustomTr = ({ children }: any) => {
+  return <tr className="border-b border-slate-800/40 hover:bg-slate-900/20 transition-colors">{children}</tr>;
+};
+
+const CustomTd = ({ children }: any) => {
+  return <td className="px-4 py-3 leading-normal">{children}</td>;
+};
+
+const CustomLi = ({ children, checked, ...props }: any) => {
+  const [isChecked, setIsChecked] = useState(checked);
+  const isTodo = typeof checked === 'boolean';
+
+  if (!isTodo) {
+    return <li className="my-1.5 leading-relaxed" {...props}>{children}</li>;
+  }
+
+  return (
+    <li className="flex items-start gap-2.5 my-2 leading-relaxed list-none">
+      <input
+        type="checkbox"
+        checked={isChecked}
+        onChange={(e) => setIsChecked(e.target.checked)}
+        className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-950/40 text-blue-500 focus:ring-blue-500/20 cursor-pointer"
+      />
+      <span className={`text-sm transition-all duration-300 ${isChecked ? 'line-through text-slate-500' : 'text-slate-200'}`}>
+        {children}
+      </span>
+    </li>
+  );
+};
+
+const CustomFlashcardsPreparing = ({ content }: { content: string }) => {
+  const count = (content.match(/\{\s*['"]front['"]\s*:[\s\S]*?['"]back['"]\s*:[\s\S]*?\}/gi) || []).length;
+  
+  return (
+    <div className="my-4 w-full max-w-sm mx-auto p-5 rounded-2xl border border-blue-500/20 bg-slate-900/35 backdrop-blur-md shadow-2xl flex flex-col items-center gap-3">
+      <div className="relative w-10 h-10 flex items-center justify-center">
+        <div className="absolute inset-0 rounded-full border border-blue-500/40 animate-ping opacity-75" />
+        <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+      </div>
+      <div className="text-center">
+        <h4 className="text-xs text-blue-400 font-bold uppercase tracking-wider mb-1 animate-pulse">Desteniz Dolduruluyor</h4>
+        <p className="text-xs text-slate-400 font-medium">
+          ÇMYO.AI hafıza kartlarını hazırlıyor...
+        </p>
+      </div>
+      <div className="w-full flex flex-col gap-1.5 mt-1">
+        <div className="flex justify-between text-[10px] text-slate-500 font-semibold px-1">
+          <span>HAFİZA DESTE OLUŞTURUCU</span>
+          <span className="text-blue-400">{count} Kart Tamam</span>
+        </div>
+        <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden relative">
+          <motion.div 
+            className="h-full bg-blue-500 rounded-full"
+            initial={{ left: "-30%", width: "30%" }}
+            animate={{ left: "100%", width: "30%" }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+            style={{ position: 'absolute' }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CustomFlashcards = ({ content }: { content: string }) => {
+  const [cards, setCards] = useState<{ front: string; back: string }[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [results, setResults] = useState<('learned' | 'repeat')[]>([]);
+  const [isFinished, setIsFinished] = useState(false);
+
+  useEffect(() => {
+    try {
+      let cleaned = content.trim();
+      if (cleaned.startsWith('```')) {
+        const firstNewLine = cleaned.indexOf('\n');
+        if (firstNewLine !== -1) {
+          cleaned = cleaned.substring(firstNewLine + 1);
+        } else {
+          cleaned = cleaned.replace(/^```[a-zA-Z]*/, '');
+        }
+      }
+      if (cleaned.endsWith('```')) {
+        cleaned = cleaned.substring(0, cleaned.length - 3).trim();
+      }
+      cleaned = cleaned.trim();
+
+      const startBracket = cleaned.indexOf('[');
+      const endBracket = cleaned.lastIndexOf(']');
+      if (startBracket !== -1 && endBracket !== -1 && startBracket < endBracket) {
+        cleaned = cleaned.substring(startBracket, endBracket + 1);
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (firstErr) {
+        try {
+          let corrected = cleaned
+            .replace(/([{,]\s*)'([^']+)'(\s*:)/g, '$1"$2"$3')
+            .replace(/(:\s*)'([^']*)'(\s*[,}])/g, '$1"$2"$3');
+          parsed = JSON.parse(corrected);
+        } catch (secondErr) {
+          const items: { front: string; back: string }[] = [];
+          const itemRegex = /\{\s*['"]front['"]\s*:\s*['"]([\s\S]*?)['"]\s*,\s*['"]back['"]\s*:\s*['"]([\s\S]*?)['"]\s*\}/gi;
+          let itemMatch;
+          while ((itemMatch = itemRegex.exec(cleaned)) !== null) {
+            items.push({
+              front: itemMatch[1].trim(),
+              back: itemMatch[2].trim()
+            });
+          }
+          if (items.length > 0) {
+            parsed = items;
+          } else {
+            throw secondErr;
+          }
+        }
+      }
+
+      if (Array.isArray(parsed)) {
+        setCards(parsed);
+        setResults([]);
+        setCurrentIndex(0);
+        setIsFlipped(false);
+        setIsFinished(false);
+      }
+    } catch (e) {
+      console.error('Failed to parse flashcards JSON:', e, 'Raw content was:', content);
+    }
+  }, [content]);
+
+  if (cards.length === 0) {
+    return (
+      <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/10 text-xs text-red-400">
+        Flashcard verisi ayrıştırılamadı.
+      </div>
+    );
+  }
+
+  const handleChoice = (type: 'learned' | 'repeat') => {
+    const updatedResults = [...results, type];
+    setResults(updatedResults);
+    
+    if (currentIndex + 1 < cards.length) {
+      setIsFlipped(false);
+      setTimeout(() => {
+        setCurrentIndex(currentIndex + 1);
+      }, 150);
+    } else {
+      setIsFinished(true);
+    }
+  };
+
+  const handleRestart = () => {
+    setCurrentIndex(0);
+    setIsFlipped(false);
+    setResults([]);
+    setIsFinished(false);
+  };
+
+  const currentCard = cards[currentIndex];
+  const progressPercent = (currentIndex / cards.length) * 100;
+  const learnedCount = results.filter(r => r === 'learned').length;
+  const repeatCount = results.filter(r => r === 'repeat').length;
+
+  if (isFinished) {
+    return (
+      <div className="my-4 p-6 rounded-2xl border border-slate-800 bg-slate-950/30 backdrop-blur-md shadow-2xl flex flex-col items-center text-center max-w-md mx-auto">
+        <Sparkles className="w-8 h-8 text-yellow-400 mb-3 animate-pulse" />
+        <h3 className="text-lg font-bold text-white mb-2">Tebrikler!</h3>
+        <p className="text-xs text-slate-400 mb-6">Kelime ezber kartları destesini başarıyla tamamladınız.</p>
+        
+        <div className="grid grid-cols-2 gap-4 w-full mb-6">
+          <div className="p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+            <span className="block text-xs text-emerald-400 font-semibold mb-1">EZBERLENDİ</span>
+            <span className="text-2xl font-black text-white">{learnedCount}</span>
+          </div>
+          <div className="p-3.5 rounded-xl border border-rose-500/20 bg-rose-500/5">
+            <span className="block text-xs text-rose-400 font-semibold mb-1">TEKRAR EDİLECEK</span>
+            <span className="text-2xl font-black text-white">{repeatCount}</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleRestart}
+          className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-blue-500/20 cursor-pointer"
+        >
+          Desteyi Yeniden Başlat
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-4 w-full max-w-sm mx-auto flex flex-col items-center gap-4">
+      <div className="w-full flex items-center justify-between text-xs text-slate-400 px-1">
+        <span>Kart {currentIndex + 1} / {cards.length}</span>
+        <span className="font-semibold text-blue-400">{Math.round(progressPercent)}% Tamamlandı</span>
+      </div>
+      <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+        <motion.div 
+          className="h-full bg-blue-500" 
+          animate={{ width: `${progressPercent}%` }}
+          transition={{ duration: 0.3 }}
+        />
+      </div>
+
+      <div 
+        onClick={() => setIsFlipped(!isFlipped)}
+        className="w-full h-56 relative cursor-pointer group"
+        style={{ perspective: "1000px" }}
+      >
+        <motion.div
+          className="w-full h-full relative"
+          style={{ transformStyle: "preserve-3d" }}
+          animate={{ rotateY: isFlipped ? 180 : 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div 
+            className="absolute inset-0 rounded-2xl p-6 flex flex-col items-center justify-center text-center bg-slate-900/60 border border-slate-700/60 shadow-xl backdrop-blur-md"
+            style={{ backfaceVisibility: "hidden" }}
+          >
+            <span className="absolute top-3.5 right-4 text-[10px] text-slate-500 font-semibold flex items-center gap-1 group-hover:text-slate-300 transition-colors select-none">
+              DÖNDÜR <Sparkles className="w-3 h-3 text-blue-400" />
+            </span>
+            <h4 className="text-xl font-black text-white tracking-wide uppercase px-2 select-text">{currentCard.front}</h4>
+          </div>
+
+          <div 
+            className="absolute inset-0 rounded-2xl p-6 flex flex-col items-center justify-center text-center bg-slate-950/80 border border-blue-500/20 shadow-2xl backdrop-blur-md"
+            style={{ 
+              backfaceVisibility: "hidden",
+              transform: "rotateY(180deg)"
+            }}
+          >
+            <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider mb-2 select-none">TANIM / CEVAP</span>
+            <p className="text-sm text-slate-200 leading-relaxed font-medium px-2 select-text">{currentCard.back}</p>
+          </div>
+        </motion.div>
+      </div>
+
+      <div className="flex gap-3 w-full">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleChoice('repeat');
+          }}
+          className="flex-1 py-3 border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 rounded-xl text-xs font-bold transition-all cursor-pointer text-center"
+        >
+          Tekrar Et
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleChoice('learned');
+          }}
+          className="flex-1 py-3 border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400 rounded-xl text-xs font-bold transition-all cursor-pointer text-center"
+        >
+          Öğrendim
+        </button>
+      </div>
+    </div>
+  );
+};
 
 type Message = {
   id: string;
@@ -770,7 +1227,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="fixed inset-0 flex w-full overflow-hidden bg-[#050a14] text-white relative">
+    <div className="fixed inset-0 flex w-full overflow-hidden bg-[#050a14] text-white h-screen max-h-screen">
       {/* Premium Arka Plan Nebula Glow Küreleri */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 select-none">
         <div className="nebula-glow bg-blue-600/20 top-[-10%] left-[-15%]" />
@@ -1263,10 +1720,13 @@ export default function Home() {
                         </div>
                       ) : (
                         <div className="prose prose-invert prose-sm max-w-none prose-headings:text-blue-200 prose-strong:text-blue-100 prose-a:text-blue-400 prose-code:text-green-300 prose-code:bg-slate-900/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-900/80 prose-pre:border prose-pre:border-slate-700/50 prose-table:border-collapse [&_th]:bg-slate-800/50 [&_th]:border [&_th]:border-slate-700/50 [&_th]:px-3 [&_th]:py-2 [&_td]:border [&_td]:border-slate-700/50 [&_td]:px-3 [&_td]:py-2 prose-li:marker:text-blue-400">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              a: ({ href, children }) => (
+                          {(() => {
+                            const rawContent = streamingId === msg.id ? streamingText : msg.content;
+                            const cleanText = stripJsonBlock(rawContent);
+                            const blocks = parseContentBlocks(cleanText);
+
+                            const markdownComponents = {
+                              a: ({ href, children }: any) => (
                                 <a
                                   href={href}
                                   target="_blank"
@@ -1276,15 +1736,55 @@ export default function Home() {
                                   {children}
                                 </a>
                               ),
-                            }}
-                          >
-                            {streamingId === msg.id
-                              ? stripJsonBlock(streamingText)
-                              : stripJsonBlock(msg.content)}
-                          </ReactMarkdown>
-                          {streamingId === msg.id && (
-                            <span className="inline-block w-0.5 h-4 bg-blue-400 animate-pulse ml-0.5 align-middle" />
-                          )}
+                              blockquote: CustomBlockquote,
+                              table: CustomTable,
+                              thead: CustomThead,
+                              th: CustomTh,
+                              tr: CustomTr,
+                              td: CustomTd,
+                              li: CustomLi
+                            };
+
+                            return (
+                              <div className="flex flex-col gap-1.5">
+                                {blocks.map((block, bIdx) => {
+                                  if (block.type === 'flashcards') {
+                                    if (block.isComplete === false) {
+                                      return <CustomFlashcardsPreparing key={bIdx} content={block.content} />;
+                                    }
+                                    return <CustomFlashcards key={bIdx} content={block.content} />;
+                                  }
+
+                                  if (block.type === 'accordion') {
+                                    return (
+                                      <CustomAccordion key={bIdx} title={block.title || 'Detaylar'}>
+                                        <ReactMarkdown
+                                          remarkPlugins={[remarkGfm]}
+                                          components={markdownComponents}
+                                        >
+                                          {block.content}
+                                        </ReactMarkdown>
+                                      </CustomAccordion>
+                                    );
+                                  }
+
+                                  return (
+                                    <div key={bIdx} className="relative">
+                                      <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
+                                        components={markdownComponents}
+                                      >
+                                        {block.content}
+                                      </ReactMarkdown>
+                                      {streamingId === msg.id && bIdx === blocks.length - 1 && (
+                                        <span className="inline-block w-0.5 h-4 bg-blue-400 animate-pulse ml-0.5 align-middle" />
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
