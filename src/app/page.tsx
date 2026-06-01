@@ -2032,7 +2032,7 @@ export default function Home() {
       </main>
 
       {/* Modals Container to escape Flex Parent */}
-      <div>
+      <div className="fixed inset-0 pointer-events-none z-[99] w-screen h-screen">
         <AnimatePresence>
           {showWhatsNew && (
           <motion.div
@@ -2043,7 +2043,7 @@ export default function Home() {
             className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           >
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={dismissWhatsNew} />
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={dismissWhatsNew} />
 
             {/* Modal */}
             <motion.div
@@ -2051,7 +2051,7 @@ export default function Home() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: 24 }}
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl shadow-2xl shadow-blue-500/10 overflow-hidden"
+              className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl shadow-2xl shadow-blue-500/10 overflow-hidden pointer-events-auto"
             >
               {/* Gradient header strip */}
               <div className="h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500" />
@@ -2126,7 +2126,7 @@ export default function Home() {
             className="fixed inset-0 z-[90] flex items-center justify-center p-4 overflow-y-auto"
           >
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setShowAcademicPanel(false)} />
+            <div className="absolute inset-0 bg-black/75 backdrop-blur-sm pointer-events-auto" onClick={() => setShowAcademicPanel(false)} />
 
             {/* Modal Container */}
             <motion.div
@@ -2134,7 +2134,7 @@ export default function Home() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-6xl bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col md:h-[85vh] max-h-[90vh] z-10"
+              className="relative w-full max-w-6xl bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col md:h-[85vh] max-h-[90vh] z-10 pointer-events-auto"
             >
               {/* Premium Glow effects behind */}
               <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
