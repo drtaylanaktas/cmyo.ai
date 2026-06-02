@@ -2091,7 +2091,7 @@ export default function Home() {
                     <Image src="/logo.png" alt="CMYO.AI" width={40} height={40} className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-white">{"\u00C7"}MYO.AI v1.6</h2>
+                    <h2 className="text-lg font-bold text-white">{"\u00C7"}MYO.AI v1.6.1</h2>
                     <p className="text-xs text-slate-400">Haziran 2026</p>
                   </div>
                 </div>
@@ -2207,7 +2207,7 @@ export default function Home() {
                   <div>
                     <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                       Akademik Asistan Paneli
-                      <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">v1.6 Premium</span>
+                      <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">v1.6.1 Premium</span>
                     </h2>
                     <p className="text-xs text-slate-400">Tez, makale ve ödevler için Turnitin/GPTZero uyumlu AI Analizi &amp; İnsansılaştırma</p>
                   </div>
