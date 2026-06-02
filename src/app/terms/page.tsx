@@ -18,7 +18,7 @@ export default function TermsPage() {
 
                 <div className="bg-slate-900/50 border border-blue-500/20 rounded-2xl p-8 md:p-12 backdrop-blur-sm">
                     <h1 className="text-3xl font-bold text-white mb-2">Kullanım Koşulları</h1>
-                    <p className="text-sm text-slate-500 mb-8">Son güncelleme: 26 Mart 2026</p>
+                    <p className="text-sm text-slate-500 mb-8">Son güncelleme: 2 Haziran 2026</p>
 
                     <div className="space-y-8 text-sm leading-relaxed">
                         {/* 1 */}
@@ -47,7 +47,8 @@ export default function TermsPage() {
                                 <li>Ders programı, staj, kayıt işlemleri gibi konularda rehberlik,</li>
                                 <li>Belge hazırlama desteği (PDF/Word),</li>
                                 <li>Dosya yükleme ve analiz,</li>
-                                <li>Sesli giriş desteği</li>
+                                <li>Sesli giriş desteği,</li>
+                                <li>Yapay zeka destekli akademik metin analizi ve insansılaştırma (AI Humanizer)</li>
                             </ul>
                             <p className="mt-2">hizmetlerini kapsamaktadır.</p>
                         </section>
@@ -96,6 +97,21 @@ export default function TermsPage() {
                                 <li>Platform yanıtlarına dayanılarak alınan kararlardan doğacak zararlardan Kurum sorumlu tutulamaz.</li>
                                 <li>Belge oluşturma özelliği ile hazırlanan dokümanlar taslak niteliğindedir ve resmi geçerliliği yoktur.</li>
                             </ul>
+                        </section>
+
+                        {/* 5.1 */}
+                        <section>
+                            <h2 className="text-lg font-semibold text-white mb-3">5.1 Akademik Asistan ve Metin Gizliliği</h2>
+                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 mb-3">
+                                <p className="text-emerald-300 text-xs font-medium mb-1">GÜVENLİK TAAHHÜDÜ</p>
+                                <p className="text-emerald-100/80 text-sm leading-relaxed">
+                                    Akademik Asistan (AI Humanizer) modülüne intihal veya yapay zeka tespiti amacıyla yüklenen ya da 
+                                    insansılaştırma işlemi için girilen <strong>hiçbir metin, makale, ödev veya tez içeriği sistemlerimiz tarafından 
+                                    KAYDEDİLMEZ VE DEPOLANMAZ</strong>. İşlem tamamlandığında sağlanan metin sunucu belleğinden anında silinir. 
+                                    Bu özellik, akademik çalışmalarınızın üçüncü şahısların eline geçmemesi ve gizliliğinin %100 
+                                    korunması amacıyla özellikle kayıt dışı (stateless) çalışacak şekilde tasarlanmıştır.
+                                </p>
+                            </div>
                         </section>
 
                         {/* 6 */}
@@ -156,7 +172,7 @@ export default function TermsPage() {
                         {/* Divider */}
                         <div className="border-t border-slate-700/50 pt-6">
                             <p className="text-xs text-slate-500 text-center">
-                                Bu Kullanım Koşulları 26 Mart 2026 tarihinde yürürlüğe girmiştir.
+                                Bu Kullanım Koşulları 2 Haziran 2026 tarihinde v1.6.1 sürümü ile güncellenerek yürürlüğe girmiştir.
                             </p>
                         </div>
                     </div>

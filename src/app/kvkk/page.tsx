@@ -19,7 +19,7 @@ export default function KVKKPage() {
                 <div className="bg-slate-900/50 border border-blue-500/20 rounded-2xl p-8 md:p-12 backdrop-blur-sm">
                     <h1 className="text-3xl font-bold text-white mb-2">KVKK Aydınlatma Metni</h1>
                     <p className="text-sm text-slate-500 mb-2">6698 Sayılı Kişisel Verilerin Korunması Kanunu Kapsamında</p>
-                    <p className="text-sm text-slate-500 mb-8">Son güncelleme: 26 Mart 2026</p>
+                    <p className="text-sm text-slate-500 mb-8">Son güncelleme: 2 Haziran 2026</p>
 
                     <div className="space-y-8 text-sm leading-relaxed">
                         {/* Giriş */}
@@ -76,7 +76,7 @@ export default function KVKKPage() {
                                         </tr>
                                         <tr>
                                             <td className="py-3 px-4 text-blue-300 font-medium">Kullanım Verileri</td>
-                                            <td className="py-3 px-4">Sohbet geçmişi, yüklenen belgeler, mesaj sayısı</td>
+                                            <td className="py-3 px-4">Sohbet geçmişi, genel yüklenen belgeler, mesaj sayısı <br/><span className="text-xs text-slate-500">(Not: Akademik Asistan / Humanizer modülüne girilen metinler KESİNLİKLE kaydedilmez veya saklanmaz)</span></td>
                                         </tr>
                                         <tr>
                                             <td className="py-3 px-4 text-blue-300 font-medium">Teknik Veriler</td>
@@ -242,6 +242,10 @@ export default function KVKKPage() {
                                             <td className="py-3 px-4 text-blue-300">İşlem süresince (kalıcı olarak saklanmaz)</td>
                                         </tr>
                                         <tr>
+                                            <td className="py-3 px-4 bg-slate-800/30">Akademik Asistan / Humanizer Metinleri</td>
+                                            <td className="py-3 px-4 text-emerald-400 bg-slate-800/30 font-medium">Hiçbir şekilde veritabanına kaydedilmez. İşlem bitiminde anında yok edilir.</td>
+                                        </tr>
+                                        <tr>
                                             <td className="py-3 px-4">Teknik loglar (IP vb.)</td>
                                             <td className="py-3 px-4 text-blue-300">En fazla 1 yıl</td>
                                         </tr>
@@ -275,7 +279,7 @@ export default function KVKKPage() {
                         {/* Divider */}
                         <div className="border-t border-slate-700/50 pt-6">
                             <p className="text-xs text-slate-500 text-center">
-                                Bu Aydınlatma Metni 26 Mart 2026 tarihinde yürürlüğe girmiştir.
+                                Bu Aydınlatma Metni 2 Haziran 2026 tarihinde v1.6.1 sürümü ile güncellenerek yürürlüğe girmiştir.
                             </p>
                         </div>
                     </div>

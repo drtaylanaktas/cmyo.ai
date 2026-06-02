@@ -18,7 +18,7 @@ export default function PrivacyPage() {
 
                 <div className="bg-slate-900/50 border border-blue-500/20 rounded-2xl p-8 md:p-12 backdrop-blur-sm">
                     <h1 className="text-3xl font-bold text-white mb-2">Gizlilik Politikası</h1>
-                    <p className="text-sm text-slate-500 mb-8">Son güncelleme: 26 Mart 2026</p>
+                    <p className="text-sm text-slate-500 mb-8">Son güncelleme: 2 Haziran 2026</p>
 
                     <div className="space-y-8 text-sm leading-relaxed">
                         {/* Giriş */}
@@ -109,6 +109,10 @@ export default function PrivacyPage() {
                                 <li className="flex items-start gap-2">
                                     <span className="text-blue-400 mt-0.5">•</span>
                                     <span>Yüklenen belgeler yalnızca ilgili sohbet oturumunda analiz edilir ve kalıcı olarak saklanmaz.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-emerald-400 mt-0.5">✓</span>
+                                    <span><strong className="text-emerald-400">Akademik Asistan / Humanizer Verileri:</strong> Akademik Asistan modülüne metin analizi veya insansılaştırma amacıyla girilen hiçbir metin, belge veya içerik veritabanımıza <strong>KESİNLİKLE KAYDEDİLMEZ VE SAKLANMAZ</strong>. İşlem bittiği an bellekten silinir. Bu özellik KVKK'ya ve akademik gizliliğe tam uyumlu olarak tasarlanmıştır.</span>
                                 </li>
                             </ul>
                         </section>
@@ -241,7 +245,7 @@ export default function PrivacyPage() {
                         {/* Divider */}
                         <div className="border-t border-slate-700/50 pt-6">
                             <p className="text-xs text-slate-500 text-center">
-                                Bu Gizlilik Politikası 26 Mart 2026 tarihinde yürürlüğe girmiştir.
+                                Bu Gizlilik Politikası 2 Haziran 2026 tarihinde v1.6.1 sürümü ile güncellenerek yürürlüğe girmiştir.
                             </p>
                         </div>
                     </div>
