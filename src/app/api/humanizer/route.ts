@@ -110,6 +110,7 @@ export async function POST(req: Request) {
             const result = await detectAI(text);
             return NextResponse.json(result);
         } else {
+            // Multi-pass humanization pipeline
             const result = await humanizeText(text, voiceSample, targetLanguage);
             return NextResponse.json(result);
         }

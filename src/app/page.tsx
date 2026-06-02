@@ -8,7 +8,7 @@ import MiniCalendar from '@/components/MiniCalendar';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
-import { Activity, Volume2, Bot, Share2, Globe } from 'lucide-react';
+import { Activity, Volume2, Bot, Share2, Globe, ShieldCheck } from 'lucide-react';
 import { checkProfanity } from '@/lib/badwords';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -539,6 +539,32 @@ export default function Home() {
   const [academicLoadingPhase, setAcademicLoadingPhase] = useState('');
   const [academicActiveTab, setAcademicActiveTab] = useState<'before' | 'after'>('before');
   const [academicLanguage, setAcademicLanguage] = useState<'auto' | 'tr' | 'en'>('auto');
+  const [showAcademicTips, setShowAcademicTips] = useState(false);
+  const [academicTipsStep, setAcademicTipsStep] = useState(0);
+
+  // İlk açılış tips kontrolü
+  useEffect(() => {
+    if (showAcademicPanel) {
+      const tipsSeen = localStorage.getItem('cmyo_academic_tips_seen');
+      if (!tipsSeen) {
+        setShowAcademicTips(true);
+        setAcademicTipsStep(0);
+      }
+    }
+  }, [showAcademicPanel]);
+
+  const dismissAcademicTips = () => {
+    setShowAcademicTips(false);
+    localStorage.setItem('cmyo_academic_tips_seen', 'true');
+  };
+
+  const nextAcademicTip = () => {
+    if (academicTipsStep < 3) {
+      setAcademicTipsStep(academicTipsStep + 1);
+    } else {
+      dismissAcademicTips();
+    }
+  };
 
   const handleAcademicProcess = async (action: 'detect' | 'humanize') => {
     if (!academicInput.trim()) {
@@ -554,17 +580,19 @@ export default function Home() {
     setAcademicResult(null);
     setAcademicError(null);
 
-    // Animasyonlu Yükleme Fazları
+    // Animasyonlu Yükleme Fazları — Multi-pass mimariye uygun
     const detectPhases = [
-      'Metin morfolojisi ve sözcük sıklığı inceleniyor...',
+      'Metin morfolojisi ve 26 AI kalıbı taranıyor...',
       'Perplexity ve burstiness metrikleri hesaplanıyor...',
       'GPTZero/Turnitin akademik AI modelleri simüle ediliyor...'
     ];
     const humanizePhases = [
-      'Ses ve yazım tarzı kalibre ediliyor...',
-      'Yapay zekâ kalıpları (AI tells) temizleniyor...',
-      'Akademik derinlik ve cümle dalgalanması (burstiness) artırılıyor...',
-      'Turnitin öz-denetim testinden geçiriliyor...'
+      'Metin morfolojisi ve 26 AI kalıbı taranıyor...',
+      'İlk insansılaştırma geçişi uygulanıyor (Blader Playbook)...',
+      'Audit denetimi: robotik kalıntılar aranıyor...',
+      'İkinci geçiş: kalan AI izleri temizleniyor...',
+      'Final AI skor kontrolü yapılıyor...',
+      'Sonuçlar hazırlanıyor...'
     ];
     const phases = action === 'detect' ? detectPhases : humanizePhases;
     let currentPhaseIdx = 0;
@@ -575,7 +603,7 @@ export default function Home() {
       if (currentPhaseIdx < phases.length) {
         setAcademicLoadingPhase(phases[currentPhaseIdx]);
       }
-    }, 1800);
+    }, 3500);
 
     try {
       const response = await fetch('/api/humanizer', {
@@ -619,7 +647,7 @@ export default function Home() {
       setShowTelegramBanner(true);
     }
     // v1.6 "Yenilikler" modal'ı — her kullanıcıya bir kez göster
-    const whatsNewSeen = localStorage.getItem('cmyo_whats_new_v1.6');
+    const whatsNewSeen = localStorage.getItem('cmyo_whats_new_v1.6.1');
     if (!whatsNewSeen) {
       setShowWhatsNew(true);
     }
@@ -632,7 +660,7 @@ export default function Home() {
 
   const dismissWhatsNew = () => {
     setShowWhatsNew(false);
-    localStorage.setItem('cmyo_whats_new_v1.6', 'true');
+    localStorage.setItem('cmyo_whats_new_v1.6.1', 'true');
   };
 
   // Auth check useEffect
@@ -1310,7 +1338,8 @@ export default function Home() {
   ];
 
   return (
-    <div className="fixed inset-0 flex w-full overflow-hidden bg-[#050a14] text-white h-screen max-h-screen">
+    <>
+      <div className="fixed inset-0 flex w-full overflow-hidden bg-[#050a14] text-white h-screen max-h-screen">
       {/* Premium Arka Plan Nebula Glow Küreleri */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 select-none">
         <div className="nebula-glow bg-blue-600/20 top-[-10%] left-[-15%]" />
@@ -2030,10 +2059,9 @@ export default function Home() {
           </div>
         </div>
       </main>
+    </div>
 
-      {/* Modals Container to escape Flex Parent */}
-      <div className="fixed inset-0 pointer-events-none z-[99] w-screen h-screen">
-        <AnimatePresence>
+      <AnimatePresence>
           {showWhatsNew && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -2063,24 +2091,49 @@ export default function Home() {
                     <Image src="/logo.png" alt="CMYO.AI" width={40} height={40} className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-white">ÇMYO.AI v1.6</h2>
+                    <h2 className="text-lg font-bold text-white">{"\u00C7"}MYO.AI v1.6</h2>
                     <p className="text-xs text-slate-400">Haziran 2026</p>
                   </div>
                 </div>
 
                 <p className="text-sm text-slate-300 mt-4 mb-5 leading-relaxed">
-                  Yeni interaktif özellikler ve premium tasarım güncellemeleriyle karşınızdayız!
+                  Yeni nesil akademik asistan {"\u00F6"}zellikleri ve premium tasar{"\u0131"}m g{"\u00FC"}ncellemeleriyle kar{"\u015F"}{"\u0131"}n{"\u0131"}zday{"\u0131"}z!
                 </p>
 
-                {/* Feature list */}
-                <div className="space-y-3.5">
+                {/* ★ HERO FEATURE: Humanizer — gradient-bordered premium card */}
+                <div className="relative mb-4 rounded-xl p-[1px] bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500">
+                  <div className="bg-slate-900 rounded-[11px] p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center shrink-0">
+                        <ShieldCheck className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm font-bold text-white">Akademik AI Humanizer</h3>
+                          <span className="text-[9px] font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white px-2 py-0.5 rounded-full uppercase tracking-wider">T{"\u00FC"}rkiye{"\u2019"}de {"\u0130"}lk</span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                          Turnitin ve GPTZero uyumlu {"\u00E7"}ok a{"\u015F"}amal{"\u0131"} insans{"\u0131"}la{"\u015F"}t{"\u0131"}rma motoru. 26 AI yaz{"\u0131"}m kal{"\u0131"}b{"\u0131"}n{"\u0131"} tespit eder, Blader Playbook ile metninizi do{"\u011F"}al akademik dile d{"\u00F6"}n{"\u00FC"}{"\u015F"}t{"\u00FC"}r{"\u00FC"}r. Ses kalibrasyonu, audit denetimi ve T{"\u00FC"}rk{"\u00E7"}e AI kal{"\u0131"}p tespiti dahil.
+                        </p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="text-[10px] text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md font-medium">Multi-Pass Engine</span>
+                          <span className="text-[10px] text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-md font-medium">Audit Loop</span>
+                          <span className="text-[10px] text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md font-medium">TR + EN</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Other Features */}
+                <div className="space-y-3">
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
                       <Sparkles className="w-4 h-4 text-emerald-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">3D Dönebilen Flashcard Kartları</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Kelime, terim ve konuları ezberlerken kullanabileceğiniz, canlı yükleme barlı 3D interaktif kartlar.</p>
+                      <h3 className="text-sm font-semibold text-white">3D D{"\u00F6"}nebilen Flashcard Kartlar{"\u0131"}</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Kelime, terim ve konular{"\u0131"} ezberlerken kullanabilece{"\u011F"}iniz, canl{"\u0131"} y{"\u00FC"}kleme barl{"\u0131"} 3D interaktif kartlar.</p>
                     </div>
                   </div>
 
@@ -2089,8 +2142,8 @@ export default function Home() {
                       <Zap className="w-4 h-4 text-blue-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">Görsel Akıllı Yanıt Kartları</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Callout kutuları, interaktif akordeon açılır-kapanır menüler, premium tablolar ve görev listeleri.</p>
+                      <h3 className="text-sm font-semibold text-white">G{"\u00F6"}rsel Ak{"\u0131"}ll{"\u0131"} Yan{"\u0131"}t Kartlar{"\u0131"}</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Callout kutular{"\u0131"}, interaktif akordeon a{"\u00E7"}{"\u0131"}l{"\u0131"}r-kapan{"\u0131"}r men{"\u00FC"}ler, premium tablolar ve g{"\u00F6"}rev listeleri.</p>
                     </div>
                   </div>
 
@@ -2099,8 +2152,8 @@ export default function Home() {
                       <Lightbulb className="w-4 h-4 text-purple-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">Mobil Desteği ve Hızlı Altyapı</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Gelişmiş veritabanı caching sistemi ve mobil WebView / Android tam uyumluluğu.</p>
+                      <h3 className="text-sm font-semibold text-white">Mobil Deste{"\u011F"}i ve H{"\u0131"}zl{"\u0131"} Altyap{"\u0131"}</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Geli{"\u015F"}mi{"\u015F"} veritaban{"\u0131"} caching sistemi ve mobil WebView / Android tam uyumlulu{"\u011F"}u.</p>
                     </div>
                   </div>
                 </div>
@@ -2108,7 +2161,7 @@ export default function Home() {
                 {/* CTA */}
                 <button
                   onClick={dismissWhatsNew}
-                  className="w-full mt-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-blue-600/20"
+                  className="w-full mt-6 py-2.5 bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 hover:from-blue-500 hover:via-purple-500 hover:to-cyan-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/20"
                 >
                   Anlad{"\u0131"}m, Ke{"\u015F"}fetmeye Ba{"\u015F"}la
                 </button>
@@ -2123,20 +2176,22 @@ export default function Home() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="fixed inset-0 z-[90] flex items-center justify-center p-4 overflow-y-auto"
+            className="fixed inset-0 z-[100] flex items-center justify-center"
+            style={{ width: '100vw', height: '100vh', top: 0, left: 0 }}
           >
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/75 backdrop-blur-sm pointer-events-auto" onClick={() => setShowAcademicPanel(false)} />
+            {/* Backdrop — full viewport */}
+            <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => setShowAcademicPanel(false)} />
 
-            {/* Modal Container */}
+            {/* Modal Container — explicit sizing */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-6xl bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col md:h-[85vh] max-h-[90vh] z-10 pointer-events-auto"
+              className="relative flex flex-col bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl shadow-blue-500/5 overflow-hidden"
+              style={{ width: 'min(90vw, 1200px)', height: 'min(88vh, 900px)' }}
             >
-              {/* Premium Glow effects behind */}
+              {/* Premium Glow effects */}
               <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
               <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
@@ -2144,7 +2199,7 @@ export default function Home() {
               <div className="h-1.5 bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 w-full shrink-0" />
 
               {/* Header */}
-              <div className="p-4 sm:p-6 border-b border-white/5 flex items-center justify-between bg-slate-950/40 shrink-0">
+              <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-slate-950/40 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 shadow-lg shadow-blue-500/5">
                     <Sparkles className="w-5 h-5 animate-pulse" />
@@ -2154,7 +2209,7 @@ export default function Home() {
                       Akademik Asistan Paneli
                       <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">v1.6 Premium</span>
                     </h2>
-                    <p className="text-xs text-slate-400">Tez, makale ve ödevler için Turnitin/GPTZero uyumlu AI Analizi & İnsansılaştırma</p>
+                    <p className="text-xs text-slate-400">Tez, makale ve ödevler için Turnitin/GPTZero uyumlu AI Analizi &amp; İnsansılaştırma</p>
                   </div>
                 </div>
                 <button
@@ -2165,398 +2220,426 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Body */}
-              <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 bg-slate-900/40">
-                {/* Left Side: Input Panel */}
-                <div className="w-full md:w-1/2 p-4 sm:p-6 border-b md:border-b-0 md:border-r border-white/5 flex flex-col overflow-y-auto min-h-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
-                      <FileText className="w-4 h-4 text-slate-400" />
-                      Akademik Metin Girişi
-                    </label>
-                    <span className={`text-xs ${
-                      (academicInput.trim() === '' ? 0 : academicInput.trim().split(/\s+/).length) > 4000
-                        ? 'text-rose-400 font-bold animate-pulse'
-                        : 'text-slate-500 font-medium'
-                    }`}>
-                      {academicInput.trim() === '' ? 0 : academicInput.trim().split(/\s+/).length} / 4000 kelime
-                    </span>
-                  </div>
+              {/* First-Time Onboarding Tips Overlay */}
+              {showAcademicTips && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ top: '60px' }}>
+                  {/* Semi-transparent overlay */}
+                  <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm" />
+                  
+                  {/* Tips Card */}
+                  <motion.div
+                    key={academicTipsStep}
+                    initial={{ opacity: 0, y: 16, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                    className="relative w-full max-w-md mx-4 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl shadow-blue-500/10 overflow-hidden"
+                  >
+                    {/* Progress bar */}
+                    <div className="h-1 bg-slate-800 w-full">
+                      <div 
+                        className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500 ease-out" 
+                        style={{ width: `${((academicTipsStep + 1) / 4) * 100}%` }} 
+                      />
+                    </div>
 
-                  <textarea
-                    value={academicInput}
-                    onChange={(e) => setAcademicInput(e.target.value)}
-                    placeholder="Analiz edilmesini veya Turnitin dedektörlerinden geçmesi için insansılaştırılmasını istediğiniz akademik metni buraya yapıştırın (Makale özeti, tez bölümleri, raporlar vb.)..."
-                    className="w-full flex-1 min-h-[220px] md:min-h-0 bg-slate-950/60 border border-white/5 rounded-xl p-4 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm sm:text-base leading-relaxed resize-none"
-                  />
-
-                  {/* Voice Style Calibration Accordion */}
-                  <div className="mt-4 border border-white/5 rounded-xl bg-slate-950/30 overflow-hidden shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setShowAcademicVoiceInput(!showAcademicVoiceInput)}
-                      className="w-full px-4 py-3 flex items-center justify-between text-xs sm:text-sm font-medium text-slate-300 hover:bg-white/5 transition-all"
-                    >
-                      <span className="flex items-center gap-2">
-                        <Volume2 className="w-4 h-4 text-purple-400" />
-                        Ses ve Yazım Tarzı Kalibrasyonu <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded-full font-normal">Opsiyonel</span>
-                      </span>
-                      <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${showAcademicVoiceInput ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {showAcademicVoiceInput && (
-                      <div className="p-4 pt-0 border-t border-white/5 bg-slate-950/20">
-                        <p className="text-xs text-slate-400 mb-2 leading-relaxed">
-                          Kendi yazdığınız 1-2 akademik paragraf ekleyin. Sistem, insansılaştırma (humanize) sırasında cümle uzunluğu varyasyonunuzu, noktalama alışkanlıklarınızı ve akademik tonunuzu taklit ederek tamamen size özel bir çıktı üretir.
-                        </p>
-                        <textarea
-                          value={academicVoiceSample}
-                          onChange={(e) => setAcademicVoiceSample(e.target.value)}
-                          placeholder="Kendi yazım tarzınızdan örnek paragraflar yapıştırın..."
-                          className="w-full h-24 bg-slate-950/80 border border-white/5 rounded-lg p-3 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
-                        />
+                    <div className="p-6">
+                      {/* Step indicator */}
+                      <div className="flex items-center gap-2 mb-4">
+                        {[0, 1, 2, 3].map(i => (
+                          <div key={i} className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            i === academicTipsStep ? 'bg-blue-400 scale-125' : i < academicTipsStep ? 'bg-blue-600' : 'bg-slate-700'
+                          }`} />
+                        ))}
+                        <span className="text-[10px] text-slate-500 ml-auto font-medium">Ad{"\u0131"}m {academicTipsStep + 1} / 4</span>
                       </div>
-                    )}
-                  </div>
 
-                  {/* Hedef İnsansılaştırma Dili Seçimi */}
-                  <div className="mt-4 border border-white/5 rounded-xl bg-slate-950/30 p-4 flex flex-col gap-2 shrink-0">
-                    <label className="text-xs font-semibold text-slate-350 flex items-center gap-1.5">
-                      <Globe className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
-                      Hedef İnsansılaştırma Dili
-                    </label>
-                    <div className="grid grid-cols-3 gap-2 bg-slate-900 p-0.5 rounded-lg border border-white/5">
+                      {/* Step Content */}
+                      {academicTipsStep === 0 && (
+                        <div>
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 flex items-center justify-center mb-4">
+                            <FileText className="w-7 h-7 text-blue-400" />
+                          </div>
+                          <h3 className="text-base font-bold text-white mb-2">Metninizi Yap{"\u0131"}{"\u015F"}t{"\u0131"}r{"\u0131"}n</h3>
+                          <p className="text-sm text-slate-400 leading-relaxed">
+                            Sol paneldeki metin alan{"\u0131"}na analiz etmek veya insans{"\u0131"}la{"\u015F"}t{"\u0131"}rmak istedi{"\u011F"}iniz akademik metni yap{"\u0131"}{"\u015F"}t{"\u0131"}r{"\u0131"}n. Tez b{"\u00F6"}l{"\u00FC"}mleri, makale {"\u00F6"}zetleri, {"\u00F6"}dev metinleri gibi i{"\u00E7"}erikleri destekler.
+                          </p>
+                          <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                            <Info className="w-3.5 h-3.5" />
+                            <span>Maksimum 4000 kelime</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {academicTipsStep === 1 && (
+                        <div>
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center mb-4">
+                            <Volume2 className="w-7 h-7 text-purple-400" />
+                          </div>
+                          <h3 className="text-base font-bold text-white mb-2">Ayarlar{"\u0131"}n{"\u0131"}z{"\u0131"} Yap{"\u0131"}n</h3>
+                          <p className="text-sm text-slate-400 leading-relaxed">
+                            <strong className="text-slate-300">Ses Kalibrasyonu:</strong> Kendi yazd{"\u0131"}{"\u011F"}{"\u0131"}n{"\u0131"}z bir paragraf ekleyin — sistem sizin tarz{"\u0131"}n{"\u0131"}z{"\u0131"} taklit eder.
+                          </p>
+                          <p className="text-sm text-slate-400 leading-relaxed mt-2">
+                            <strong className="text-slate-300">Dil Se{"\u00E7"}imi:</strong> {"\u0130"}nsans{"\u0131"}la{"\u015F"}t{"\u0131"}rma dilini se{"\u00E7"}in — Otomatik, T{"\u00FC"}rk{"\u00E7"}e veya {"\u0130"}ngilizce.
+                          </p>
+                        </div>
+                      )}
+
+                      {academicTipsStep === 2 && (
+                        <div>
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-green-500/20 border border-emerald-500/30 flex items-center justify-center mb-4">
+                            <ShieldCheck className="w-7 h-7 text-emerald-400" />
+                          </div>
+                          <h3 className="text-base font-bold text-white mb-2">{"\u0130"}{"\u015F"}lemi Se{"\u00E7"}in</h3>
+                          <p className="text-sm text-slate-400 leading-relaxed">
+                            <strong className="text-blue-300">{"\u201C"}AI Analiz Et{"\u201D"}</strong> — Metindeki yapay zeka kal{"\u0131"}plar{"\u0131"}n{"\u0131"} ve Turnitin risk skorunu g{"\u00F6"}r{"\u00FC"}n.
+                          </p>
+                          <p className="text-sm text-slate-400 leading-relaxed mt-2">
+                            <strong className="text-purple-300">{"\u201C"}Metni {"\u0130"}nsans{"\u0131"}la{"\u015F"}t{"\u0131"}r{"\u201D"}</strong> — {"\u00C7"}ok a{"\u015F"}amal{"\u0131"} Blader Playbook motoru ile metni do{"\u011F"}al akademik dile d{"\u00F6"}n{"\u00FC"}{"\u015F"}t{"\u00FC"}r{"\u00FC"}n.
+                          </p>
+                        </div>
+                      )}
+
+                      {academicTipsStep === 3 && (
+                        <div>
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center mb-4">
+                            <Sparkles className="w-7 h-7 text-cyan-400" />
+                          </div>
+                          <h3 className="text-base font-bold text-white mb-2">Sonu{"\u00E7"}lar Sa{"\u011F"} Panelde</h3>
+                          <p className="text-sm text-slate-400 leading-relaxed">
+                            Analiz sonu{"\u00E7"}lar{"\u0131"} ve insans{"\u0131"}la{"\u015F"}t{"\u0131"}r{"\u0131"}lm{"\u0131"}{"\u015F"} metin sa{"\u011F"} panelde g{"\u00F6"}r{"\u00FC"}necek. AI skorunuzu takip edin, orijinal-yeni metin kar{"\u015F"}{"\u0131"}la{"\u015F"}t{"\u0131"}rmas{"\u0131"} yap{"\u0131"}n ve sonucu kopyalay{"\u0131"}n veya sohbete aktar{"\u0131"}n.
+                          </p>
+                          <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Haz{"\u0131"}rs{"\u0131"}n{"\u0131"}z — hadi ba{"\u015F"}layal{"\u0131"}m!</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Navigation buttons */}
+                      <div className="flex items-center justify-between mt-6">
+                        <button
+                          onClick={dismissAcademicTips}
+                          className="text-xs text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                        >
+                          Ge{"\u00E7"}
+                        </button>
+                        <button
+                          onClick={nextAcademicTip}
+                          className="px-5 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/20 cursor-pointer flex items-center gap-1.5"
+                        >
+                          {academicTipsStep < 3 ? (
+                            <><span>Sonraki</span><ChevronDown className="w-3.5 h-3.5 -rotate-90" /></>
+                          ) : (
+                            <><Sparkles className="w-3.5 h-3.5" /><span>Ba{"\u015F"}la</span></>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+
+              <div className="flex-1 min-h-0" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 0 }}>
+                {/* Left Side: Input Panel */}
+                <div className="flex flex-col border-r border-white/5 min-h-0 overflow-hidden">
+                  <div className="flex-1 flex flex-col p-5 sm:p-6 overflow-y-auto min-h-0">
+                    <div className="flex items-center justify-between mb-3 shrink-0">
+                      <label className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-slate-400" />
+                        Akademik Metin Girişi
+                      </label>
+                      <span className={`text-xs ${
+                        (academicInput.trim() === '' ? 0 : academicInput.trim().split(/\s+/).length) > 4000
+                          ? 'text-rose-400 font-bold animate-pulse'
+                          : 'text-slate-500 font-medium'
+                      }`}>
+                        {academicInput.trim() === '' ? 0 : academicInput.trim().split(/\s+/).length} / 4000 kelime
+                      </span>
+                    </div>
+
+                    <textarea
+                      value={academicInput}
+                      onChange={(e) => setAcademicInput(e.target.value)}
+                      placeholder="Analiz edilmesini veya Turnitin dedektörlerinden geçmesi için insansılaştırılmasını istediğiniz akademik metni buraya yapıştırın (Makale özeti, tez bölümleri, raporlar vb.)..."
+                      className="w-full flex-1 min-h-[180px] bg-slate-950/60 border border-white/5 rounded-xl p-4 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm leading-relaxed resize-none"
+                    />
+
+                    {/* Voice Style Calibration Accordion */}
+                    <div className="mt-3 border border-white/5 rounded-xl bg-slate-950/30 overflow-hidden shrink-0">
                       <button
                         type="button"
-                        onClick={() => setAcademicLanguage('auto')}
-                        className={`py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                          academicLanguage === 'auto' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-white'
-                        }`}
+                        onClick={() => setShowAcademicVoiceInput(!showAcademicVoiceInput)}
+                        className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-medium text-slate-300 hover:bg-white/5 transition-all"
                       >
-                        Otomatik Algıla
+                        <span className="flex items-center gap-2">
+                          <Volume2 className="w-3.5 h-3.5 text-purple-400" />
+                          Ses ve Yazım Tarzı Kalibrasyonu <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded-full font-normal">Opsiyonel</span>
+                        </span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${showAcademicVoiceInput ? 'rotate-180' : ''}`} />
+                      </button>
+                      {showAcademicVoiceInput && (
+                        <div className="px-4 pb-3 border-t border-white/5 bg-slate-950/20">
+                          <p className="text-[11px] text-slate-400 mb-2 leading-relaxed pt-2">
+                            Kendi yazdığınız 1-2 akademik paragraf ekleyin. Sistem sizin tarzınızı taklit eder.
+                          </p>
+                          <textarea
+                            value={academicVoiceSample}
+                            onChange={(e) => setAcademicVoiceSample(e.target.value)}
+                            placeholder="Kendi yazım tarzınızdan örnek paragraflar yapıştırın..."
+                            className="w-full h-20 bg-slate-950/80 border border-white/5 rounded-lg p-3 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Hedef Dil Seçimi */}
+                    <div className="mt-3 border border-white/5 rounded-xl bg-slate-950/30 p-3 flex flex-col gap-2 shrink-0">
+                      <label className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-blue-400" />
+                        Hedef İnsansılaştırma Dili
+                      </label>
+                      <div className="grid grid-cols-3 gap-1 bg-slate-900 p-0.5 rounded-lg border border-white/5">
+                        <button type="button" onClick={() => setAcademicLanguage('auto')} className={`py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${academicLanguage === 'auto' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>Otomatik</button>
+                        <button type="button" onClick={() => setAcademicLanguage('tr')} className={`py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${academicLanguage === 'tr' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>Türkçe</button>
+                        <button type="button" onClick={() => setAcademicLanguage('en')} className={`py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${academicLanguage === 'en' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>English</button>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="mt-4 grid grid-cols-2 gap-3 shrink-0">
+                      <button
+                        onClick={() => handleAcademicProcess('detect')}
+                        disabled={!!academicAction || !academicInput.trim() || (academicInput.trim().split(/\s+/).length) > 4000}
+                        className="group py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 border border-white/10 hover:border-slate-500/50 rounded-xl text-white text-xs sm:text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        {academicAction === 'detect' ? (
+                          <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                        ) : (
+                          <Activity className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
+                        )}
+                        <span>AI Analizi Yap</span>
                       </button>
                       <button
-                        type="button"
-                        onClick={() => setAcademicLanguage('tr')}
-                        className={`py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                          academicLanguage === 'tr' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-white'
-                        }`}
+                        onClick={() => handleAcademicProcess('humanize')}
+                        disabled={!!academicAction || !academicInput.trim() || (academicInput.trim().split(/\s+/).length) > 4000}
+                        className="group py-3 bg-gradient-to-r from-blue-600/90 to-purple-600/90 hover:from-blue-500 hover:to-purple-500 disabled:opacity-40 rounded-xl text-white text-xs sm:text-sm font-bold transition-all shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2 cursor-pointer border border-blue-400/20"
                       >
-                        Türkçe (TR)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAcademicLanguage('en')}
-                        className={`py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                          academicLanguage === 'en' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        English (EN)
+                        {academicAction === 'humanize' ? (
+                          <Loader2 className="w-4 h-4 text-purple-300 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-4 h-4 text-purple-200 group-hover:animate-pulse" />
+                        )}
+                        <span>Metni İnsansılaştır</span>
                       </button>
                     </div>
-                  </div>
-
-                  {/* Actions buttons */}
-                  <div className="mt-4 sm:mt-6 grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
-                    <button
-                      onClick={() => handleAcademicProcess('detect')}
-                      disabled={!!academicAction || !academicInput.trim() || (academicInput.trim().split(/\s+/).length) > 4000}
-                      className="group py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 border border-white/10 hover:border-slate-500/50 rounded-xl text-white text-xs sm:text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      {academicAction === 'detect' ? (
-                        <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
-                      ) : (
-                        <Activity className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
-                      )}
-                      <span>AI Analizi Yap</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleAcademicProcess('humanize')}
-                      disabled={!!academicAction || !academicInput.trim() || (academicInput.trim().split(/\s+/).length) > 4000}
-                      className="group py-3 bg-gradient-to-r from-blue-600/90 to-purple-600/90 hover:from-blue-500 hover:to-purple-500 disabled:opacity-40 rounded-xl text-white text-xs sm:text-sm font-bold transition-all shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2 cursor-pointer border border-blue-400/20"
-                    >
-                      {academicAction === 'humanize' ? (
-                        <Loader2 className="w-4 h-4 text-purple-300 animate-spin" />
-                      ) : (
-                        <Sparkles className="w-4 h-4 text-purple-200 group-hover:animate-pulse" />
-                      )}
-                      <span>Metni İnsansılaştır</span>
-                    </button>
                   </div>
                 </div>
 
                 {/* Right Side: Result & Analysis Display */}
-                <div className="w-full md:w-1/2 p-4 sm:p-6 flex flex-col overflow-y-auto min-h-0 bg-slate-950/20 relative">
-                  
-                  {/* Loading overlay / state */}
+                <div className="flex flex-col min-h-0 bg-slate-950/20 relative overflow-hidden">
+                  {/* Loading overlay — outside scrollable area, covers full right panel */}
                   {academicAction && (
                     <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-500 to-purple-500 p-0.5 animate-spin mb-4">
-                        <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center">
-                          <Sparkles className="w-6 h-6 text-blue-400 animate-pulse" />
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-500 to-purple-500 p-0.5 animate-spin mb-4">
+                          <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center">
+                            <Sparkles className="w-6 h-6 text-blue-400 animate-pulse" />
+                          </div>
                         </div>
-                      </div>
-                      
-                      {/* Premium Shimmering Progress Bar */}
                       <div className="w-full max-w-xs h-1.5 bg-slate-800 rounded-full overflow-hidden mb-4 border border-white/5 shadow-inner">
                         <div className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-400 animate-pulse rounded-full" style={{ width: '100%' }} />
                       </div>
-                      
                       <h3 className="text-white font-bold text-sm sm:text-base">İşlem Gerçekleştiriliyor</h3>
                       <p className="text-xs text-slate-400 mt-2 max-w-[280px] leading-relaxed italic">{academicLoadingPhase}</p>
                     </div>
                   )}
+                  <div className="flex-1 flex flex-col p-5 sm:p-6 overflow-y-auto min-h-0">
 
-                  {/* Error state */}
-                  {academicError && (
-                    <div className="p-4 border border-rose-500/20 rounded-xl bg-rose-500/10 text-rose-300 text-xs sm:text-sm flex items-start gap-2.5 mb-4 animate-in fade-in">
-                      <ShieldAlert className="w-5 h-5 shrink-0 text-rose-400" />
-                      <div className="flex-1">
-                        <span className="font-bold block mb-0.5">Analiz Hatası</span>
-                        {academicError}
+                    {/* Error state */}
+                    {academicError && (
+                      <div className="p-4 border border-rose-500/20 rounded-xl bg-rose-500/10 text-rose-300 text-xs sm:text-sm flex items-start gap-2.5 mb-4 animate-in fade-in">
+                        <ShieldAlert className="w-5 h-5 shrink-0 text-rose-400" />
+                        <div className="flex-1">
+                          <span className="font-bold block mb-0.5">Analiz Hatası</span>
+                          {academicError}
+                        </div>
+                        <button onClick={() => setAcademicError(null)} className="hover:text-white"><X className="w-4 h-4" /></button>
                       </div>
-                      <button onClick={() => setAcademicError(null)} className="hover:text-white">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Empty state when no result is available */}
-                  {!academicResult && !academicAction && (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
-                      <div className="w-16 h-16 rounded-full bg-slate-800/40 border border-slate-700/50 flex items-center justify-center text-slate-500 mb-4">
-                        <Bot className="w-8 h-8" />
+                    {/* Empty state */}
+                    {!academicResult && !academicAction && (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
+                        <div className="w-16 h-16 rounded-full bg-slate-800/40 border border-slate-700/50 flex items-center justify-center text-slate-500 mb-4">
+                          <Bot className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-slate-300 font-semibold text-sm sm:text-base">Analiz ve Çıktı Ekranı</h3>
+                        <p className="text-xs text-slate-500 max-w-xs mt-2 leading-relaxed">
+                          Metninizi soldaki kutuya yapıştırıp <span className="text-blue-400 font-medium">AI Analizi Yap</span> veya <span className="text-purple-400 font-medium">Metni İnsansılaştır</span> butonuna basarak işlemleri başlatın.
+                        </p>
                       </div>
-                      <h3 className="text-slate-300 font-semibold text-sm sm:text-base">Analiz ve Çıktı Ekranı</h3>
-                      <p className="text-xs text-slate-500 max-w-xs mt-2 leading-relaxed">
-                        Metninizi soldaki kutuya yapıştırıp <span className="text-blue-400 font-medium">AI Analizi Yap</span> veya <span className="text-purple-400 font-medium">Metni İnsansılaştır</span> butonuna basarak işlemleri başlatın.
-                      </p>
-                    </div>
-                  )}
+                    )}
 
-                  {/* AI Detection Result Display */}
-                  {academicResult && academicResultType === 'detect' && !academicAction && (
-                    <div className="flex-1 flex flex-col space-y-5 animate-in fade-in slide-in-from-right-3">
-                      
-                      {/* Probability Gauge & Overview card */}
-                      <div className="p-4 sm:p-5 border rounded-2xl flex flex-col sm:flex-row items-center gap-5 bg-slate-900/60 border-white/5 shadow-xl">
-                        {/* Circle gauge SVG */}
-                        <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
-                          <svg className="w-full h-full transform -rotate-90">
-                            <circle
-                              cx="48"
-                              cy="48"
-                              r="40"
-                              className="stroke-slate-800 fill-transparent"
-                              strokeWidth="8"
-                            />
-                            <circle
-                              cx="48"
-                              cy="48"
-                              r="40"
-                              className={`fill-transparent transition-all duration-1000 ${
-                                academicResult.score < 20 ? 'text-emerald-400 stroke-emerald-400 animate-pulse' :
-                                academicResult.score < 50 ? 'text-yellow-400 stroke-yellow-400' :
-                                academicResult.score < 80 ? 'text-orange-400 stroke-orange-400' :
-                                'text-rose-500 stroke-rose-500'
-                              }`}
-                              strokeWidth="8"
-                              strokeDasharray={2 * Math.PI * 40}
-                              strokeDashoffset={(2 * Math.PI * 40) - (academicResult.score / 100) * (2 * Math.PI * 40)}
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-xl font-extrabold text-white">{academicResult.score}%</span>
-                            <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">AI Skoru</span>
+                    {/* AI Detection Result */}
+                    {academicResult && academicResultType === 'detect' && !academicAction && (
+                      <div className="w-full flex-1 flex flex-col space-y-4 animate-in fade-in slide-in-from-right-3">
+                        <div className="p-4 border rounded-2xl flex flex-col sm:flex-row items-center gap-4 bg-slate-900/60 border-white/5 shadow-xl">
+                          <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
+                            <svg className="w-full h-full transform -rotate-90">
+                              <circle cx="48" cy="48" r="40" className="stroke-slate-800 fill-transparent" strokeWidth="8" />
+                              <circle cx="48" cy="48" r="40" className={`fill-transparent transition-all duration-1000 ${academicResult.score < 20 ? 'text-emerald-400 stroke-emerald-400 animate-pulse' : academicResult.score < 50 ? 'text-yellow-400 stroke-yellow-400' : academicResult.score < 80 ? 'text-orange-400 stroke-orange-400' : 'text-rose-500 stroke-rose-500'}`} strokeWidth="8" strokeDasharray={2 * Math.PI * 40} strokeDashoffset={(2 * Math.PI * 40) - (academicResult.score / 100) * (2 * Math.PI * 40)} strokeLinecap="round" />
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                              <span className="text-xl font-extrabold text-white">{academicResult.score}%</span>
+                              <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">AI Skoru</span>
+                            </div>
+                          </div>
+                          <div className="flex-1 text-center sm:text-left">
+                            <div className="flex items-center justify-center sm:justify-start gap-2">
+                              <span className="text-xs text-slate-400 font-medium">Genel Algılama Durumu:</span>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${academicResult.score < 20 ? 'bg-emerald-500/10 text-emerald-400' : academicResult.score < 50 ? 'bg-yellow-500/10 text-yellow-400' : academicResult.score < 80 ? 'bg-orange-500/10 text-orange-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                                {academicResult.score < 20 ? 'İnsansı Yazım (Güvenli)' : academicResult.score < 50 ? 'Kısmen AI (Şüpheli)' : academicResult.score < 80 ? 'Yüksek AI Olasılığı' : 'Yapay Zeka (Kritik Algılama)'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-2 leading-relaxed font-light">{academicResult.feedback}</p>
                           </div>
                         </div>
 
-                        <div className="flex-1 text-center sm:text-left">
-                          <div className="flex items-center justify-center sm:justify-start gap-2">
-                            <span className="text-xs text-slate-400 font-medium">Genel Algılama Durumu:</span>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                              academicResult.score < 20 ? 'bg-emerald-500/10 text-emerald-400' :
-                              academicResult.score < 50 ? 'bg-yellow-500/10 text-yellow-400' :
-                              academicResult.score < 80 ? 'bg-orange-500/10 text-orange-400' :
-                              'bg-rose-500/10 text-rose-400'
-                            }`}>
-                              {academicResult.score < 20 ? 'İnsansı Yazım (Güvenli)' :
-                               academicResult.score < 50 ? 'Kısmen AI (Şüpheli)' :
-                               academicResult.score < 80 ? 'Yüksek AI Olasılığı' :
-                               'Yapay Zeka (Kritik Algılama)'}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-center">
+                            <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Perplexity</span>
+                            <span className={`text-sm font-extrabold block mt-1 ${academicResult.metrics.perplexity === 'High' ? 'text-emerald-400' : academicResult.metrics.perplexity === 'Medium' ? 'text-yellow-400' : 'text-rose-400'}`}>
+                              {academicResult.metrics.perplexity === 'High' ? 'Yüksek (İyi)' : academicResult.metrics.perplexity === 'Medium' ? 'Orta' : 'Düşük (Robotik)'}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-400 mt-2.5 leading-relaxed font-light">{academicResult.feedback}</p>
-                        </div>
-                      </div>
-
-                      {/* Performance Metrics */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-center">
-                          <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Perplexity (Şaşırtıcılık)</span>
-                          <span className={`text-sm font-extrabold block mt-1 ${
-                            academicResult.metrics.perplexity === 'High' ? 'text-emerald-400' :
-                            academicResult.metrics.perplexity === 'Medium' ? 'text-yellow-400' : 'text-rose-400'
-                          }`}>
-                            {academicResult.metrics.perplexity === 'High' ? 'Yüksek (İyi)' :
-                             academicResult.metrics.perplexity === 'Medium' ? 'Orta' : 'Düşük (Robotik)'}
-                          </span>
-                        </div>
-                        <div className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-center">
-                          <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Burstiness (Dalgalanma)</span>
-                          <span className={`text-sm font-extrabold block mt-1 ${
-                            academicResult.metrics.burstiness === 'High' ? 'text-emerald-400' :
-                            academicResult.metrics.burstiness === 'Medium' ? 'text-yellow-400' : 'text-rose-400'
-                          }`}>
-                            {academicResult.metrics.burstiness === 'High' ? 'Yüksek (İnsan Ritmi)' :
-                             academicResult.metrics.burstiness === 'Medium' ? 'Orta' : 'Düşük (Tekdüze)'}
-                          </span>
-                        </div>
-                        <div className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-center">
-                          <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Tekrarlayan Sözcük Puanı</span>
-                          <span className="text-sm font-extrabold text-white block mt-1">{academicResult.metrics.repetitiveWordsScore}/100</span>
-                        </div>
-                        <div className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-center">
-                          <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Robotik Geçiş Sıklığı</span>
-                          <span className="text-sm font-extrabold text-white block mt-1">{academicResult.metrics.roboticTransitionsScore}/100</span>
-                        </div>
-                      </div>
-
-                      {/* Flagged Elements (Robotik Alan İşaretlemeleri) */}
-                      <div className="flex-1 flex flex-col min-h-[180px] bg-slate-900/30 border border-white/5 rounded-xl overflow-hidden">
-                        <div className="px-4 py-3 bg-slate-950/40 border-b border-white/5 flex items-center justify-between">
-                          <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                            <AlertTriangle className="w-4 h-4 text-orange-400" />
-                            İşaretlenen Robotik Cümleler ({academicResult.highlights.length})
-                          </span>
-                        </div>
-
-                        <div className="p-4 flex-1 overflow-y-auto space-y-2.5 text-xs text-slate-300">
-                          {academicResult.highlights.length === 0 ? (
-                            <div className="h-full flex items-center justify-center text-slate-500 italic">
-                              Metinde ciddi düzeyde robotik veya yapay zeka kalıbı algılanmadı. Harika!
-                            </div>
-                          ) : (
-                            academicResult.highlights.map((item: any, idx: number) => (
-                              <div key={idx} className="p-3 border border-orange-500/10 bg-orange-500/5 rounded-lg flex flex-col gap-1.5 transition-all hover:bg-orange-500/10">
-                                <span className="font-serif italic text-slate-200 border-l-2 border-orange-400 pl-2 leading-relaxed">
-                                  &ldquo;{item.originalText}&rdquo;
-                                </span>
-                                <span className="text-[10px] text-orange-300 font-medium bg-orange-500/20 px-2 py-0.5 rounded self-start mt-0.5">
-                                  Neden: {item.reason}
-                                </span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Quicker Action CTA */}
-                      {academicResult.score >= 20 && (
-                        <button
-                          onClick={() => handleAcademicProcess('humanize')}
-                          className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-xs font-bold hover:from-blue-500 hover:to-purple-500 transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-blue-500/10 border border-white/10"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>Bu Metni Hemen İnsansılaştır</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Humanize Result Display */}
-                  {academicResult && academicResultType === 'humanize' && !academicAction && (
-                    <div className="flex-1 flex flex-col space-y-4 animate-in fade-in slide-in-from-right-3">
-                      
-                      {/* Output Tab Switcher */}
-                      <div className="flex items-center justify-between border-b border-white/5 pb-2 shrink-0">
-                        <div className="bg-slate-900 p-0.5 rounded-lg border border-white/5 flex">
-                          <button
-                            onClick={() => setAcademicActiveTab('before')}
-                            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                              academicActiveTab === 'before' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
-                            }`}
-                          >
-                            Orijinal Metin
-                          </button>
-                          <button
-                            onClick={() => setAcademicActiveTab('after')}
-                            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                              academicActiveTab === 'after' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
-                            }`}
-                          >
-                            İnsansılaştırılmış Metin
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1">
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-[10px] font-bold text-emerald-300">Turnitin Güvenli (AI &lt; {academicResult.aiScoreAfter}%)</span>
-                        </div>
-                      </div>
-
-                      {/* Compare View Box */}
-                      <div className="flex-1 min-h-[220px] bg-slate-950/60 border border-white/5 rounded-xl p-4 overflow-y-auto">
-                        {academicActiveTab === 'before' ? (
-                          <div className="text-xs sm:text-sm text-slate-400 leading-relaxed font-light whitespace-pre-wrap select-text">
-                            {academicInput}
+                          <div className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-center">
+                            <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Burstiness</span>
+                            <span className={`text-sm font-extrabold block mt-1 ${academicResult.metrics.burstiness === 'High' ? 'text-emerald-400' : academicResult.metrics.burstiness === 'Medium' ? 'text-yellow-400' : 'text-rose-400'}`}>
+                              {academicResult.metrics.burstiness === 'High' ? 'Yüksek (İnsan Ritmi)' : academicResult.metrics.burstiness === 'Medium' ? 'Orta' : 'Düşük (Tekdüze)'}
+                            </span>
                           </div>
-                        ) : (
-                          <div className="text-xs sm:text-sm text-slate-100 leading-relaxed font-serif whitespace-pre-wrap select-text">
-                            {academicResult.humanizedText}
+                          <div className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-center">
+                            <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Tekrarlayan Sözcük</span>
+                            <span className="text-sm font-extrabold text-white block mt-1">{academicResult.metrics.repetitiveWordsScore}/100</span>
                           </div>
+                          <div className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-center">
+                            <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Robotik Geçiş</span>
+                            <span className="text-sm font-extrabold text-white block mt-1">{academicResult.metrics.roboticTransitionsScore}/100</span>
+                          </div>
+                        </div>
+
+                        <div className="flex-1 flex flex-col min-h-[120px] bg-slate-900/30 border border-white/5 rounded-xl overflow-hidden">
+                          <div className="px-4 py-2.5 bg-slate-950/40 border-b border-white/5 shrink-0">
+                            <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                              <AlertTriangle className="w-4 h-4 text-orange-400" />
+                              İşaretlenen Robotik Cümleler ({academicResult.highlights.length})
+                            </span>
+                          </div>
+                          <div className="p-4 flex-1 overflow-y-auto space-y-2 text-xs text-slate-300">
+                            {academicResult.highlights.length === 0 ? (
+                              <div className="h-full flex items-center justify-center text-slate-500 italic">Robotik kalıp algılanmadı. Harika!</div>
+                            ) : (
+                              academicResult.highlights.map((item: any, idx: number) => (
+                                <div key={idx} className="p-3 border border-orange-500/10 bg-orange-500/5 rounded-lg flex flex-col gap-1 transition-all hover:bg-orange-500/10">
+                                  <span className="font-serif italic text-slate-200 border-l-2 border-orange-400 pl-2 leading-relaxed">&ldquo;{item.originalText}&rdquo;</span>
+                                  <span className="text-[10px] text-orange-300 font-medium bg-orange-500/20 px-2 py-0.5 rounded self-start">Neden: {item.reason}</span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        {academicResult.score >= 20 && (
+                          <button onClick={() => handleAcademicProcess('humanize')} className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-xs font-bold hover:from-blue-500 hover:to-purple-500 transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-blue-500/10 border border-white/10 shrink-0">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Bu Metni Hemen İnsansılaştır</span>
+                          </button>
                         )}
                       </div>
+                    )}
 
-                      {/* Audit Log / Geliştirme Günlüğü */}
-                      {academicResult.auditLog && academicResult.auditLog.length > 0 && (
-                        <div className="p-3 bg-slate-900/30 border border-white/5 rounded-xl shrink-0">
-                          <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-2">Uygulanan İnsansılaştırma Playbook İşlemleri</span>
-                          <ul className="space-y-1.5 text-[11px] text-slate-350">
-                            {academicResult.auditLog.map((log: string, idx: number) => (
-                              <li key={idx} className="flex items-start gap-1.5 leading-relaxed text-slate-300">
-                                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1.5 shrink-0" />
-                                <span>{log}</span>
-                              </li>
-                            ))}
-                          </ul>
+                    {/* Humanize Result */}
+                    {academicResult && academicResultType === 'humanize' && !academicAction && (
+                      <div className="w-full flex-1 flex flex-col space-y-3 animate-in fade-in slide-in-from-right-3">
+                        {/* Header: Tabs + Score Badge + Pass Count */}
+                        <div className="flex items-center justify-between border-b border-white/5 pb-2 shrink-0 flex-wrap gap-2">
+                          <div className="bg-slate-900 p-0.5 rounded-lg border border-white/5 flex">
+                            <button onClick={() => setAcademicActiveTab('before')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${academicActiveTab === 'before' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>Orijinal Metin</button>
+                            <button onClick={() => setAcademicActiveTab('after')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${academicActiveTab === 'after' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>İnsansılaştırılmış Metin</button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {/* Pass Count Badge */}
+                            {academicResult.passCount && (
+                              <div className="flex items-center gap-1 bg-purple-500/10 border border-purple-500/20 rounded-lg px-2 py-1">
+                                <span className="text-[10px] font-bold text-purple-300">{academicResult.passCount === 1 ? '1-Pass ✅' : '2-Pass ✅✅'}</span>
+                              </div>
+                            )}
+                            {/* AI Score Badge */}
+                            <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 ${
+                              (academicResult.finalAiScore ?? academicResult.aiScoreAfter ?? 50) <= 20
+                                ? 'bg-emerald-500/10 border border-emerald-500/20'
+                                : (academicResult.finalAiScore ?? academicResult.aiScoreAfter ?? 50) <= 40
+                                  ? 'bg-yellow-500/10 border border-yellow-500/20'
+                                  : 'bg-rose-500/10 border border-rose-500/20'
+                            }`}>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className={`text-[10px] font-bold ${
+                                (academicResult.finalAiScore ?? academicResult.aiScoreAfter ?? 50) <= 20 ? 'text-emerald-300' : (academicResult.finalAiScore ?? academicResult.aiScoreAfter ?? 50) <= 40 ? 'text-yellow-300' : 'text-rose-300'
+                              }`}>AI Skor: {academicResult.originalAiScore ?? '?'}% → {academicResult.finalAiScore ?? academicResult.aiScoreAfter ?? '?'}%</span>
+                            </div>
+                          </div>
                         </div>
-                      )}
 
-                      {/* Action buttons on the bottom */}
-                      <div className="grid grid-cols-2 gap-3 shrink-0">
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(academicResult.humanizedText);
-                            alert('İnsansılaştırılmış metin panoya kopyalandı.');
-                          }}
-                          className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs sm:text-sm font-bold border border-white/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                        >
-                          <Copy className="w-4 h-4 text-slate-400" />
-                          <span>Metni Kopyala</span>
-                        </button>
+                        {/* Text Display */}
+                        <div className="flex-1 min-h-[180px] bg-slate-950/60 border border-white/5 rounded-xl p-4 overflow-y-auto">
+                          {academicActiveTab === 'before' ? (
+                            <div className="text-xs sm:text-sm text-slate-400 leading-relaxed font-light whitespace-pre-wrap select-text">{academicInput}</div>
+                          ) : (
+                            <div className="text-xs sm:text-sm text-slate-100 leading-relaxed whitespace-pre-wrap select-text">{academicResult.humanizedText}</div>
+                          )}
+                        </div>
 
-                        <button
-                          onClick={() => {
-                            setInput(academicResult.humanizedText);
-                            setShowAcademicPanel(false);
-                          }}
-                          className="py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-blue-500/10 hover:from-blue-500 hover:to-cyan-500 border border-white/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                        >
-                          <Share2 className="w-4 h-4 text-white" />
-                          <span>Chate Aktar</span>
-                        </button>
+                        {/* Audit Log — Improvements List */}
+                        {academicResult.auditLog && academicResult.auditLog.length > 0 && (
+                          <div className="p-3 bg-slate-900/30 border border-white/5 rounded-xl shrink-0 max-h-[160px] overflow-y-auto">
+                            <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-2">Blader Playbook — Yapılan İyileştirmeler ({academicResult.auditLog.length})</span>
+                            <ul className="space-y-1 text-[11px]">
+                              {academicResult.auditLog.map((log: string, idx: number) => (
+                                <li key={idx} className="flex items-start gap-1.5 leading-relaxed text-slate-300">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1.5 shrink-0" />
+                                  <span>{log}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="grid grid-cols-2 gap-3 shrink-0">
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(academicResult.humanizedText); alert('İnsansılaştırılmış metin panoya kopyalandı.'); }}
+                            className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs sm:text-sm font-bold border border-white/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Copy className="w-4 h-4 text-slate-400" />
+                            <span>Metni Kopyala</span>
+                          </button>
+                          <button
+                            onClick={() => { setInput(academicResult.humanizedText); setShowAcademicPanel(false); }}
+                            className="py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-blue-500/10 hover:from-blue-500 hover:to-cyan-500 border border-white/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Share2 className="w-4 h-4 text-white" />
+                            <span>Chate Aktar</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-      </div>
-    </div>
+    </>
   );
 }
