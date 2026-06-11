@@ -12,6 +12,9 @@ import { Activity, Volume2, Bot, Share2, Globe, ShieldCheck } from 'lucide-react
 import { checkProfanity } from '@/lib/badwords';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { HistorySkeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { useToast } from '@/components/ui/Toast';
 
 // Robust regex for stripping technical JSON action blocks from the UI
 const JSON_CLEAN_REGEX = /(?:```(?:json)?\s*)?JSON_START\s*[\s\S]*?JSON_END(?:\s*```)?/gi;
@@ -500,6 +503,8 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const { toast } = useToast();
   const [showHistory, setShowHistory] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -678,6 +683,7 @@ export default function Home() {
   // Fetch History
   const fetchHistory = async () => {
     if (!currentUser?.email) return;
+    setIsHistoryLoading(true);
     try {
       const res = await fetch(`/api/chat/history?email=${currentUser.email}`);
       if (res.ok) {
@@ -686,6 +692,8 @@ export default function Home() {
       }
     } catch (e) {
       console.error("Failed to fetch history", e);
+    } finally {
+      setIsHistoryLoading(false);
     }
   };
 
@@ -747,6 +755,9 @@ export default function Home() {
       if (res.ok) {
         setHistory(prev => prev.filter(c => c.id !== id));
         if (conversationId === id) startNewChat();
+        toast('Sohbet silindi.', 'success');
+      } else {
+        toast('Sohbet silinemedi.', 'error');
       }
     } catch (error) {
       console.error("Delete failed", error);
@@ -1035,21 +1046,8 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Typewriter efekti — cevap gelince karakter karakter göster
-  useEffect(() => {
-    if (!streamingId) return;
-    const targetMsg = messages.find((m) => m.id === streamingId);
-    if (!targetMsg) return;
-    const fullText = targetMsg.content;
-    if (streamingText.length >= fullText.length) {
-      setStreamingId(null);
-      return;
-    }
-    const timer = setTimeout(() => {
-      setStreamingText(fullText.slice(0, streamingText.length + 1));
-    }, 8);
-    return () => clearTimeout(timer);
-  }, [streamingId, streamingText, messages]);
+  // Not: Eski client-side daktilo efekti kaldırıldı — artık yanıtlar sunucudan
+  // gerçek zamanlı (SSE) token-token akıyor; streamingText doğrudan stream'den beslenir.
 
   const handleSend = async () => {
     if (!input.trim() || isBlocked) return;
@@ -1115,35 +1113,83 @@ export default function Home() {
         }),
       });
 
-      let botContent = '';
-      let attachment = null;
-
-      // Try to parse JSON, but handle HTML errors (Vercel crashes) too
-      let data;
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.indexOf("application/json") !== -1) {
-        data = await response.json();
-      } else {
-        // Non-JSON response (likely Vercel 500/504 HTML error)
+      // Üretim öncesi hatalar (rate limit / kota / validasyon / sunucu) JSON döner.
+      if (!response.ok) {
+        const ct = response.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const errData = await response.json();
+          if (response.status === 429) setRemainingQuota(0);
+          throw new Error(errData.error || `API Error: ${response.statusText}`);
+        }
         const text = await response.text();
         throw new Error(`Server Error (${response.status}): ${text.substring(0, 100)}...`);
       }
 
-      if (!response.ok) {
-        if (response.status === 429) setRemainingQuota(0);
-        throw new Error(data.error || `API Error: ${response.statusText}`);
+      // Canlı asistan mesajı — stream geldikçe içeriği güncellenecek.
+      const assistantId = (Date.now() + 1).toString();
+      setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
+      setStreamingId(assistantId);
+      setStreamingText('');
+
+      let fullReply = '';
+      let createdNewConvo = false;
+      let streamError: string | null = null;
+
+      if (!response.body) {
+        throw new Error('Yanıt akışı alınamadı.');
       }
 
-      botContent = data.reply || 'Cevap alınamadı.';
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-      if (data.remainingQuota !== undefined && data.remainingQuota !== null) {
-            setRemainingQuota(data.remainingQuota);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+        for (const evt of events) {
+          const trimmed = evt.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          let payload: any;
+          try {
+            payload = JSON.parse(trimmed.slice(5).trim());
+          } catch {
+            continue;
+          }
+          if (payload.type === 'meta') {
+            if (payload.remainingQuota !== null && payload.remainingQuota !== undefined) {
+              setRemainingQuota(payload.remainingQuota);
+            }
+            if (payload.conversationId && payload.conversationId !== conversationId) {
+              setConversationId(payload.conversationId);
+              createdNewConvo = true;
+            }
+          } else if (payload.type === 'delta') {
+            fullReply += payload.text;
+            // JSON_START bloğunu canlı görünümden gizle (tamamlanınca işlenecek).
+            const display = fullReply.includes('JSON_START')
+              ? fullReply.split('JSON_START')[0].trimEnd()
+              : fullReply;
+            setStreamingText(display);
+          } else if (payload.type === 'error') {
+            streamError = payload.error || 'Yanıt üretilemedi.';
+          }
+        }
       }
 
-      if (data.conversationId && data.conversationId !== conversationId) {
-        setConversationId(data.conversationId);
-        fetchHistory(); // Refresh history list
+      if (streamError) {
+        setStreamingId(null);
+        setStreamingText('');
+        setMessages((prev) => prev.map((m) =>
+          m.id === assistantId ? { ...m, content: `⚠️ ${streamError}` } : m
+        ));
+        return;
       }
+
+      let botContent = fullReply || 'Cevap alınamadı.';
+      let fileAttachment: string | null = null;
 
       // Check for JSON block (PDF Generation Trigger)
       const jsonMatch = botContent.match(JSON_CLEAN_REGEX);
@@ -1184,7 +1230,7 @@ export default function Home() {
               if (fillRes.ok) {
                 const blob = await fillRes.blob();
                 const url = window.URL.createObjectURL(blob);
-                attachment = url;
+                fileAttachment = url;
 
                 const disposition = fillRes.headers.get('Content-Disposition') || '';
                 const nameMatch = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^;"'\n]+)["']?/i);
@@ -1233,7 +1279,7 @@ export default function Home() {
               if (fileRes.ok) {
                 const blob = await fileRes.blob();
                 const url = window.URL.createObjectURL(blob);
-                attachment = url;
+                fileAttachment = url;
 
                 // Content-Disposition header'dan gerçek dosya adını al, yoksa targetFilename kullan
                 const disposition = fileRes.headers.get('Content-Disposition') || '';
@@ -1264,15 +1310,16 @@ export default function Home() {
         }
       }
 
-      const newMsgId = (Date.now() + 1).toString();
-      setMessages((prev) => [...prev, {
-        id: newMsgId,
-        role: 'assistant',
-        content: botContent,
-        attachments: attachment ? [attachment] : undefined
-      }]);
-      setStreamingId(newMsgId);
+      // Stream tamamlandı — canlı mesajı nihai içerikle (JSON bloğu temizlenmiş) güncelle.
+      const finalContent = stripJsonBlock(botContent);
+      setStreamingId(null);
       setStreamingText('');
+      setMessages((prev) => prev.map((m) =>
+        m.id === assistantId
+          ? { ...m, content: finalContent, attachments: fileAttachment ? [fileAttachment] : undefined }
+          : m
+      ));
+      if (createdNewConvo) fetchHistory();
 
     } catch (error: any) {
       console.error('Error sending message:', error);
@@ -1383,10 +1430,14 @@ export default function Home() {
           {/* History List */}
           <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Geçmiş</h3>
-            {history.length === 0 ? (
-              <div className="text-slate-500 text-sm p-4 text-center border border-dashed border-slate-800 rounded-xl">
-                Henüz sohbet yok.
-              </div>
+            {isHistoryLoading ? (
+              <HistorySkeleton rows={6} />
+            ) : history.length === 0 ? (
+              <EmptyState
+                icon={<MessageSquare className="w-7 h-7" />}
+                title="Henüz sohbet yok"
+                description="İlk sorunuzu sorun; sohbetleriniz burada görünecek."
+              />
             ) : (
               history.map((chat) => (
                 <div key={chat.id} className="relative group">
@@ -1610,6 +1661,7 @@ export default function Home() {
               onClick={handleLogout}
               className="p-2 text-slate-400 hover:text-red-400 transition-colors"
               title="Çıkış Yap"
+              aria-label="Çıkış Yap"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></svg>
             </button>
@@ -1802,6 +1854,7 @@ export default function Home() {
                       {/* Copy Button */}
                       <button
                         onClick={() => copyToClipboard(msg.content, msg.id)}
+                        aria-label={copiedId === msg.id ? 'Kopyalandı' : 'Mesajı kopyala'}
                         className={`absolute top-2 right-2 p-1.5 rounded transition-all ${copiedId === msg.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${msg.role === 'user' ? 'text-blue-200 hover:bg-blue-500' : 'text-slate-400 hover:bg-slate-700'
                           }`}
                       >
@@ -1831,7 +1884,10 @@ export default function Home() {
                           <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                         </div>
                       ) : (
-                        <div className="prose prose-invert prose-sm max-w-none prose-headings:text-blue-200 prose-strong:text-blue-100 prose-a:text-blue-400 prose-code:text-green-300 prose-code:bg-slate-900/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-900/80 prose-pre:border prose-pre:border-slate-700/50 prose-table:border-collapse [&_th]:bg-slate-800/50 [&_th]:border [&_th]:border-slate-700/50 [&_th]:px-3 [&_th]:py-2 [&_td]:border [&_td]:border-slate-700/50 [&_td]:px-3 [&_td]:py-2 prose-li:marker:text-blue-400">
+                        <div
+                          aria-live={streamingId === msg.id ? 'polite' : undefined}
+                          className="prose prose-invert prose-sm max-w-none prose-headings:text-blue-200 prose-strong:text-blue-100 prose-a:text-blue-400 prose-code:text-green-300 prose-code:bg-slate-900/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-900/80 prose-pre:border prose-pre:border-slate-700/50 prose-table:border-collapse [&_th]:bg-slate-800/50 [&_th]:border [&_th]:border-slate-700/50 [&_th]:px-3 [&_th]:py-2 [&_td]:border [&_td]:border-slate-700/50 [&_td]:px-3 [&_td]:py-2 prose-li:marker:text-blue-400">
+
                           {(() => {
                             const rawContent = streamingId === msg.id ? streamingText : msg.content;
                             const cleanText = stripJsonBlock(rawContent);
@@ -1956,6 +2012,8 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handleMicClick}
+                aria-label={isListening ? 'Dinlemeyi durdur' : 'Sesli giriş'}
+                aria-pressed={isListening}
                 className={`h-[50px] w-[50px] sm:h-[54px] sm:w-[54px] rounded-xl transition-all flex items-center justify-center shrink-0 ${isListening
                   ? 'bg-red-500/20 text-red-400 animate-pulse border border-red-500/30'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
@@ -1974,6 +2032,7 @@ export default function Home() {
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
                 }`}
               title="Belge Ekle (.docx, .pdf)"
+              aria-label="Belge ekle"
             >
               <Paperclip className="w-5 h-5" />
             </button>

@@ -29,6 +29,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
+*_debug_log.txt
+chat_debug_log.txt
+debug_log.txt
+
+# local scratch & generated artifacts
+/scratch/
+/test_output.*
+/test-*.js
 
 # env files (can opt-in for committing if needed)
 .env*

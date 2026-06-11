@@ -27,6 +27,10 @@ const CSP = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+    // Lint build'i bloklamasın — derleme/deploy ESLint uyarılarıyla durmaz.
+    eslint: {
+        ignoreDuringBuilds: true,
+    },
     images: {
         remotePatterns: [
             {

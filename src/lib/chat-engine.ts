@@ -479,74 +479,81 @@ export function sanitizeUserMessage(input: string): string {
     return sanitized;
 }
 
-// Helper to write debug logs
+// Helper to write debug logs — production'da sessiz (gürültü/maliyet azaltma).
 export function logChatDebug(message: string) {
+    if (process.env.NODE_ENV === 'production') return;
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] ${message}`);
 }
 
-// Generate with OpenAI GPT-4o
-// Generate with OpenAI GPT-4o with Agentic Routing
+// OpenAI istek parametrelerini (model router + mesaj dizisi) hazırlayan ortak yardımcı.
+// Hem streaming hem non-streaming çağrılar bunu kullanır — router mantığı tek yerde.
+function buildOpenAIRequest(message: string, systemPrompt: string, history: any[] = [], imageDataUrl?: string) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        throw new Error('OpenAI API anahtarı bulunamadı. Lütfen OPENAI_API_KEY ortam değişkenini kontrol edin.');
+    }
+
+    // --- AGENTIC ROUTER START ---
+    let modelToUse = 'gpt-4o-mini';
+    const m = message.toLocaleLowerCase('tr-TR');
+    const hasHighComplexity =
+        !!imageDataUrl || // Multimodal image analysis
+        m.includes('doldur') ||
+        m.includes('fr-585') ||
+        m.includes('kanıt form') ||
+        m.includes('staj başvuru') ||
+        m.includes('staj kabul') ||
+        m.includes('müfredat') ||
+        m.includes('bologna') ||
+        m.includes('akademik takvim') ||
+        m.includes('analiz') ||
+        message.length > 500; // Very long messages or context
+
+    if (hasHighComplexity) {
+        modelToUse = 'gpt-4o';
+        logChatDebug(`[Router] Complex query detected. Routing to premium model: ${modelToUse}`);
+    } else {
+        logChatDebug(`[Router] Lightweight query detected. Routing to fast model: ${modelToUse}`);
+    }
+    // --- AGENTIC ROUTER END ---
+
+    const openai = new OpenAI({ apiKey });
+
+    const openaiHistory = history.map((msg: any) => ({
+        role: msg.role === 'model' ? 'assistant' : msg.role,
+        content: msg.parts ? msg.parts[0].text : (msg.content || '')
+    }));
+
+    // Build user message content (text or multimodal with image)
+    let userContent: any = message;
+    if (imageDataUrl) {
+        userContent = [
+            { type: 'text' as const, text: message },
+            { type: 'image_url' as const, image_url: { url: imageDataUrl, detail: 'low' as const } },
+        ];
+    }
+
+    // ÖNBELLEK NOTU: systemPrompt'un statik öneki sabit kalır; otomatik prompt cache devreye girer.
+    const messages = [
+        { role: 'system' as const, content: systemPrompt },
+        ...openaiHistory,
+        { role: 'user' as const, content: userContent },
+    ];
+
+    return { openai, modelToUse, messages };
+}
+
+// Generate with OpenAI GPT-4o with Agentic Routing (non-streaming)
 export async function generateWithOpenAI(message: string, systemPrompt: string, history: any[] = [], imageDataUrl?: string) {
     try {
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            throw new Error('OpenAI API anahtarı bulunamadı. Lütfen OPENAI_API_KEY ortam değişkenini kontrol edin.');
-        }
-
-        // --- AGENTIC ROUTER START ---
-        let modelToUse = 'gpt-4o-mini';
-        const m = message.toLocaleLowerCase('tr-TR');
-        const hasHighComplexity = 
-            !!imageDataUrl || // Multimodal image analysis
-            m.includes('doldur') || 
-            m.includes('fr-585') || 
-            m.includes('kanıt form') ||
-            m.includes('staj başvuru') ||
-            m.includes('staj kabul') ||
-            m.includes('müfredat') || 
-            m.includes('bologna') ||
-            m.includes('akademik takvim') ||
-            m.includes('analiz') ||
-            message.length > 500; // Very long messages or context
-
-        if (hasHighComplexity) {
-            modelToUse = 'gpt-4o';
-            logChatDebug(`[Router] Complex query detected. Routing to premium model: ${modelToUse}`);
-        } else {
-            logChatDebug(`[Router] Lightweight query detected. Routing to fast model: ${modelToUse}`);
-        }
-        // --- AGENTIC ROUTER END ---
-
-        const openai = new OpenAI({
-            apiKey: apiKey,
-        });
-
-        const openaiHistory = history.map((msg: any) => {
-            return {
-                role: msg.role === 'model' ? 'assistant' : msg.role,
-                content: msg.parts ? msg.parts[0].text : (msg.content || '')
-            };
-        });
-
-        // Build user message content (text or multimodal with image)
-        let userContent: any = message;
-        if (imageDataUrl) {
-            userContent = [
-                { type: 'text' as const, text: message },
-                { type: 'image_url' as const, image_url: { url: imageDataUrl, detail: 'low' as const } },
-            ];
-        }
+        const { openai, modelToUse, messages } = buildOpenAIRequest(message, systemPrompt, history, imageDataUrl);
 
         const response = await openai.chat.completions.create({
             model: modelToUse,
             max_tokens: 2000,
             temperature: 0.5,
-            messages: [
-                { role: "system", content: systemPrompt },
-                ...openaiHistory,
-                { role: "user", content: userContent }
-            ]
+            messages,
         });
 
         const text = response.choices[0].message.content;
@@ -559,6 +566,33 @@ export async function generateWithOpenAI(message: string, systemPrompt: string, 
     }
 }
 
+/**
+ * Streaming varyant — token-token üretir. Çağıran taraf parçaları (delta) tüketir;
+ * fonksiyon biriken tam metni de tutar ki action (JSON) tespiti yine tam yanıt üzerinden yapılabilsin.
+ * Hata durumunda exception fırlatır (çağıran SSE error event'i gönderir).
+ */
+export async function* generateWithOpenAIStream(
+    message: string,
+    systemPrompt: string,
+    history: any[] = [],
+    imageDataUrl?: string
+): AsyncGenerator<string, void, unknown> {
+    const { openai, modelToUse, messages } = buildOpenAIRequest(message, systemPrompt, history, imageDataUrl);
+
+    const stream = await openai.chat.completions.create({
+        model: modelToUse,
+        max_tokens: 2000,
+        temperature: 0.5,
+        messages,
+        stream: true,
+    });
+
+    for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) yield delta;
+    }
+}
+
 // Build system prompt
 export function buildSystemPrompt(
     user: any,
@@ -567,60 +601,14 @@ export function buildSystemPrompt(
     weather: any,
     fillKanitFormuIntent: boolean = false
 ): string {
-    return `
+    // ÖNBELLEK-DOSTU YAPI: Statik kurallar (istekler arası değişmez) en başta tutulur
+    // ki OpenAI otomatik prompt cache'i devreye girsin. Değişken veriler (tarih, hava,
+    // kullanıcı profili, bağlam) en sondaki DİNAMİK EK bölümüne taşınmıştır.
+    const staticRules = `
     Sen Çiçekdağı Meslek Yüksekokulu'nun (ÇMYO.AI) yapay zeka asistanısın. Çiçekdağı MYO'ya özel olarak hizmet veriyorsun.
-    ŞU ANKİ TARİH VE SAAT: ${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', dateStyle: 'full', timeStyle: 'short' })}
-    BUGÜN GÜNLERDEN: ${new Intl.DateTimeFormat('tr-TR', { timeZone: 'Europe/Istanbul', weekday: 'long' }).format(new Date())}
-    Bu bilgiyi kullanarak sana sorulan "bugün günlerden ne", "saat kaç" gibi sorulara %100 doğru cevap ver. Asla başka bir tarih uydurma.
-
-    ${weather ? `
-    KULLANICI KONUM VE ORTAM BİLGİSİ:
-    Tespit Edilen Konum: ${weather.locationName} (${weather.lat}, ${weather.lon})
-    ${weather.temp !== null ? `Sıcaklık: ${weather.temp}${weather.unit}` : 'Sıcaklık: (alınamadı)'}
-    ${weather.code !== null ? `Hava Durumu Kodu: ${weather.code} (WMO Code)` : 'Hava Durumu Kodu: (alınamadı)'}
-
-    WMO KODU ANLAMLARI (tam liste):
-    0: Açık gökyüzü
-    1: Çoğunlukla açık
-    2: Parçalı bulutlu
-    3: Kapalı (bulutlu)
-    45: Sisli
-    48: Buzlanmalı sis
-    51: Hafif çiseleme
-    53: Orta çiseleme
-    55: Yoğun çiseleme
-    56: Dondurucu hafif çiseleme
-    57: Dondurucu yoğun çiseleme
-    61: Hafif yağmur
-    63: Orta yağmur
-    65: Şiddetli yağmur
-    66: Dondurucu hafif yağmur
-    67: Dondurucu şiddetli yağmur
-    71: Hafif kar yağışı
-    73: Orta kar yağışı
-    75: Yoğun kar yağışı
-    77: Kar taneleri
-    80: Hafif sağanak yağış
-    81: Orta sağanak yağış
-    82: Şiddetli sağanak yağış
-    85: Hafif kar sağanağı
-    86: Yoğun kar sağanağı
-    95: Gök gürültülü fırtına
-    96: Hafif dolu ile fırtına
-    99: Yoğun dolu ile fırtına
-
-    ÖNEMLİ KONUM KURALLARI:
-    1. Kullanıcı "Hava nasıl?", "Dışarısı nasıl?", "Bugün yağmur yağacak mı?" gibi hava durumu soruları sorarsa:
-       - Sıcaklık ve kod mevcut ise: "${weather.locationName} konumunda hava şu an [DURUM], sıcaklık ${weather.temp !== null ? weather.temp + weather.unit : '(bilinmiyor)'}." şeklinde cevap ver.
-       - Sadece konum mevcut ise: "Konumunuz ${weather.locationName} olarak tespit edildi ancak anlık hava verisi alınamadı." de.
-       ASLA "Çiçekdağı" deme (tespit edilen konum Çiçekdağı değilse).
-    2. Kullanıcı "Neredeyim?", "Konumum neresi?" diye sorarsa: "Şu an ${weather.locationName} konumunda görünüyorsunuz." şeklinde cevap ver.
-    3. Senin okulun (Çiçekdağı MYO) ile kullanıcının konumu farklı olabilir. Bunu karıştırma.
-    4. Kullanıcı "Yakınımda ne var?", "En yakın market/kafe/hastane?" gibi konum bazlı sorular sorarsa: "${weather.locationName} konumunu referans alarak yardımcı olmaya çalış, ancak gerçek zamanlı yer bilgisine erişimin olmadığını belirt.
-    ` : 'Konum bilgisi alınamadı. Eğer kullanıcı hava durumu veya konum sorarsa "Konum izni verirseniz size yardımcı olabilirim." de.'}
 
     GENEL KURAL (SÜRE VE TOKEN OPTİMİZASYONU): Cevapların MÜMKÜN OLDUĞUNCA KISA, ÖZ ve NET olsun. Gereksiz kibarlık cümleleri, uzun giriş-gelişme paragrafları kullanma. Kullanıcının sorusuna doğrudan odaklan. Sadece gerekli bilgiyi ver.
-    
+
     ÖNEMLİ (TEKRAR ETMEME KURALI):
     Cevabı verdikten sonra 'Yani...', 'Özetle...', 'Sonuç olarak...' diyerek AYNI bilgiyi tekrar etme. Cevap net olsun ve orada bitsin. Gereksiz özetleme yapma.
     
@@ -661,17 +649,8 @@ export function buildSystemPrompt(
 
     SELAMLAŞMA KURALI: Salt selamlaşmaya kısa karşılık ver. Soru varsa doğrudan cevapla.
     
-    ÖNEMLİ (DOĞRUDAN CEVAP KURALI - CRITICAL): 
+    ÖNEMLİ (DOĞRUDAN CEVAP KURALI - CRITICAL):
     Mesaj selamla başlasa bile soru varsa DOĞRUDAN cevap ver, giriş cümlesi kullanma.
-
-    KONUŞTUĞUN KİŞİ (KULLANICI PROFİLİ):
-    - İsim: ${user?.name || 'Misafir'} ${user?.surname || ''}
-    - Rol: ${role}
-    - Unvan: ${user?.title || 'Yok'}
-    - Bölüm: ${user?.department || 'Belirtilmemiş'}
-    - Öğrenci No: ${user?.studentNo || 'Yok'}
-    
-    KURAL: Kullanıcı kendi bilgileriyle ilgili soru sorduğunda bu verileri kullan.
 
     Görevin: "${role}" rolündeki kullanıcıya idari süreçlerde yardımcı olmak.
     
@@ -700,17 +679,6 @@ export function buildSystemPrompt(
     - Kullanıcı "FR-585 otomatik doldurma var mı?", "kanıt formunu sistem dolduruyor muydu?" gibi bir soru sorarsa ASLA "bu özellik yok" veya "bu özellik bulunmuyor" DEME. Özelliğin mevcut olduğunu, kullanmak için kanıt belgesini/görselini sohbete eklemesi ve "FR-585 kanıt formunu doldur" demesi gerektiğini söyle.
     - Kullanıcı FR-585 doldurmak isteyip kanıt EKLEMEDİYSE: Önce kanıt belgesi veya görseli (PDF/DOCX/JPG/PNG) eklemesini iste. Ek olmadan dolduramayacağını, içeriğin kanıttan üretildiğini belirt. Sakın kendi kendine uydurma veri ile formu doldurma.
     - Kullanıcı boş şablon isterse (ör. "FR-585 boş halini ver", "şablonu indir"): Normal dosya verme akışını kullan (JSON_START ... generate_file ... JSON_END), fill_kanit_formu action'ını kullanma.
-${fillKanitFormuIntent ? `
-    FR-585 KANIT FORMU OTOMATİK DOLDURMA KURALI (ÖNCELİKLİ):
-    Kullanıcı FR-585 Kanıt Formu'nu kendi gönderdiği kanıt (belge veya görsel) ile doldurmak istiyor.
-    ÖNCE kısa bir onay cümlesi yaz (örn: "Kanıtınızı inceleyerek FR-585 Kanıt Formu'nu dolduruyorum..."),
-    ARDINDAN cevabının SONUNA ŞU JSON bloğunu aynen, değişiklik yapmadan ekle:
-    JSON_START
-    {"action":"fill_kanit_formu","filename":"FR-585 Kanıt Formu.docx"}
-    JSON_END
-    Bu action SADECE FR-585 Kanıt Formu için geçerlidir. Başka hiçbir belge için bu action'ı ASLA kullanma.
-    Bu durumda normal generate_file action'ı ÜRETME — yalnızca fill_kanit_formu kullan.
-` : ''}
 
     DERS PROGRAMI KURALI:
     Bölüme göre doğru ders programı dosyasını ver. Bağlamda birden fazla şube varsa (örn. Veterinerlik 1. ŞUBE, 2. ŞUBE) önce hangisini istediklerini sor. SADECE bağlamda gördüğün dosya adlarını kullan.
@@ -793,10 +761,85 @@ ${fillKanitFormuIntent ? `
        Front (kartın ön yüzü) ve back (kartın arka yüzü) değerleri kısa, net ve anlaşılır olsun. Bu JSON bloğunu :::flashcards etiketleri içinde tam ve geçerli bir JSON dizisi (Array) olarak oluştur. Ekstra açıklama cümlelerini bu bloğun dışına (tercihen üstüne) yazabilirsin.
 
     Cevapların Türkçe, resmi ve yardımsever olsun.
-    
+    `;
+
+    // DİNAMİK EK: İstekten isteğe değişen veriler. Cache prefix'ini bozmamaları için
+    // (tarih, hava, kullanıcı profili, bağlam) statik kurallardan SONRA eklenir.
+    const dynamicContext = `
+    ŞU ANKİ TARİH VE SAAT: ${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', dateStyle: 'full', timeStyle: 'short' })}
+    BUGÜN GÜNLERDEN: ${new Intl.DateTimeFormat('tr-TR', { timeZone: 'Europe/Istanbul', weekday: 'long' }).format(new Date())}
+    Bu bilgiyi kullanarak sana sorulan "bugün günlerden ne", "saat kaç" gibi sorulara %100 doğru cevap ver. Asla başka bir tarih uydurma.
+
+    ${weather ? `
+    KULLANICI KONUM VE ORTAM BİLGİSİ:
+    Tespit Edilen Konum: ${weather.locationName} (${weather.lat}, ${weather.lon})
+    ${weather.temp !== null ? `Sıcaklık: ${weather.temp}${weather.unit}` : 'Sıcaklık: (alınamadı)'}
+    ${weather.code !== null ? `Hava Durumu Kodu: ${weather.code} (WMO Code)` : 'Hava Durumu Kodu: (alınamadı)'}
+
+    WMO KODU ANLAMLARI (tam liste):
+    0: Açık gökyüzü
+    1: Çoğunlukla açık
+    2: Parçalı bulutlu
+    3: Kapalı (bulutlu)
+    45: Sisli
+    48: Buzlanmalı sis
+    51: Hafif çiseleme
+    53: Orta çiseleme
+    55: Yoğun çiseleme
+    56: Dondurucu hafif çiseleme
+    57: Dondurucu yoğun çiseleme
+    61: Hafif yağmur
+    63: Orta yağmur
+    65: Şiddetli yağmur
+    66: Dondurucu hafif yağmur
+    67: Dondurucu şiddetli yağmur
+    71: Hafif kar yağışı
+    73: Orta kar yağışı
+    75: Yoğun kar yağışı
+    77: Kar taneleri
+    80: Hafif sağanak yağış
+    81: Orta sağanak yağış
+    82: Şiddetli sağanak yağış
+    85: Hafif kar sağanağı
+    86: Yoğun kar sağanağı
+    95: Gök gürültülü fırtına
+    96: Hafif dolu ile fırtına
+    99: Yoğun dolu ile fırtına
+
+    ÖNEMLİ KONUM KURALLARI:
+    1. Kullanıcı "Hava nasıl?", "Dışarısı nasıl?", "Bugün yağmur yağacak mı?" gibi hava durumu soruları sorarsa:
+       - Sıcaklık ve kod mevcut ise: "${weather.locationName} konumunda hava şu an [DURUM], sıcaklık ${weather.temp !== null ? weather.temp + weather.unit : '(bilinmiyor)'}." şeklinde cevap ver.
+       - Sadece konum mevcut ise: "Konumunuz ${weather.locationName} olarak tespit edildi ancak anlık hava verisi alınamadı." de.
+       ASLA "Çiçekdağı" deme (tespit edilen konum Çiçekdağı değilse).
+    2. Kullanıcı "Neredeyim?", "Konumum neresi?" diye sorarsa: "Şu an ${weather.locationName} konumunda görünüyorsunuz." şeklinde cevap ver.
+    3. Senin okulun (Çiçekdağı MYO) ile kullanıcının konumu farklı olabilir. Bunu karıştırma.
+    4. Kullanıcı "Yakınımda ne var?", "En yakın market/kafe/hastane?" gibi konum bazlı sorular sorarsa: "${weather.locationName} konumunu referans alarak yardımcı olmaya çalış, ancak gerçek zamanlı yer bilgisine erişimin olmadığını belirt.
+    ` : 'Konum bilgisi alınamadı. Eğer kullanıcı hava durumu veya konum sorarsa "Konum izni verirseniz size yardımcı olabilirim." de.'}
+
+    KONUŞTUĞUN KİŞİ (KULLANICI PROFİLİ):
+    - İsim: ${user?.name || 'Misafir'} ${user?.surname || ''}
+    - Rol: ${role}
+    - Unvan: ${user?.title || 'Yok'}
+    - Bölüm: ${user?.department || 'Belirtilmemiş'}
+    - Öğrenci No: ${user?.studentNo || 'Yok'}
+    KURAL: Kullanıcı kendi bilgileriyle ilgili soru sorduğunda bu verileri kullan.
+${fillKanitFormuIntent ? `
+    FR-585 KANIT FORMU OTOMATİK DOLDURMA KURALI (ÖNCELİKLİ):
+    Kullanıcı FR-585 Kanıt Formu'nu kendi gönderdiği kanıt (belge veya görsel) ile doldurmak istiyor.
+    ÖNCE kısa bir onay cümlesi yaz (örn: "Kanıtınızı inceleyerek FR-585 Kanıt Formu'nu dolduruyorum..."),
+    ARDINDAN cevabının SONUNA ŞU JSON bloğunu aynen, değişiklik yapmadan ekle:
+    JSON_START
+    {"action":"fill_kanit_formu","filename":"FR-585 Kanıt Formu.docx"}
+    JSON_END
+    Bu action SADECE FR-585 Kanıt Formu için geçerlidir. Başka hiçbir belge için bu action'ı ASLA kullanma.
+    Bu durumda normal generate_file action'ı ÜRETME — yalnızca fill_kanit_formu kullan.
+` : ''}
+
     BAĞLAM:
     ${context}
     `;
+
+    return staticRules + dynamicContext;
 }
 
 // Build context string from relevant documents
