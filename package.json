@@ -15,7 +15,9 @@
     "data:ingest-bologna": "node scripts/ingest-bologna.js",
     "scrape:web": "node scripts/scrape-website.js",
     "scrape:web:test": "node scripts/scrape-website.js --test",
-    "ingest:web": "node -r dotenv/config scripts/ingest-website.js"
+    "ingest:web": "node -r dotenv/config scripts/ingest-website.js",
+    "db:migrate": "node -r dotenv/config scripts/migrate.js dotenv_config_path=.env.local",
+    "db:migrate:status": "node -r dotenv/config scripts/migrate.js status dotenv_config_path=.env.local"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
