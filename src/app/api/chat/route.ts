@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { sql } from '@vercel/postgres';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter';
 import { findRelevantDocuments, generateWithOpenAIStream, buildChatTools, buildSystemPrompt, buildContext, logChatDebug, sanitizeUserMessage, detectKanitFormuFillIntent } from '@/lib/chat-engine';
@@ -160,6 +161,7 @@ export async function POST(req: Request) {
                     }
                 } catch (genErr: any) {
                     console.error('OpenAI streaming failed', genErr);
+                    Sentry.captureException(genErr, { tags: { area: 'chat-stream' } });
                     logChatDebug(`OPENAI STREAM FAILED: ${genErr.message}`);
                     controller.enqueue(encoder.encode(sseLine({
                         type: 'error',
@@ -197,6 +199,7 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error('API Error:', error);
+        Sentry.captureException(error, { tags: { area: 'chat-route' } });
         logChatDebug(`TOP LEVEL API ERROR: ${error.message}`);
         return NextResponse.json({ error: 'Bir sorun oluştu, lütfen tekrar deneyin.' }, { status: 500 });
     }

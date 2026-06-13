@@ -10,6 +10,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { sql } from '@vercel/postgres';
 import { storeDocumentEmbedding } from '@/lib/embeddings';
 
@@ -217,6 +218,7 @@ export async function GET(request: Request) {
         });
     } catch (err) {
         console.error('[scrape-news] Kritik hata:', err);
+        Sentry.captureException(err, { tags: { area: 'cron-scrape-news' } });
         return NextResponse.json(
             { error: 'Scraping başarısız', detail: String(err) },
             { status: 500 }

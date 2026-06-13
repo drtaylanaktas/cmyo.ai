@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 // Content Security Policy — izin verilen kaynakları kısıtlar
 const CSP = [
@@ -11,8 +12,8 @@ const CSP = [
     "img-src 'self' data: blob: https://utfs.io",
     // Font kaynakları
     "font-src 'self' data:",
-    // API bağlantıları: kendi domain + Vercel + OpenAI + Gemini + Telegram + Neon + UploadThing + Open-Meteo (hava) + Nominatim (konum)
-    "connect-src 'self' https://*.vercel.app https://api.openai.com https://generativelanguage.googleapis.com https://api.telegram.org https://*.neon.tech https://*.uploadthing.com https://utfs.io https://*.utfs.io https://api.uploadthing.com https://api.open-meteo.com https://nominatim.openstreetmap.org",
+    // API bağlantıları: kendi domain + Vercel + OpenAI + Gemini + Telegram + Neon + UploadThing + Open-Meteo (hava) + Nominatim (konum) + Sentry (hata izleme)
+    "connect-src 'self' https://*.vercel.app https://api.openai.com https://generativelanguage.googleapis.com https://api.telegram.org https://*.neon.tech https://*.uploadthing.com https://utfs.io https://*.utfs.io https://api.uploadthing.com https://api.open-meteo.com https://nominatim.openstreetmap.org https://*.sentry.io https://*.ingest.de.sentry.io",
     // iframe: tamamen engelle
     "frame-src 'none'",
     // Obje/medya: engelle
@@ -63,4 +64,14 @@ const nextConfig: NextConfig = {
     },
 };
 
-export default nextConfig;
+// Sentry ile sar — kaynak harita yükleme (authToken) opsiyonel; runtime hata
+// yakalama authToken olmadan da çalışır. silent: gereksiz build log'unu kapatır.
+export default withSentryConfig(nextConfig, {
+    silent: !process.env.CI,
+    // Kaynak harita yükleme yalnızca SENTRY_AUTH_TOKEN + org/project ile yapılır;
+    // tanımlı değilse otomatik atlanır (hata yakalama yine çalışır).
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    widenClientFileUpload: true,
+    disableLogger: true,
+});

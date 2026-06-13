@@ -18,6 +18,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { sql } from '@vercel/postgres';
 import { storeDocumentEmbedding } from '@/lib/embeddings';
 
@@ -258,6 +259,7 @@ export async function GET(request: Request) {
         newsOut = await scrapeNews();
     } catch (err) {
         console.error('[scrape-ahievran] scrapeNews hatası:', err);
+        Sentry.captureException(err, { tags: { area: 'cron-scrape-ahievran' } });
         newsOut = { count: 0, saved: false, persisted: 0, error: String(err) };
     }
 
