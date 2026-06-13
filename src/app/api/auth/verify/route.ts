@@ -1,5 +1,6 @@
 import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
+import { hashToken } from '@/lib/tokens';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -10,9 +11,10 @@ export async function GET(request: Request) {
     }
 
     try {
-        // Find user with this token
+        // Token hash'i ile eşleştir; eski (ham saklanan) kayıtlar için geriye dönük OR.
         const result = await sql`
-      SELECT * FROM users WHERE verification_token = ${token}
+      SELECT * FROM users
+      WHERE verification_token = ${hashToken(token)} OR verification_token = ${token}
     `;
 
         if (result.rows.length === 0) {
