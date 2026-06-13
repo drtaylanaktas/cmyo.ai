@@ -16,23 +16,8 @@ import { HistorySkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 
-// Robust regex for stripping technical JSON action blocks from the UI
-const JSON_CLEAN_REGEX = /(?:```(?:json)?\s*)?JSON_START\s*[\s\S]*?JSON_END(?:\s*```)?/gi;
-// Güvenlik ağı: model bazen tool argümanlarını ({ "filename": ... }) metne sızdırır — onları da temizle.
-const ACTION_JSON_REGEX = /\{[\s\S]*?"(?:filename|file_name|action)"[\s\S]*?\}/gi;
-const stripJsonBlock = (content: string) =>
-  content.replace(JSON_CLEAN_REGEX, '').replace(ACTION_JSON_REGEX, '').trim();
-
-// Canlı akış için: tamamlanmış bloklara ek olarak, HENÜZ kapanmamış (yarım) bir
-// action JSON'u veya JSON_START'ı da gizle — kullanıcı yazılırken görmesin.
-const cleanStreamingContent = (content: string) => {
-  let out = stripJsonBlock(content);
-  const partialObj = out.search(/\{[^}]*"(?:filename|file_name|action)"/i);
-  if (partialObj !== -1) out = out.slice(0, partialObj);
-  const js = out.indexOf('JSON_START');
-  if (js !== -1) out = out.slice(0, js);
-  return out.trimEnd();
-};
+// Teknik aksiyon artığı temizleme — paylaşılan (test edilebilir) lib'den.
+import { JSON_CLEAN_REGEX, stripJsonBlock, cleanStreamingContent } from '@/lib/content-clean';
 
 // --- v1.6 & v1.7 İnteraktif Markdown, Akıllı Kartlar & 3D Flashcard Geliştirmeleri ---
 
