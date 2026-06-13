@@ -1,5 +1,6 @@
 import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -8,7 +9,26 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         return NextResponse.json({ error: 'ID required' }, { status: 400 });
     }
 
+    // Oturum doğrulaması — yalnızca giriş yapmış kullanıcı kendi sohbetini görebilir.
+    const session = await getSession();
+    if (!session?.email) {
+        return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
+    }
+
     try {
+        // Sahiplik kontrolü: konuşma bu kullanıcıya mı ait? (IDOR koruması)
+        const owner = await sql`
+            SELECT id FROM conversations
+            WHERE id = ${id} AND user_email = ${session.email}
+            LIMIT 1;
+        `;
+        if (owner.rows.length === 0) {
+            // Admin kendi olmayan sohbetleri de okuyabilir
+            if (session.role !== 'admin') {
+                return NextResponse.json({ error: 'Bu sohbete erişim yetkiniz yok.' }, { status: 403 });
+            }
+        }
+
         const result = await sql`
             SELECT id, role, content, created_at
             FROM messages

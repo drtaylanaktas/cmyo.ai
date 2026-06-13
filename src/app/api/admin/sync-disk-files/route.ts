@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getSession } from '@/lib/auth';
+import { storeDocumentEmbedding } from '@/lib/embeddings';
 import fs from 'fs';
 import path from 'path';
 
@@ -59,11 +60,16 @@ export async function POST(request: Request) {
             const content = `${filenameNoExt}. Bu belge sistemde mevcuttur ve indirilebilir.`;
 
             try {
-                await sql`
+                const ins = await sql`
                     INSERT INTO knowledge_documents (filename, content, category, priority, file_url)
                     VALUES (${filenameNoExt}, ${content}, ${category}, ${50}, ${null})
                     ON CONFLICT (filename) DO NOTHING
+                    RETURNING id
                 `;
+                // Yeni eklenen belge için embedding üret (hibrit aramada görünür olsun).
+                if (ins.rows[0]?.id) {
+                    await storeDocumentEmbedding(ins.rows[0].id, filenameNoExt, content);
+                }
                 added++;
                 addedFiles.push(filenameNoExt);
             } catch (insertErr) {

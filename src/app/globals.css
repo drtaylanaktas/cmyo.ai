@@ -29,6 +29,50 @@
 
   --primary: var(--neon-blue);
   --secondary: #111827;
+
+  /* Semantik tasarım tokenları (premium tutarlılık için) */
+  --color-primary: var(--neon-blue);
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --surface: rgba(13, 20, 36, 0.92);
+  --surface-raised: rgba(20, 28, 46, 0.96);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(0, 128, 255, 0.30);
+  --ring: rgba(0, 128, 255, 0.55);
+}
+
+/* Marka renkli, tutarlı odak halkası — klavye erişilebilirliği */
+.focus-ring:focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* İskelet (skeleton) parıltı animasyonu */
+@keyframes skeletonShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.10) 37%,
+    rgba(255, 255, 255, 0.04) 63%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
 }
 
 body {

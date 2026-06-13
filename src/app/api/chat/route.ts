@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { sql } from '@vercel/postgres';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter';
-import { findRelevantDocuments, generateWithOpenAI, buildSystemPrompt, buildContext, logChatDebug, sanitizeUserMessage, detectKanitFormuFillIntent } from '@/lib/chat-engine';
+import { findRelevantDocuments, generateWithOpenAIStream, buildChatTools, buildSystemPrompt, buildContext, logChatDebug, sanitizeUserMessage, detectKanitFormuFillIntent } from '@/lib/chat-engine';
+
+const DAILY_LIMIT = 100;
+
+// SSE yardımcı: her olay tek satır JSON olarak gönderilir → `data: {...}\n\n`
+function sseLine(obj: unknown): string {
+    return `data: ${JSON.stringify(obj)}\n\n`;
+}
 
 export async function POST(req: Request) {
     try {
@@ -27,51 +35,64 @@ export async function POST(req: Request) {
         }
 
         const role = user?.role || 'student';
-
-        let remainingQuota: number | null = null;
         const userEmail = user?.email;
 
-        // --- QUOTA (RATE LIMIT) CHECK START ---
+        let remainingQuota: number | null = null;
+
+        // --- ATOMİK KOTA KONTROLÜ ---
+        // Tek sorguda hem günlük sıfırlama hem artırma yapılır; yarış koşulu yoktur.
+        // Limit altındaysa satır döner ve sayaç artar; limitteyse hiç satır dönmez.
         if (role !== 'admin' && userEmail) {
             try {
-                const userDb = await sql`SELECT id, daily_message_count, last_message_date FROM users WHERE email = ${userEmail}`;
-                if (userDb.rows.length > 0) {
-                    let { daily_message_count, last_message_date } = userDb.rows[0];
-                    const todayStr = new Date().toDateString();
-                    const lastDateStr = last_message_date ? new Date(last_message_date).toDateString() : '';
-                    
-                    if (todayStr !== lastDateStr) {
-                        daily_message_count = 0;
-                    }
-                    
-                    if (daily_message_count >= 100) {
+                const upd = await sql`
+                    UPDATE users
+                    SET daily_message_count = CASE
+                            WHEN last_message_date IS NULL THEN 1
+                            WHEN (last_message_date AT TIME ZONE 'Europe/Istanbul')::date
+                                 <> (NOW() AT TIME ZONE 'Europe/Istanbul')::date THEN 1
+                            ELSE daily_message_count + 1
+                        END,
+                        last_message_date = NOW()
+                    WHERE email = ${userEmail}
+                      AND (
+                            last_message_date IS NULL
+                            OR (last_message_date AT TIME ZONE 'Europe/Istanbul')::date
+                               <> (NOW() AT TIME ZONE 'Europe/Istanbul')::date
+                            OR daily_message_count < ${DAILY_LIMIT}
+                      )
+                    RETURNING daily_message_count;
+                `;
+
+                if (upd.rows.length > 0) {
+                    remainingQuota = DAILY_LIMIT - upd.rows[0].daily_message_count;
+                } else {
+                    // Satır dönmedi: ya limit doldu ya da kullanıcı kayıtlı değil.
+                    const exists = await sql`SELECT 1 FROM users WHERE email = ${userEmail} LIMIT 1`;
+                    if (exists.rows.length > 0) {
                         return NextResponse.json(
-                            { error: 'Günlük mesaj limitinize (100) ulaştınız. Harika sorularınızı yarına saklayın!' },
+                            { error: `Günlük mesaj limitinize (${DAILY_LIMIT}) ulaştınız. Harika sorularınızı yarına saklayın!` },
                             { status: 429 }
                         );
                     }
-                    remainingQuota = 100 - (daily_message_count + 1);
-                } else {
-                    remainingQuota = 99;
+                    // Kayıtlı olmayan kullanıcı: kota uygulanmaz.
                 }
             } catch (quotaErr) {
                 console.error('Error checking quota:', quotaErr);
             }
         }
-        // --- QUOTA (RATE LIMIT) CHECK END ---
+        // --- ATOMİK KOTA KONTROLÜ SONU ---
 
-        logChatDebug(`--- Chat Request Started (OpenAI) ---`);
+        logChatDebug(`--- Chat Request Started (OpenAI, streaming) ---`);
 
-        // --- DATABASE PERSISTENCE START ---
+        // --- KULLANICI MESAJINI KAYDET ---
         let currentConversationId = conversationId;
-
         try {
             if (userEmail) {
                 if (!currentConversationId) {
                     const title = message.length > 50 ? message.substring(0, 50) + '...' : message;
                     const result = await sql`
-                        INSERT INTO conversations (user_email, title) 
-                        VALUES (${userEmail}, ${title}) 
+                        INSERT INTO conversations (user_email, title)
+                        VALUES (${userEmail}, ${title})
                         RETURNING id;
                     `;
                     currentConversationId = result.rows[0].id;
@@ -87,15 +108,13 @@ export async function POST(req: Request) {
         } catch (dbError) {
             console.error('Database persistence error (User):', dbError);
         }
-        // --- DATABASE PERSISTENCE END ---
+        // --- KULLANICI MESAJI SONU ---
 
         // RAG Step
         const relevantDocs = await findRelevantDocuments(message);
         logChatDebug(`Found ${relevantDocs.length} relevant docs.`);
 
         // FR-585 Kanıt Formu otomatik doldurma intent tespiti.
-        // hasAttachment: kullanıcı mesajı [BELGE İÇERİĞİ BAŞLANGICI] ile sarmalanmış (text belge)
-        // veya chat body'de attachmentImage data URL'i gönderilmiş.
         const hasTextAttachment = /\[BELGE İÇERİĞİ BAŞLANGICI/.test(rawMessage);
         const hasImageAttachment = !!(attachmentImage && typeof attachmentImage?.dataUrl === 'string');
         const hasAttachment = hasTextAttachment || hasImageAttachment;
@@ -112,44 +131,75 @@ export async function POST(req: Request) {
         }
         const systemPrompt = buildSystemPrompt(user, role, context, weather, fillKanitFormuIntent);
 
-        let reply = "";
-        try {
-            reply = await generateWithOpenAI(message, systemPrompt, history);
-        } catch (error: any) {
-            console.error("OpenAI generation failed", error);
-            logChatDebug(`OPENAI FAILED: ${error.message}`);
+        // --- SSE STREAM ---
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+            async start(controller) {
+                // İlk olay: meta (conversationId + remainingQuota) — frontend bunları hemen alır.
+                controller.enqueue(encoder.encode(sseLine({
+                    type: 'meta',
+                    conversationId: currentConversationId ?? null,
+                    remainingQuota,
+                })));
 
-            return NextResponse.json({
-                error: 'Şu an yanıt üretemiyorum, lütfen biraz sonra tekrar deneyin.'
-            }, { status: 503 });
-        }
-
-        // --- DATABASE PERSISTENCE (ASSISTANT & QUOTA) ---
-        try {
-            if (userEmail && currentConversationId) {
-                await sql`
-                    INSERT INTO messages (conversation_id, role, content)
-                    VALUES (${currentConversationId}, 'assistant', ${reply});
-                `;
-                
-                if (role !== 'admin' && remainingQuota !== null) {
-                    const newCount = 100 - remainingQuota;
-                    await sql`
-                        UPDATE users 
-                        SET daily_message_count = ${newCount}, last_message_date = CURRENT_TIMESTAMP
-                        WHERE email = ${userEmail};
-                    `;
+                const tools = buildChatTools(fillKanitFormuIntent);
+                let fullReply = '';
+                try {
+                    for await (const ev of generateWithOpenAIStream(message, systemPrompt, history, undefined, tools)) {
+                        if (ev.type === 'content') {
+                            fullReply += ev.text;
+                            controller.enqueue(encoder.encode(sseLine({ type: 'delta', text: ev.text })));
+                        } else if (ev.type === 'tool') {
+                            // Yapısal aksiyon — frontend dosya/FR-585 akışını bununla tetikler.
+                            controller.enqueue(encoder.encode(sseLine({
+                                type: 'action',
+                                action: ev.name,
+                                filename: ev.args?.filename,
+                                data: ev.args?.data,
+                            })));
+                        }
+                    }
+                } catch (genErr: any) {
+                    console.error('OpenAI streaming failed', genErr);
+                    Sentry.captureException(genErr, { tags: { area: 'chat-stream' } });
+                    logChatDebug(`OPENAI STREAM FAILED: ${genErr.message}`);
+                    controller.enqueue(encoder.encode(sseLine({
+                        type: 'error',
+                        error: 'Şu an yanıt üretemiyorum, lütfen biraz sonra tekrar deneyin.',
+                    })));
+                    controller.close();
+                    return;
                 }
-            }
-        } catch (dbError) {
-            console.error('Database persistence error (Assistant/Quota):', dbError);
-        }
-        // --- DATABASE PERSISTENCE END ---
 
-        return NextResponse.json({ reply, conversationId: currentConversationId, remainingQuota });
+                // Asistan yanıtını stream bittikten sonra kalıcılaştır.
+                try {
+                    if (userEmail && currentConversationId && fullReply) {
+                        await sql`
+                            INSERT INTO messages (conversation_id, role, content)
+                            VALUES (${currentConversationId}, 'assistant', ${fullReply});
+                        `;
+                    }
+                } catch (dbError) {
+                    console.error('Database persistence error (Assistant):', dbError);
+                }
+
+                controller.enqueue(encoder.encode(sseLine({ type: 'done' })));
+                controller.close();
+            },
+        });
+
+        return new Response(stream, {
+            headers: {
+                'Content-Type': 'text/event-stream; charset=utf-8',
+                'Cache-Control': 'no-cache, no-transform',
+                Connection: 'keep-alive',
+                'X-Accel-Buffering': 'no',
+            },
+        });
 
     } catch (error: any) {
         console.error('API Error:', error);
+        Sentry.captureException(error, { tags: { area: 'chat-route' } });
         logChatDebug(`TOP LEVEL API ERROR: ${error.message}`);
         return NextResponse.json({ error: 'Bir sorun oluştu, lütfen tekrar deneyin.' }, { status: 500 });
     }

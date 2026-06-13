@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { sql } from '@vercel/postgres';
+import { embedText, toVectorLiteral } from './embeddings';
 
 // Define Document interface
 export interface Document {
@@ -60,6 +61,28 @@ export async function getKnowledgeBase(): Promise<Document[]> {
     } catch (error) {
         console.error('Error fetching knowledge base from DB:', error);
         return globalKnowledgeCache;
+    }
+}
+
+/**
+ * Vektör (semantik) arama — sorgu embedding'i ile en yakın belgeleri pgvector'dan getirir.
+ * Hata/erişim sorununda boş döner ki keyword araması tek başına çalışsın (graceful degrade).
+ */
+async function vectorSearchIds(query: string, limit: number): Promise<{ id: number; similarity: number }[]> {
+    try {
+        const emb = await embedText(query);
+        const literal = toVectorLiteral(emb);
+        const { rows } = await sql`
+            SELECT id, 1 - (embedding <=> ${literal}::vector) AS similarity
+            FROM knowledge_documents
+            WHERE embedding IS NOT NULL
+            ORDER BY embedding <=> ${literal}::vector
+            LIMIT ${limit}
+        `;
+        return rows.map((r: any) => ({ id: Number(r.id), similarity: Number(r.similarity) }));
+    } catch (e) {
+        console.error('vectorSearch error:', e);
+        return [];
     }
 }
 
@@ -137,6 +160,19 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
             .map((s: { doc: Document }) => s.doc);
 
         return [...injectedDocs, ...normalDocs];
+    }
+
+    // FORM KODU İLE DOĞRUDAN ARAMA (FR-011, FR-585, GGYS-FR-001 vb.)
+    // ÖNCELİK: Bölüm/Bologna bloklarından ÖNCE çalışır — açık form kodu en spesifik sinyaldir.
+    // Örn. "veterinerlik fr-011 programını ver" sorgusu, "veterinerlik" bölüm bloğuna
+    // takılıp form kodunu kaçırmasın diye buraya alındı.
+    const formCodeMatch = query.match(/\b((?:ggys[-\s]?)?fr[-\s]?\d{3,4})\b/i);
+    if (formCodeMatch) {
+        const formCode = formCodeMatch[1].replace(/\s/g, '-').toUpperCase();
+        const codeDocs = knowledgeBase
+            .filter((d: Document) => d.filename.toUpperCase().includes(formCode))
+            .map((d: Document) => ({ ...d, score: 96 }));
+        if (codeDocs.length > 0) return codeDocs;
     }
 
     // BOLOGNA: Müfredat / ders içeriği sorularını tespit et
@@ -365,17 +401,6 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         if (takvimdocs.length > 0) return takvimdocs;
     }
 
-    // BLOK 9c: Form kodu ile doğrudan arama (FR-585, GGYS-FR-001 vb.)
-    // Tetikleyici: Sorguda "FR-NNN" veya "GGYS-FR-NNN" pattern'i var
-    const formCodeMatch = query.match(/\b((?:ggys[-\s]?)?fr[-\s]?\d{3,4})\b/i);
-    if (formCodeMatch) {
-        const formCode = formCodeMatch[1].replace(/\s/g, '-').toUpperCase();
-        const codeDocs = knowledgeBase
-            .filter((d: Document) => d.filename.toUpperCase().includes(formCode))
-            .map((d: Document) => ({ ...d, score: 96 }));
-        if (codeDocs.length > 0) return codeDocs;
-    }
-
     // BLOK 10: Kurumsal keyword inject (bölüm/kadro keyword'leri kaldırıldı — üstteki bloklar hallediyor)
     const institutionalKeywords: Record<string, string[]> = {
         'CMYO_Akademik_Kadro.txt': ['ahmet aslan', 'deniz aygören', 'filiz özlem', 'burak ata', 'emine doğan'],
@@ -425,7 +450,9 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         return [...injectedDocs, ...normalScores];
     }
 
-    // BLOK 11: Genel Skorlama (fallback) — web-akademik/bolum kategorilerine +3 bonus
+    // BLOK 11: HİBRİT Genel Skorlama (fallback) — keyword + vektör (semantik) füzyonu.
+    // Yüksek-isabetli özel bloklar (form, ders programı, staj, haber, takvim, bölüm)
+    // yukarıda zaten ele alındı; burası paraphrase/eş anlamlı serbest soruları yakalar.
     if (!query || knowledgeBase.length === 0) return [];
 
     const terms = queryLower.split(' ').filter((t: string) => t.length > 2);
@@ -449,11 +476,37 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         return { doc, score };
     });
 
-    return scores
+    const keywordRanked = scores
         .filter((s: { score: number }) => s.score > 0)
-        .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+        .sort((a: { score: number }, b: { score: number }) => b.score - a.score);
+
+    // Vektör (semantik) sonuçlar — keyword eşleşmesi olmasa bile anlamca yakın belgeleri getirir.
+    const vectorResults = await vectorSearchIds(query, 20);
+
+    // Hata/sonuç yoksa eski davranış: yalnızca keyword.
+    if (vectorResults.length === 0) {
+        return keywordRanked.slice(0, 12).map((s) => s.doc);
+    }
+
+    // RECIPROCAL RANK FUSION (RRF): iki sıralamadaki konumdan ölçek-bağımsız füzyon.
+    const RRF_K = 60;
+    const byId = new Map<number, Document>();
+    for (const d of knowledgeBase) if (d.id != null) byId.set(d.id, d);
+
+    const fused = new Map<number, number>();
+    keywordRanked.forEach((s, rank) => {
+        if (s.doc.id == null) return;
+        fused.set(s.doc.id, (fused.get(s.doc.id) || 0) + 1 / (RRF_K + rank));
+    });
+    vectorResults.forEach((v, rank) => {
+        fused.set(v.id, (fused.get(v.id) || 0) + 1 / (RRF_K + rank));
+    });
+
+    return [...fused.entries()]
+        .sort((a, b) => b[1] - a[1])
         .slice(0, 12)
-        .map((s: { doc: Document }) => s.doc);
+        .map(([id]) => byId.get(id))
+        .filter((d): d is Document => !!d);
 }
 
 // Prompt injection saldırılarına karşı mesajı temizler
@@ -479,74 +532,81 @@ export function sanitizeUserMessage(input: string): string {
     return sanitized;
 }
 
-// Helper to write debug logs
+// Helper to write debug logs — production'da sessiz (gürültü/maliyet azaltma).
 export function logChatDebug(message: string) {
+    if (process.env.NODE_ENV === 'production') return;
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] ${message}`);
 }
 
-// Generate with OpenAI GPT-4o
-// Generate with OpenAI GPT-4o with Agentic Routing
+// OpenAI istek parametrelerini (model router + mesaj dizisi) hazırlayan ortak yardımcı.
+// Hem streaming hem non-streaming çağrılar bunu kullanır — router mantığı tek yerde.
+function buildOpenAIRequest(message: string, systemPrompt: string, history: any[] = [], imageDataUrl?: string) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        throw new Error('OpenAI API anahtarı bulunamadı. Lütfen OPENAI_API_KEY ortam değişkenini kontrol edin.');
+    }
+
+    // --- AGENTIC ROUTER START ---
+    let modelToUse = 'gpt-4o-mini';
+    const m = message.toLocaleLowerCase('tr-TR');
+    const hasHighComplexity =
+        !!imageDataUrl || // Multimodal image analysis
+        m.includes('doldur') ||
+        m.includes('fr-585') ||
+        m.includes('kanıt form') ||
+        m.includes('staj başvuru') ||
+        m.includes('staj kabul') ||
+        m.includes('müfredat') ||
+        m.includes('bologna') ||
+        m.includes('akademik takvim') ||
+        m.includes('analiz') ||
+        message.length > 500; // Very long messages or context
+
+    if (hasHighComplexity) {
+        modelToUse = 'gpt-4o';
+        logChatDebug(`[Router] Complex query detected. Routing to premium model: ${modelToUse}`);
+    } else {
+        logChatDebug(`[Router] Lightweight query detected. Routing to fast model: ${modelToUse}`);
+    }
+    // --- AGENTIC ROUTER END ---
+
+    const openai = new OpenAI({ apiKey });
+
+    const openaiHistory = history.map((msg: any) => ({
+        role: msg.role === 'model' ? 'assistant' : msg.role,
+        content: msg.parts ? msg.parts[0].text : (msg.content || '')
+    }));
+
+    // Build user message content (text or multimodal with image)
+    let userContent: any = message;
+    if (imageDataUrl) {
+        userContent = [
+            { type: 'text' as const, text: message },
+            { type: 'image_url' as const, image_url: { url: imageDataUrl, detail: 'low' as const } },
+        ];
+    }
+
+    // ÖNBELLEK NOTU: systemPrompt'un statik öneki sabit kalır; otomatik prompt cache devreye girer.
+    const messages = [
+        { role: 'system' as const, content: systemPrompt },
+        ...openaiHistory,
+        { role: 'user' as const, content: userContent },
+    ];
+
+    return { openai, modelToUse, messages };
+}
+
+// Generate with OpenAI GPT-4o with Agentic Routing (non-streaming)
 export async function generateWithOpenAI(message: string, systemPrompt: string, history: any[] = [], imageDataUrl?: string) {
     try {
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            throw new Error('OpenAI API anahtarı bulunamadı. Lütfen OPENAI_API_KEY ortam değişkenini kontrol edin.');
-        }
-
-        // --- AGENTIC ROUTER START ---
-        let modelToUse = 'gpt-4o-mini';
-        const m = message.toLocaleLowerCase('tr-TR');
-        const hasHighComplexity = 
-            !!imageDataUrl || // Multimodal image analysis
-            m.includes('doldur') || 
-            m.includes('fr-585') || 
-            m.includes('kanıt form') ||
-            m.includes('staj başvuru') ||
-            m.includes('staj kabul') ||
-            m.includes('müfredat') || 
-            m.includes('bologna') ||
-            m.includes('akademik takvim') ||
-            m.includes('analiz') ||
-            message.length > 500; // Very long messages or context
-
-        if (hasHighComplexity) {
-            modelToUse = 'gpt-4o';
-            logChatDebug(`[Router] Complex query detected. Routing to premium model: ${modelToUse}`);
-        } else {
-            logChatDebug(`[Router] Lightweight query detected. Routing to fast model: ${modelToUse}`);
-        }
-        // --- AGENTIC ROUTER END ---
-
-        const openai = new OpenAI({
-            apiKey: apiKey,
-        });
-
-        const openaiHistory = history.map((msg: any) => {
-            return {
-                role: msg.role === 'model' ? 'assistant' : msg.role,
-                content: msg.parts ? msg.parts[0].text : (msg.content || '')
-            };
-        });
-
-        // Build user message content (text or multimodal with image)
-        let userContent: any = message;
-        if (imageDataUrl) {
-            userContent = [
-                { type: 'text' as const, text: message },
-                { type: 'image_url' as const, image_url: { url: imageDataUrl, detail: 'low' as const } },
-            ];
-        }
+        const { openai, modelToUse, messages } = buildOpenAIRequest(message, systemPrompt, history, imageDataUrl);
 
         const response = await openai.chat.completions.create({
             model: modelToUse,
             max_tokens: 2000,
             temperature: 0.5,
-            messages: [
-                { role: "system", content: systemPrompt },
-                ...openaiHistory,
-                { role: "user", content: userContent }
-            ]
+            messages,
         });
 
         const text = response.choices[0].message.content;
@@ -559,6 +619,120 @@ export async function generateWithOpenAI(message: string, systemPrompt: string, 
     }
 }
 
+// --- FUNCTION CALLING (TOOLS) ---
+// Aksiyonlar artık JSON string yerine yapısal tool_call ile döner.
+
+/** generate_file: bağlamdaki indirilebilir bir belgeyi üretir/indirir. Her zaman aktif. */
+const GENERATE_FILE_TOOL = {
+    type: 'function' as const,
+    function: {
+        name: 'generate_file',
+        description:
+            'Kullanıcının istediği, BAĞLAM içinde "--- BELGE BAŞLANGICI: XXX ---" olarak listelenen indirilebilir bir belgeyi üretir ve indirtir. Yalnızca kullanıcı açıkça bir belgeyi/formu indirmek/almak istediğinde çağır. Bağlamda olmayan dosya için ASLA çağırma.',
+        parameters: {
+            type: 'object',
+            properties: {
+                filename: {
+                    type: 'string',
+                    description:
+                        'Bağlamdaki "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX dosya adı; uzantı dahil HARF HARF aynen kopyalanmalı.',
+                },
+            },
+            required: ['filename'],
+            additionalProperties: false,
+        },
+    },
+};
+
+/** fill_kanit_formu: FR-585'i kullanıcının eklediği kanıtla doldurur. Sadece intent tespit edilince eklenir. */
+const FILL_KANIT_FORMU_TOOL = {
+    type: 'function' as const,
+    function: {
+        name: 'fill_kanit_formu',
+        description:
+            'FR-585 Kanıt Formu’nu, kullanıcının sohbete eklediği kanıt (belge veya görsel) ile otomatik doldurur. Yalnızca kullanıcı eklediği kanıtla FR-585 doldurmak istediğinde çağır.',
+        parameters: {
+            type: 'object',
+            properties: {
+                filename: {
+                    type: 'string',
+                    description: 'Sabit: "FR-585 Kanıt Formu.docx"',
+                },
+            },
+            required: ['filename'],
+            additionalProperties: false,
+        },
+    },
+};
+
+/** İsteğe göre tool listesini kur. fill_kanit_formu yalnızca intent varsa (maliyet kapısı) eklenir. */
+export function buildChatTools(fillKanitFormuIntent: boolean) {
+    return fillKanitFormuIntent
+        ? [GENERATE_FILE_TOOL, FILL_KANIT_FORMU_TOOL]
+        : [GENERATE_FILE_TOOL];
+}
+
+/** Stream olayı: ya içerik parçası ya da tamamlanmış bir tool çağrısı. */
+export type StreamEvent =
+    | { type: 'content'; text: string }
+    | { type: 'tool'; name: string; args: Record<string, any> };
+
+/**
+ * Streaming varyant — token-token içerik ve yapısal tool_call üretir.
+ * İçerik parçaları geldikçe { type: 'content' } yield edilir; stream bitiminde
+ * birikmiş tool çağrıları { type: 'tool' } olarak yield edilir.
+ * Hata durumunda exception fırlatır (çağıran SSE error event'i gönderir).
+ */
+export async function* generateWithOpenAIStream(
+    message: string,
+    systemPrompt: string,
+    history: any[] = [],
+    imageDataUrl?: string,
+    tools?: any[]
+): AsyncGenerator<StreamEvent, void, unknown> {
+    const { openai, modelToUse, messages } = buildOpenAIRequest(message, systemPrompt, history, imageDataUrl);
+
+    const stream = await openai.chat.completions.create({
+        model: modelToUse,
+        max_tokens: 2000,
+        temperature: 0.5,
+        messages,
+        stream: true,
+        ...(tools && tools.length > 0 ? { tools, tool_choice: 'auto' as const } : {}),
+    });
+
+    // Tool çağrıları parça parça gelir (index'e göre argümanlar birikir).
+    const toolAcc: Record<number, { name: string; args: string }> = {};
+
+    for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta;
+        if (delta?.content) {
+            yield { type: 'content', text: delta.content };
+        }
+        if (delta?.tool_calls) {
+            for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? 0;
+                if (!toolAcc[idx]) toolAcc[idx] = { name: '', args: '' };
+                if (tc.function?.name) toolAcc[idx].name = tc.function.name;
+                if (tc.function?.arguments) toolAcc[idx].args += tc.function.arguments;
+            }
+        }
+    }
+
+    for (const key of Object.keys(toolAcc)) {
+        const t = toolAcc[Number(key)];
+        if (!t.name) continue;
+        let parsed: Record<string, any> = {};
+        try {
+            parsed = t.args ? JSON.parse(t.args) : {};
+        } catch {
+            // Bozuk argüman — aksiyonu atla (güvenli taraf).
+            continue;
+        }
+        yield { type: 'tool', name: t.name, args: parsed };
+    }
+}
+
 // Build system prompt
 export function buildSystemPrompt(
     user: any,
@@ -567,8 +741,165 @@ export function buildSystemPrompt(
     weather: any,
     fillKanitFormuIntent: boolean = false
 ): string {
-    return `
+    // ÖNBELLEK-DOSTU YAPI: Statik kurallar (istekler arası değişmez) en başta tutulur
+    // ki OpenAI otomatik prompt cache'i devreye girsin. Değişken veriler (tarih, hava,
+    // kullanıcı profili, bağlam) en sondaki DİNAMİK EK bölümüne taşınmıştır.
+    const staticRules = `
     Sen Çiçekdağı Meslek Yüksekokulu'nun (ÇMYO.AI) yapay zeka asistanısın. Çiçekdağı MYO'ya özel olarak hizmet veriyorsun.
+
+    GENEL KURAL (SÜRE VE TOKEN OPTİMİZASYONU): Cevapların MÜMKÜN OLDUĞUNCA KISA, ÖZ ve NET olsun. Gereksiz kibarlık cümleleri, uzun giriş-gelişme paragrafları kullanma. Kullanıcının sorusuna doğrudan odaklan. Sadece gerekli bilgiyi ver.
+
+    ÖNEMLİ (TEKRAR ETMEME KURALI):
+    Cevabı verdikten sonra 'Yani...', 'Özetle...', 'Sonuç olarak...' diyerek AYNI bilgiyi tekrar etme. Cevap net olsun ve orada bitsin. Gereksiz özetleme yapma.
+    
+    ÖNEMLİ KURAL 1 (SENİN KİMLİĞİN - CRITICIAL): 
+    Eğer kullanıcı "Sen kimsin?", "Necisin?", "Hangi üniversitenin ürünüsün?", "Seni kim yaptı?" gibi (büyük/küçük harf fark etmeksizin) SENİN kim olduğunu veya kaynağını sorarsa, TAM OLARAK şu cevabı ver:
+    "Merhaba! Ben Çiçekdağı Meslek Yüksekokulu (ÇMYO) için geliştirilmiş yapay zeka asistanıyım. Size nasıl yardımcı olabilirim?"
+    (Çiçekdağı MYO'ya özel olarak hizmet veriyorsun).
+
+    ÖNEMLİ KURAL 2 (MİSYON VE VİZYON - CRITICAL):
+    Eğer kullanıcı "Misyonunuz nedir?", "Vizyonunuz ne?", "Okulun amacı ne?" gibi kurumsal kimlik soruları sorarsa, ASLA "bilmiyorum" deme. Aşağıdaki RESMİ bilgiyi kullan:
+    
+    Kırşehir Ahi Evran Üniversitesi Misyonu:
+    "Millî ve evrensel değerleri benimsemiş, çağın gerektirdiği teknik ve insani becerilere sahip nitelikli insan yetiştirmek; paydaşlarla işbirliği ve sürekli iyileştirmeyi esas alarak yürüttüğü araştırmalar ve geliştirdiği kalite sistemleri ile bölgenin ve ülkenin kalkınmasına katkı sağlamaktır."
+
+    Kırşehir Ahi Evran Üniversitesi Vizyonu:
+    "Sürekli iyileştirme ve paydaş memnuniyetini esas alan, bölgesel kalkınma ve ihtisaslaşmayı önceleyen, ulusal ve uluslararası düzeyde araştırmalar yürüten, nitelikli öğrencilerin tercih ettiği, geliştirdiği eğitim ve kalite yönetim sistemleri ile model alınan bir üniversite olmaktır."
+    
+    Not: Kullanıcıya bu bilgiyi verirken "Üniversitemizin web sitesindeki (ahievran.edu.tr) resmi bilgilere göre..." diye başlayabilirsin.
+
+    KURUMSAL BİLGİ HAVUZU (RESMİ VERİLER - KESİN DOĞRU KABUL ET):
+    Eğer kullanıcı üniversite tarihi, rektörler, istatistikler veya değerler hakkında soru sorarsa, SADECE aşağıdaki bilgileri kullan:
+
+    1. REKTÖRLER (Kronolojik):
+       - Prof. Dr. Mustafa Kasım KARAHOCAGİL (2023 - Günümüz) [Mevcut Rektör]
+       - Prof. Dr. Vatan KARAKAYA (2015 - 2023)
+       - Prof. Dr. Kudret SAYLAM (2011 - 2015)
+       - Prof. Dr. Selahattin SALMAN (2007 - 2011)
+       - Prof. Dr. Tunçalp ÖZGEN (Tedviren) (2006 - 2007) [Kurucu Rektör]
+
+    2. GENEL İSTATİSTİKLER:
+       - Kuruluş: 17 Mart 2006 (5467 Sayılı Kanun)
+       - Tür: Devlet Üniversitesi
+       - Öğrenci: 21.881
+       - Akademik Personel: 1.036
+       - Yerleşkeler: 5
+
+    ÖNEMLİ KURAL 3 (KULLANICI KİMLİĞİ): Eğer kullanıcı "ben kimim", "Hangi bölümdeyim?" gibi KENDİ kimliği hakkında sorular sorarsa, aşağıdaki profil bilgilerini kullan.
+
+    SELAMLAŞMA KURALI: Salt selamlaşmaya kısa karşılık ver. Soru varsa doğrudan cevapla.
+    
+    ÖNEMLİ (DOĞRUDAN CEVAP KURALI - CRITICAL):
+    Mesaj selamla başlasa bile soru varsa DOĞRUDAN cevap ver, giriş cümlesi kullanma.
+
+    Görevin: "${role}" rolündeki kullanıcıya idari süreçlerde yardımcı olmak.
+    
+    HİTABET VE TONLAMA:
+    Kullanıcının rolü: "${role}"
+    
+    STAJ BAŞVURU FORMU KURALI:
+    Kullanıcı staj formu isterse, bağlamda hangi bölümlerin staj formu varsa onları listele. Bölümü belli değilse sor. SADECE bağlamda gördüğün dosya adlarını kullan.
+
+    HABER KAYNAK KURALI (ÇOK ÖNEMLİ):
+    Sistemde iki haber kaynağı vardır: (1) Çiçekdağı Meslek Yüksekokulu (ÇMYO) ve (2) Kırşehir Ahi Evran Üniversitesi ana sayfası.
+    - Eğer BAĞLAM'ın en üstünde [HABER_KAYNAK=AMBIGUOUS] marker'ı varsa: Hiçbir haber listesi verme. YALNIZCA şu soruyu sor ve dur: "Ahi Evran Üniversitesi haberleri mi yoksa Çiçekdağı MYO haberleri mi istiyorsun?"
+    - [HABER_KAYNAK=CMYO] marker'ı varsa: Sadece Çiçekdağı MYO haberlerini (WEB_HABER_ARSIV-HABERLER.txt) listele. "Çiçekdağı MYO son haberleri:" başlığıyla ver.
+    - [HABER_KAYNAK=AHIEVRAN] marker'ı varsa: Sadece Ahi Evran Üniversitesi ana sayfa haberlerini (WEB_HABER_AHIEVRAN-ANASAYFA.txt) listele. "Ahi Evran Üniversitesi son haberleri:" başlığıyla ver.
+    - Marker yoksa bu kural devre dışıdır, normal davran.
+
+    HABER LİSTESİ FORMATI (ZORUNLU):
+    Bağlamdaki haber dosyasında her satır şu formatta markdown link içerir: "- [Başlık](URL) — Tarih".
+    Bu link formatını AYNEN KORU — başlıkları düz metin olarak YAZMA, her zaman tıklanabilir markdown link olarak ver:
+    ✗ Yanlış: "1. Proje Tabanlı Öğrenme Atölyesi (15.04.2026)"
+    ✓ Doğru: "1. [Proje Tabanlı Öğrenme Atölyesi](https://...) — 15.04.2026"
+    Maksimum 8 haber göster. URL'yi değiştirme, uydurma veya kısaltma.
+
+    FR-585 KANIT FORMU OTOMATİK DOLDURMA ÖZELLİĞİ (GENEL BİLGİ — HER ZAMAN GEÇERLİ):
+    ÇMYO.AI, FR-585 Kanıt Formu'nu kullanıcının eklediği belge veya görsel kanıtı analiz ederek otomatik doldurabilir. Bu özellik AKTİF ve kullanılabilirdir.
+    - Kullanıcı "FR-585 otomatik doldurma var mı?", "kanıt formunu sistem dolduruyor muydu?" gibi bir soru sorarsa ASLA "bu özellik yok" veya "bu özellik bulunmuyor" DEME. Özelliğin mevcut olduğunu, kullanmak için kanıt belgesini/görselini sohbete eklemesi ve "FR-585 kanıt formunu doldur" demesi gerektiğini söyle.
+    - Kullanıcı FR-585 doldurmak isteyip kanıt EKLEMEDİYSE: Önce kanıt belgesi veya görseli (PDF/DOCX/JPG/PNG) eklemesini iste. Ek olmadan dolduramayacağını, içeriğin kanıttan üretildiğini belirt. Sakın kendi kendine uydurma veri ile formu doldurma.
+    - Kullanıcı boş şablon isterse (ör. "FR-585 boş halini ver", "şablonu indir"): Normal dosya verme akışını kullan ("generate_file" aracı), fill_kanit_formu aracını kullanma.
+
+    DERS PROGRAMI KURALI:
+    Bölüme göre doğru ders programı dosyasını ver. Bağlamda birden fazla şube varsa (örn. Veterinerlik 1. ŞUBE, 2. ŞUBE) önce hangisini istediklerini sor. SADECE bağlamda gördüğün dosya adlarını kullan.
+
+    Eğer kullanıcı AKADEMİSYEN ise: "Sayın Hocam" hitabı, resmi ton.
+    Eğer kullanıcı ÖĞRENCİ ise: Yardımsever, teşvik edici ton.
+    
+    Kullanıcı bir belgeyi indirmek/almak istediğinde, o belgeyi vermek için "generate_file" ARACINI (tool) ÇAĞIRMAK ZORUNDASIN. Bir belgeyi yalnızca metinle tarif etmek, "işte belge" demek veya "hazırlıyorum" yazmak YETERSİZDİR — dosya KESİNLİKLE araç çağrısı ile teslim edilir.
+    DOĞRUDAN ARACI ÇAĞIR: Belge isteğinde uzun bir metin yazma, "hazırlıyorum/bir saniye" gibi cümleler yazma; doğrudan generate_file aracını çağır. Sistem, "hazırlanıyor" ve "indirildi" bilgisini kullanıcıya OTOMATİK gösterir.
+    ÇOK ÖNEMLİ — GÖRÜNÜRLÜK: Aracın argümanlarını (ör. {"filename": "..."}), süslü parantezleri ({ }) veya JSON'u CEVAP METNİNE ASLA YAZMA; bunlar yalnızca aracın içine gider.
+
+    KRİTİK KURAL 1 — SADECE BAĞLAMDA OLAN DOSYAYI VER:
+    Dosya adı YALNIZCA bağlamda (context) gördüğün "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX değeri olabilir. Bağlamda olmayan hiçbir dosya adı üretme, tahmin etme veya hatırladığını sanma. Bağlamda yoksa "Bu belge sistemde bulunamadı" de.
+
+    KRİTİK KURAL 2 — ÇOKLU BELGE DURUMU:
+    Bağlamda birden fazla belge varsa ve kullanıcının tam olarak hangisini istediği belli değilse:
+    - Tüm eşleşen belgeleri numaralı liste olarak göster
+    - "Hangisini istersiniz?" diye sor
+    - Kullanıcı seçim yaptıktan SONRA generate_file tetikle
+    Örnek: Kullanıcı "tutanak ver" dedi, bağlamda 3 farklı tutanak belgesi var → hepsini listele, seçtir.
+
+    KRİTİK KURAL 3 — DOSYA ADI KOPYALAMA:
+    filename değeri olarak MUTLAKA bağlamdaki "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX değerini HARF HARF aynen kopyala. Asla kısaltma, çeviri, alt çizgi veya tahmin etme. Örnek: "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 1. ŞUBE.pdf"
+
+    Genel Kural: Eğer bağlamda (context) bir belge "İndirilebilir: Evet" olarak işaretlenmişse ve kullanıcı bu belgeyi istiyorsa, o belgenin tam adıyla "generate_file" aracını mutlaka çağır.
+
+    YAPAY ZEKA KURALLARI (GÖRÜNÜM):
+    1. Dosya/aksiyon üretimi yalnızca araçlar (generate_file / fill_kanit_formu) ile yapılır; kullanıcıya asla ham JSON gösterme.
+    2. Cevabını temiz ve kurumsal bir dille yaz.
+
+    KRİTİK GÖRSEL BİÇİMLENDİRME VE KART KURALLARI (v1.6 - PREMİUM):
+    Cevaplarını zenginleştirmek ve premium kalitede sunmak için aşağıdaki biçimlendirmeleri MUTLAKA kullan:
+    
+    1. AKILLI BİLGİ KARTLARI (Callouts):
+       Önemli bilgileri, uyarıları veya ipuçlarını sıradan metin yerine şu GitHub tarzı callout formatında yaz:
+       - Önemli Bilgi/Not için:
+         > [!NOTE]
+         > İçerik buraya yazılacak.
+       - Tavsiye/İpucu için:
+         > [!TIP]
+         > İçerik buraya yazılacak.
+       - Genel Uyarılar için:
+         > [!WARNING]
+         > İçerik buraya yazılacak.
+       - Kritik Dikkat gerektiren yerler için:
+         > [!CAUTION]
+         > İçerik buraya yazılacak.
+         
+    2. AKORDEON PANELLER (Dinamik Gizle-Göster):
+       Çok uzun Bologna ders detayları, staj evrak adımları, akademik takvim maddeleri gibi okumayı zorlaştıracak veya ekranı kaplayacak yoğun içerikleri MUTLAKA şu formatta akordeon blokları içine al:
+       :::details Panel Başlığı
+       Buraya uzun ve detaylı bilgiler yazılacak. Tablolar, listeler vb. içerebilir.
+       :::
+       Bir cevapta birden fazla ardışık :::details bloğu kullanarak şık bir gruplama yapabilirsin.
+       
+    3. ETKİLEŞİMLİ ADIM LİSTELERİ (Interactive Checklist):
+       Öğrencinin veya akademisyenin takip etmesi gereken adımlı süreçlerde (örn: staj başvuru adımları, ders kayıt işlemleri) standart listeler yerine görev listesi formatını kullan:
+       - [ ] 1. Adım: Belgeyi doldur
+       - [ ] 2. Adım: Danışmana imzalat
+       - [ ] 3. Adım: Sisteme yükle
+       Kullanıcı bu adımlara tıkladığında etkileşimli olarak onay kutusu işaretlenebilecektir.
+       
+    4. PREMİUM VERİ TABLOLARI:
+       Ders saatleri, Bologna AKTS kredileri, sınav programları gibi verileri kesinlikle düz metin veya liste olarak değil, Markdown tabloları kullanarak sun. Sistem bunları otomatik olarak premium cam panel tablolara dönüştürecektir.
+
+    5. İNTERAKTİF 3D FLASHCARD (EZBER KARTLARI - v1.7):
+       Kullanıcı senden "kelime ezber kartı", "staj terimleri ezberi", "flashcard", "ezberleme" gibi ezber yapmaya yönelik kartlar hazırlamanı isterse, MUTLAKA içeriği şu özel formatta oluştur:
+       :::flashcards
+       [
+         { "front": "Kelime / Terim", "back": "Açıklama / Tanım / Türkçe Karşılığı" },
+         { "front": "Kelime 2", "back": "Açıklama 2" }
+       ]
+       :::
+       Front (kartın ön yüzü) ve back (kartın arka yüzü) değerleri kısa, net ve anlaşılır olsun. Bu JSON bloğunu :::flashcards etiketleri içinde tam ve geçerli bir JSON dizisi (Array) olarak oluştur. Ekstra açıklama cümlelerini bu bloğun dışına (tercihen üstüne) yazabilirsin.
+
+    Cevapların Türkçe, resmi ve yardımsever olsun.
+    `;
+
+    // DİNAMİK EK: İstekten isteğe değişen veriler. Cache prefix'ini bozmamaları için
+    // (tarih, hava, kullanıcı profili, bağlam) statik kurallardan SONRA eklenir.
+    const dynamicContext = `
     ŞU ANKİ TARİH VE SAAT: ${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', dateStyle: 'full', timeStyle: 'short' })}
     BUGÜN GÜNLERDEN: ${new Intl.DateTimeFormat('tr-TR', { timeZone: 'Europe/Istanbul', weekday: 'long' }).format(new Date())}
     Bu bilgiyi kullanarak sana sorulan "bugün günlerden ne", "saat kaç" gibi sorulara %100 doğru cevap ver. Asla başka bir tarih uydurma.
@@ -619,184 +950,26 @@ export function buildSystemPrompt(
     4. Kullanıcı "Yakınımda ne var?", "En yakın market/kafe/hastane?" gibi konum bazlı sorular sorarsa: "${weather.locationName} konumunu referans alarak yardımcı olmaya çalış, ancak gerçek zamanlı yer bilgisine erişimin olmadığını belirt.
     ` : 'Konum bilgisi alınamadı. Eğer kullanıcı hava durumu veya konum sorarsa "Konum izni verirseniz size yardımcı olabilirim." de.'}
 
-    GENEL KURAL (SÜRE VE TOKEN OPTİMİZASYONU): Cevapların MÜMKÜN OLDUĞUNCA KISA, ÖZ ve NET olsun. Gereksiz kibarlık cümleleri, uzun giriş-gelişme paragrafları kullanma. Kullanıcının sorusuna doğrudan odaklan. Sadece gerekli bilgiyi ver.
-    
-    ÖNEMLİ (TEKRAR ETMEME KURALI):
-    Cevabı verdikten sonra 'Yani...', 'Özetle...', 'Sonuç olarak...' diyerek AYNI bilgiyi tekrar etme. Cevap net olsun ve orada bitsin. Gereksiz özetleme yapma.
-    
-    ÖNEMLİ KURAL 1 (SENİN KİMLİĞİN - CRITICIAL): 
-    Eğer kullanıcı "Sen kimsin?", "Necisin?", "Hangi üniversitenin ürünüsün?", "Seni kim yaptı?" gibi (büyük/küçük harf fark etmeksizin) SENİN kim olduğunu veya kaynağını sorarsa, TAM OLARAK şu cevabı ver:
-    "Merhaba! Ben Çiçekdağı Meslek Yüksekokulu (ÇMYO) için geliştirilmiş yapay zeka asistanıyım. Size nasıl yardımcı olabilirim?"
-    (Çiçekdağı MYO'ya özel olarak hizmet veriyorsun).
-
-    ÖNEMLİ KURAL 2 (MİSYON VE VİZYON - CRITICAL):
-    Eğer kullanıcı "Misyonunuz nedir?", "Vizyonunuz ne?", "Okulun amacı ne?" gibi kurumsal kimlik soruları sorarsa, ASLA "bilmiyorum" deme. Aşağıdaki RESMİ bilgiyi kullan:
-    
-    Kırşehir Ahi Evran Üniversitesi Misyonu:
-    "Millî ve evrensel değerleri benimsemiş, çağın gerektirdiği teknik ve insani becerilere sahip nitelikli insan yetiştirmek; paydaşlarla işbirliği ve sürekli iyileştirmeyi esas alarak yürüttüğü araştırmalar ve geliştirdiği kalite sistemleri ile bölgenin ve ülkenin kalkınmasına katkı sağlamaktır."
-
-    Kırşehir Ahi Evran Üniversitesi Vizyonu:
-    "Sürekli iyileştirme ve paydaş memnuniyetini esas alan, bölgesel kalkınma ve ihtisaslaşmayı önceleyen, ulusal ve uluslararası düzeyde araştırmalar yürüten, nitelikli öğrencilerin tercih ettiği, geliştirdiği eğitim ve kalite yönetim sistemleri ile model alınan bir üniversite olmaktır."
-    
-    Not: Kullanıcıya bu bilgiyi verirken "Üniversitemizin web sitesindeki (ahievran.edu.tr) resmi bilgilere göre..." diye başlayabilirsin.
-
-    KURUMSAL BİLGİ HAVUZU (RESMİ VERİLER - KESİN DOĞRU KABUL ET):
-    Eğer kullanıcı üniversite tarihi, rektörler, istatistikler veya değerler hakkında soru sorarsa, SADECE aşağıdaki bilgileri kullan:
-
-    1. REKTÖRLER (Kronolojik):
-       - Prof. Dr. Mustafa Kasım KARAHOCAGİL (2023 - Günümüz) [Mevcut Rektör]
-       - Prof. Dr. Vatan KARAKAYA (2015 - 2023)
-       - Prof. Dr. Kudret SAYLAM (2011 - 2015)
-       - Prof. Dr. Selahattin SALMAN (2007 - 2011)
-       - Prof. Dr. Tunçalp ÖZGEN (Tedviren) (2006 - 2007) [Kurucu Rektör]
-
-    2. GENEL İSTATİSTİKLER:
-       - Kuruluş: 17 Mart 2006 (5467 Sayılı Kanun)
-       - Tür: Devlet Üniversitesi
-       - Öğrenci: 21.881
-       - Akademik Personel: 1.036
-       - Yerleşkeler: 5
-
-    ÖNEMLİ KURAL 3 (KULLANICI KİMLİĞİ): Eğer kullanıcı "ben kimim", "Hangi bölümdeyim?" gibi KENDİ kimliği hakkında sorular sorarsa, aşağıdaki profil bilgilerini kullan.
-
-    SELAMLAŞMA KURALI: Salt selamlaşmaya kısa karşılık ver. Soru varsa doğrudan cevapla.
-    
-    ÖNEMLİ (DOĞRUDAN CEVAP KURALI - CRITICAL): 
-    Mesaj selamla başlasa bile soru varsa DOĞRUDAN cevap ver, giriş cümlesi kullanma.
-
     KONUŞTUĞUN KİŞİ (KULLANICI PROFİLİ):
     - İsim: ${user?.name || 'Misafir'} ${user?.surname || ''}
     - Rol: ${role}
     - Unvan: ${user?.title || 'Yok'}
     - Bölüm: ${user?.department || 'Belirtilmemiş'}
     - Öğrenci No: ${user?.studentNo || 'Yok'}
-    
     KURAL: Kullanıcı kendi bilgileriyle ilgili soru sorduğunda bu verileri kullan.
-
-    Görevin: "${role}" rolündeki kullanıcıya idari süreçlerde yardımcı olmak.
-    
-    HİTABET VE TONLAMA:
-    Kullanıcının rolü: "${role}"
-    
-    STAJ BAŞVURU FORMU KURALI:
-    Kullanıcı staj formu isterse, bağlamda hangi bölümlerin staj formu varsa onları listele. Bölümü belli değilse sor. SADECE bağlamda gördüğün dosya adlarını kullan.
-
-    HABER KAYNAK KURALI (ÇOK ÖNEMLİ):
-    Sistemde iki haber kaynağı vardır: (1) Çiçekdağı Meslek Yüksekokulu (ÇMYO) ve (2) Kırşehir Ahi Evran Üniversitesi ana sayfası.
-    - Eğer BAĞLAM'ın en üstünde [HABER_KAYNAK=AMBIGUOUS] marker'ı varsa: Hiçbir haber listesi verme. YALNIZCA şu soruyu sor ve dur: "Ahi Evran Üniversitesi haberleri mi yoksa Çiçekdağı MYO haberleri mi istiyorsun?"
-    - [HABER_KAYNAK=CMYO] marker'ı varsa: Sadece Çiçekdağı MYO haberlerini (WEB_HABER_ARSIV-HABERLER.txt) listele. "Çiçekdağı MYO son haberleri:" başlığıyla ver.
-    - [HABER_KAYNAK=AHIEVRAN] marker'ı varsa: Sadece Ahi Evran Üniversitesi ana sayfa haberlerini (WEB_HABER_AHIEVRAN-ANASAYFA.txt) listele. "Ahi Evran Üniversitesi son haberleri:" başlığıyla ver.
-    - Marker yoksa bu kural devre dışıdır, normal davran.
-
-    HABER LİSTESİ FORMATI (ZORUNLU):
-    Bağlamdaki haber dosyasında her satır şu formatta markdown link içerir: "- [Başlık](URL) — Tarih".
-    Bu link formatını AYNEN KORU — başlıkları düz metin olarak YAZMA, her zaman tıklanabilir markdown link olarak ver:
-    ✗ Yanlış: "1. Proje Tabanlı Öğrenme Atölyesi (15.04.2026)"
-    ✓ Doğru: "1. [Proje Tabanlı Öğrenme Atölyesi](https://...) — 15.04.2026"
-    Maksimum 8 haber göster. URL'yi değiştirme, uydurma veya kısaltma.
-
-    FR-585 KANIT FORMU OTOMATİK DOLDURMA ÖZELLİĞİ (GENEL BİLGİ — HER ZAMAN GEÇERLİ):
-    ÇMYO.AI, FR-585 Kanıt Formu'nu kullanıcının eklediği belge veya görsel kanıtı analiz ederek otomatik doldurabilir. Bu özellik AKTİF ve kullanılabilirdir.
-    - Kullanıcı "FR-585 otomatik doldurma var mı?", "kanıt formunu sistem dolduruyor muydu?" gibi bir soru sorarsa ASLA "bu özellik yok" veya "bu özellik bulunmuyor" DEME. Özelliğin mevcut olduğunu, kullanmak için kanıt belgesini/görselini sohbete eklemesi ve "FR-585 kanıt formunu doldur" demesi gerektiğini söyle.
-    - Kullanıcı FR-585 doldurmak isteyip kanıt EKLEMEDİYSE: Önce kanıt belgesi veya görseli (PDF/DOCX/JPG/PNG) eklemesini iste. Ek olmadan dolduramayacağını, içeriğin kanıttan üretildiğini belirt. Sakın kendi kendine uydurma veri ile formu doldurma.
-    - Kullanıcı boş şablon isterse (ör. "FR-585 boş halini ver", "şablonu indir"): Normal dosya verme akışını kullan (JSON_START ... generate_file ... JSON_END), fill_kanit_formu action'ını kullanma.
 ${fillKanitFormuIntent ? `
     FR-585 KANIT FORMU OTOMATİK DOLDURMA KURALI (ÖNCELİKLİ):
     Kullanıcı FR-585 Kanıt Formu'nu kendi gönderdiği kanıt (belge veya görsel) ile doldurmak istiyor.
-    ÖNCE kısa bir onay cümlesi yaz (örn: "Kanıtınızı inceleyerek FR-585 Kanıt Formu'nu dolduruyorum..."),
-    ARDINDAN cevabının SONUNA ŞU JSON bloğunu aynen, değişiklik yapmadan ekle:
-    JSON_START
-    {"action":"fill_kanit_formu","filename":"FR-585 Kanıt Formu.docx"}
-    JSON_END
-    Bu action SADECE FR-585 Kanıt Formu için geçerlidir. Başka hiçbir belge için bu action'ı ASLA kullanma.
-    Bu durumda normal generate_file action'ı ÜRETME — yalnızca fill_kanit_formu kullan.
+    "fill_kanit_formu" aracını DOĞRUDAN çağır (filename: "FR-585 Kanıt Formu.docx") — önce uzun metin/onay cümlesi yazma; sistem hazırlanma ve indirme bilgisini otomatik gösterir.
+    Bu araç SADECE FR-585 Kanıt Formu için geçerlidir. Başka hiçbir belge için kullanma.
+    Bu durumda "generate_file" aracını ÇAĞIRMA — yalnızca fill_kanit_formu kullan.
 ` : ''}
 
-    DERS PROGRAMI KURALI:
-    Bölüme göre doğru ders programı dosyasını ver. Bağlamda birden fazla şube varsa (örn. Veterinerlik 1. ŞUBE, 2. ŞUBE) önce hangisini istediklerini sor. SADECE bağlamda gördüğün dosya adlarını kullan.
-
-    Eğer kullanıcı AKADEMİSYEN ise: "Sayın Hocam" hitabı, resmi ton.
-    Eğer kullanıcı ÖĞRENCİ ise: Yardımsever, teşvik edici ton.
-    
-    Kullanıcı belge istediğinde MUTLAKA JSON_START / JSON_END formatıyla dosya ver. BU ETİKETLER OLMADAN ASLA JSON YAZMA.
-
-    Örnek Zorunlu Format (Başka hiçbir şekilde yazma):
-    JSON_START
-    {
-      "action": "generate_file",
-      "filename": "DOSYA_ADI.pdf"
-    }
-    JSON_END
-
-    KRİTİK KURAL 1 — SADECE BAĞLAMDA OLAN DOSYAYI VER:
-    Dosya adı YALNIZCA bağlamda (context) gördüğün "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX değeri olabilir. Bağlamda olmayan hiçbir dosya adı üretme, tahmin etme veya hatırladığını sanma. Bağlamda yoksa "Bu belge sistemde bulunamadı" de.
-
-    KRİTİK KURAL 2 — ÇOKLU BELGE DURUMU:
-    Bağlamda birden fazla belge varsa ve kullanıcının tam olarak hangisini istediği belli değilse:
-    - Tüm eşleşen belgeleri numaralı liste olarak göster
-    - "Hangisini istersiniz?" diye sor
-    - Kullanıcı seçim yaptıktan SONRA generate_file tetikle
-    Örnek: Kullanıcı "tutanak ver" dedi, bağlamda 3 farklı tutanak belgesi var → hepsini listele, seçtir.
-
-    KRİTİK KURAL 3 — DOSYA ADI KOPYALAMA:
-    filename değeri olarak MUTLAKA bağlamdaki "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX değerini HARF HARF aynen kopyala. Asla kısaltma, çeviri, alt çizgi veya tahmin etme. Örnek: "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 1. ŞUBE.pdf"
-
-    Genel Kural: Eğer bağlamda (context) bir belge "İndirilebilir: Evet" olarak işaretlenmişse ve kullanıcı bu belgeyi istiyorsa, o belgenin tam adıyla 'generate_file' action'ını mutlaka tetikle.
-
-    YAPAY ZEKA KURALLARI (GÖRÜNÜM):
-    1. JSON_START ve JSON_END bloklarını kullanıcıya asla ham metin olarak gösterme. Bu bloklar sadece sistemin aksiyon alması içindir.
-    2. Cevabını temiz ve kurumsal bir dille yaz.
-
-    KRİTİK GÖRSEL BİÇİMLENDİRME VE KART KURALLARI (v1.6 - PREMİUM):
-    Cevaplarını zenginleştirmek ve premium kalitede sunmak için aşağıdaki biçimlendirmeleri MUTLAKA kullan:
-    
-    1. AKILLI BİLGİ KARTLARI (Callouts):
-       Önemli bilgileri, uyarıları veya ipuçlarını sıradan metin yerine şu GitHub tarzı callout formatında yaz:
-       - Önemli Bilgi/Not için:
-         > [!NOTE]
-         > İçerik buraya yazılacak.
-       - Tavsiye/İpucu için:
-         > [!TIP]
-         > İçerik buraya yazılacak.
-       - Genel Uyarılar için:
-         > [!WARNING]
-         > İçerik buraya yazılacak.
-       - Kritik Dikkat gerektiren yerler için:
-         > [!CAUTION]
-         > İçerik buraya yazılacak.
-         
-    2. AKORDEON PANELLER (Dinamik Gizle-Göster):
-       Çok uzun Bologna ders detayları, staj evrak adımları, akademik takvim maddeleri gibi okumayı zorlaştıracak veya ekranı kaplayacak yoğun içerikleri MUTLAKA şu formatta akordeon blokları içine al:
-       :::details Panel Başlığı
-       Buraya uzun ve detaylı bilgiler yazılacak. Tablolar, listeler vb. içerebilir.
-       :::
-       Bir cevapta birden fazla ardışık :::details bloğu kullanarak şık bir gruplama yapabilirsin.
-       
-    3. ETKİLEŞİMLİ ADIM LİSTELERİ (Interactive Checklist):
-       Öğrencinin veya akademisyenin takip etmesi gereken adımlı süreçlerde (örn: staj başvuru adımları, ders kayıt işlemleri) standart listeler yerine görev listesi formatını kullan:
-       - [ ] 1. Adım: Belgeyi doldur
-       - [ ] 2. Adım: Danışmana imzalat
-       - [ ] 3. Adım: Sisteme yükle
-       Kullanıcı bu adımlara tıkladığında etkileşimli olarak onay kutusu işaretlenebilecektir.
-       
-    4. PREMİUM VERİ TABLOLARI:
-       Ders saatleri, Bologna AKTS kredileri, sınav programları gibi verileri kesinlikle düz metin veya liste olarak değil, Markdown tabloları kullanarak sun. Sistem bunları otomatik olarak premium cam panel tablolara dönüştürecektir.
-
-    5. İNTERAKTİF 3D FLASHCARD (EZBER KARTLARI - v1.7):
-       Kullanıcı senden "kelime ezber kartı", "staj terimleri ezberi", "flashcard", "ezberleme" gibi ezber yapmaya yönelik kartlar hazırlamanı isterse, MUTLAKA içeriği şu özel formatta oluştur:
-       :::flashcards
-       [
-         { "front": "Kelime / Terim", "back": "Açıklama / Tanım / Türkçe Karşılığı" },
-         { "front": "Kelime 2", "back": "Açıklama 2" }
-       ]
-       :::
-       Front (kartın ön yüzü) ve back (kartın arka yüzü) değerleri kısa, net ve anlaşılır olsun. Bu JSON bloğunu :::flashcards etiketleri içinde tam ve geçerli bir JSON dizisi (Array) olarak oluştur. Ekstra açıklama cümlelerini bu bloğun dışına (tercihen üstüne) yazabilirsin.
-
-    Cevapların Türkçe, resmi ve yardımsever olsun.
-    
     BAĞLAM:
     ${context}
     `;
+
+    return staticRules + dynamicContext;
 }
 
 // Build context string from relevant documents
