@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter';
-import { findRelevantDocuments, generateWithOpenAIStream, buildSystemPrompt, buildContext, logChatDebug, sanitizeUserMessage, detectKanitFormuFillIntent } from '@/lib/chat-engine';
+import { findRelevantDocuments, generateWithOpenAIStream, buildChatTools, buildSystemPrompt, buildContext, logChatDebug, sanitizeUserMessage, detectKanitFormuFillIntent } from '@/lib/chat-engine';
 
 const DAILY_LIMIT = 100;
 
@@ -141,11 +141,22 @@ export async function POST(req: Request) {
                     remainingQuota,
                 })));
 
+                const tools = buildChatTools(fillKanitFormuIntent);
                 let fullReply = '';
                 try {
-                    for await (const delta of generateWithOpenAIStream(message, systemPrompt, history)) {
-                        fullReply += delta;
-                        controller.enqueue(encoder.encode(sseLine({ type: 'delta', text: delta })));
+                    for await (const ev of generateWithOpenAIStream(message, systemPrompt, history, undefined, tools)) {
+                        if (ev.type === 'content') {
+                            fullReply += ev.text;
+                            controller.enqueue(encoder.encode(sseLine({ type: 'delta', text: ev.text })));
+                        } else if (ev.type === 'tool') {
+                            // Yapısal aksiyon — frontend dosya/FR-585 akışını bununla tetikler.
+                            controller.enqueue(encoder.encode(sseLine({
+                                type: 'action',
+                                action: ev.name,
+                                filename: ev.args?.filename,
+                                data: ev.args?.data,
+                            })));
+                        }
                     }
                 } catch (genErr: any) {
                     console.error('OpenAI streaming failed', genErr);

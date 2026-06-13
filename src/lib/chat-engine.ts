@@ -139,6 +139,19 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         return [...injectedDocs, ...normalDocs];
     }
 
+    // FORM KODU İLE DOĞRUDAN ARAMA (FR-011, FR-585, GGYS-FR-001 vb.)
+    // ÖNCELİK: Bölüm/Bologna bloklarından ÖNCE çalışır — açık form kodu en spesifik sinyaldir.
+    // Örn. "veterinerlik fr-011 programını ver" sorgusu, "veterinerlik" bölüm bloğuna
+    // takılıp form kodunu kaçırmasın diye buraya alındı.
+    const formCodeMatch = query.match(/\b((?:ggys[-\s]?)?fr[-\s]?\d{3,4})\b/i);
+    if (formCodeMatch) {
+        const formCode = formCodeMatch[1].replace(/\s/g, '-').toUpperCase();
+        const codeDocs = knowledgeBase
+            .filter((d: Document) => d.filename.toUpperCase().includes(formCode))
+            .map((d: Document) => ({ ...d, score: 96 }));
+        if (codeDocs.length > 0) return codeDocs;
+    }
+
     // BOLOGNA: Müfredat / ders içeriği sorularını tespit et
     const BOLOGNA_TRIGGERS = [
         'müfredat', 'ders listesi', 'ders planı', 'dersleri neler', 'yarıyıl',
@@ -365,17 +378,6 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         if (takvimdocs.length > 0) return takvimdocs;
     }
 
-    // BLOK 9c: Form kodu ile doğrudan arama (FR-585, GGYS-FR-001 vb.)
-    // Tetikleyici: Sorguda "FR-NNN" veya "GGYS-FR-NNN" pattern'i var
-    const formCodeMatch = query.match(/\b((?:ggys[-\s]?)?fr[-\s]?\d{3,4})\b/i);
-    if (formCodeMatch) {
-        const formCode = formCodeMatch[1].replace(/\s/g, '-').toUpperCase();
-        const codeDocs = knowledgeBase
-            .filter((d: Document) => d.filename.toUpperCase().includes(formCode))
-            .map((d: Document) => ({ ...d, score: 96 }));
-        if (codeDocs.length > 0) return codeDocs;
-    }
-
     // BLOK 10: Kurumsal keyword inject (bölüm/kadro keyword'leri kaldırıldı — üstteki bloklar hallediyor)
     const institutionalKeywords: Record<string, string[]> = {
         'CMYO_Akademik_Kadro.txt': ['ahmet aslan', 'deniz aygören', 'filiz özlem', 'burak ata', 'emine doğan'],
@@ -566,17 +568,77 @@ export async function generateWithOpenAI(message: string, systemPrompt: string, 
     }
 }
 
+// --- FUNCTION CALLING (TOOLS) ---
+// Aksiyonlar artık JSON string yerine yapısal tool_call ile döner.
+
+/** generate_file: bağlamdaki indirilebilir bir belgeyi üretir/indirir. Her zaman aktif. */
+const GENERATE_FILE_TOOL = {
+    type: 'function' as const,
+    function: {
+        name: 'generate_file',
+        description:
+            'Kullanıcının istediği, BAĞLAM içinde "--- BELGE BAŞLANGICI: XXX ---" olarak listelenen indirilebilir bir belgeyi üretir ve indirtir. Yalnızca kullanıcı açıkça bir belgeyi/formu indirmek/almak istediğinde çağır. Bağlamda olmayan dosya için ASLA çağırma.',
+        parameters: {
+            type: 'object',
+            properties: {
+                filename: {
+                    type: 'string',
+                    description:
+                        'Bağlamdaki "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX dosya adı; uzantı dahil HARF HARF aynen kopyalanmalı.',
+                },
+            },
+            required: ['filename'],
+            additionalProperties: false,
+        },
+    },
+};
+
+/** fill_kanit_formu: FR-585'i kullanıcının eklediği kanıtla doldurur. Sadece intent tespit edilince eklenir. */
+const FILL_KANIT_FORMU_TOOL = {
+    type: 'function' as const,
+    function: {
+        name: 'fill_kanit_formu',
+        description:
+            'FR-585 Kanıt Formu’nu, kullanıcının sohbete eklediği kanıt (belge veya görsel) ile otomatik doldurur. Yalnızca kullanıcı eklediği kanıtla FR-585 doldurmak istediğinde çağır.',
+        parameters: {
+            type: 'object',
+            properties: {
+                filename: {
+                    type: 'string',
+                    description: 'Sabit: "FR-585 Kanıt Formu.docx"',
+                },
+            },
+            required: ['filename'],
+            additionalProperties: false,
+        },
+    },
+};
+
+/** İsteğe göre tool listesini kur. fill_kanit_formu yalnızca intent varsa (maliyet kapısı) eklenir. */
+export function buildChatTools(fillKanitFormuIntent: boolean) {
+    return fillKanitFormuIntent
+        ? [GENERATE_FILE_TOOL, FILL_KANIT_FORMU_TOOL]
+        : [GENERATE_FILE_TOOL];
+}
+
+/** Stream olayı: ya içerik parçası ya da tamamlanmış bir tool çağrısı. */
+export type StreamEvent =
+    | { type: 'content'; text: string }
+    | { type: 'tool'; name: string; args: Record<string, any> };
+
 /**
- * Streaming varyant — token-token üretir. Çağıran taraf parçaları (delta) tüketir;
- * fonksiyon biriken tam metni de tutar ki action (JSON) tespiti yine tam yanıt üzerinden yapılabilsin.
+ * Streaming varyant — token-token içerik ve yapısal tool_call üretir.
+ * İçerik parçaları geldikçe { type: 'content' } yield edilir; stream bitiminde
+ * birikmiş tool çağrıları { type: 'tool' } olarak yield edilir.
  * Hata durumunda exception fırlatır (çağıran SSE error event'i gönderir).
  */
 export async function* generateWithOpenAIStream(
     message: string,
     systemPrompt: string,
     history: any[] = [],
-    imageDataUrl?: string
-): AsyncGenerator<string, void, unknown> {
+    imageDataUrl?: string,
+    tools?: any[]
+): AsyncGenerator<StreamEvent, void, unknown> {
     const { openai, modelToUse, messages } = buildOpenAIRequest(message, systemPrompt, history, imageDataUrl);
 
     const stream = await openai.chat.completions.create({
@@ -585,11 +647,38 @@ export async function* generateWithOpenAIStream(
         temperature: 0.5,
         messages,
         stream: true,
+        ...(tools && tools.length > 0 ? { tools, tool_choice: 'auto' as const } : {}),
     });
 
+    // Tool çağrıları parça parça gelir (index'e göre argümanlar birikir).
+    const toolAcc: Record<number, { name: string; args: string }> = {};
+
     for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta?.content;
-        if (delta) yield delta;
+        const delta = chunk.choices[0]?.delta;
+        if (delta?.content) {
+            yield { type: 'content', text: delta.content };
+        }
+        if (delta?.tool_calls) {
+            for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? 0;
+                if (!toolAcc[idx]) toolAcc[idx] = { name: '', args: '' };
+                if (tc.function?.name) toolAcc[idx].name = tc.function.name;
+                if (tc.function?.arguments) toolAcc[idx].args += tc.function.arguments;
+            }
+        }
+    }
+
+    for (const key of Object.keys(toolAcc)) {
+        const t = toolAcc[Number(key)];
+        if (!t.name) continue;
+        let parsed: Record<string, any> = {};
+        try {
+            parsed = t.args ? JSON.parse(t.args) : {};
+        } catch {
+            // Bozuk argüman — aksiyonu atla (güvenli taraf).
+            continue;
+        }
+        yield { type: 'tool', name: t.name, args: parsed };
     }
 }
 
@@ -678,7 +767,7 @@ export function buildSystemPrompt(
     ÇMYO.AI, FR-585 Kanıt Formu'nu kullanıcının eklediği belge veya görsel kanıtı analiz ederek otomatik doldurabilir. Bu özellik AKTİF ve kullanılabilirdir.
     - Kullanıcı "FR-585 otomatik doldurma var mı?", "kanıt formunu sistem dolduruyor muydu?" gibi bir soru sorarsa ASLA "bu özellik yok" veya "bu özellik bulunmuyor" DEME. Özelliğin mevcut olduğunu, kullanmak için kanıt belgesini/görselini sohbete eklemesi ve "FR-585 kanıt formunu doldur" demesi gerektiğini söyle.
     - Kullanıcı FR-585 doldurmak isteyip kanıt EKLEMEDİYSE: Önce kanıt belgesi veya görseli (PDF/DOCX/JPG/PNG) eklemesini iste. Ek olmadan dolduramayacağını, içeriğin kanıttan üretildiğini belirt. Sakın kendi kendine uydurma veri ile formu doldurma.
-    - Kullanıcı boş şablon isterse (ör. "FR-585 boş halini ver", "şablonu indir"): Normal dosya verme akışını kullan (JSON_START ... generate_file ... JSON_END), fill_kanit_formu action'ını kullanma.
+    - Kullanıcı boş şablon isterse (ör. "FR-585 boş halini ver", "şablonu indir"): Normal dosya verme akışını kullan ("generate_file" aracı), fill_kanit_formu aracını kullanma.
 
     DERS PROGRAMI KURALI:
     Bölüme göre doğru ders programı dosyasını ver. Bağlamda birden fazla şube varsa (örn. Veterinerlik 1. ŞUBE, 2. ŞUBE) önce hangisini istediklerini sor. SADECE bağlamda gördüğün dosya adlarını kullan.
@@ -686,15 +775,9 @@ export function buildSystemPrompt(
     Eğer kullanıcı AKADEMİSYEN ise: "Sayın Hocam" hitabı, resmi ton.
     Eğer kullanıcı ÖĞRENCİ ise: Yardımsever, teşvik edici ton.
     
-    Kullanıcı belge istediğinde MUTLAKA JSON_START / JSON_END formatıyla dosya ver. BU ETİKETLER OLMADAN ASLA JSON YAZMA.
-
-    Örnek Zorunlu Format (Başka hiçbir şekilde yazma):
-    JSON_START
-    {
-      "action": "generate_file",
-      "filename": "DOSYA_ADI.pdf"
-    }
-    JSON_END
+    Kullanıcı bir belgeyi indirmek/almak istediğinde, o belgeyi vermek için "generate_file" ARACINI (tool) ÇAĞIRMAK ZORUNDASIN. Bir belgeyi yalnızca metinle tarif etmek, "işte belge" demek veya "hazırlıyorum" yazmak YETERSİZDİR — dosya KESİNLİKLE araç çağrısı ile teslim edilir.
+    DOĞRUDAN ARACI ÇAĞIR: Belge isteğinde uzun bir metin yazma, "hazırlıyorum/bir saniye" gibi cümleler yazma; doğrudan generate_file aracını çağır. Sistem, "hazırlanıyor" ve "indirildi" bilgisini kullanıcıya OTOMATİK gösterir.
+    ÇOK ÖNEMLİ — GÖRÜNÜRLÜK: Aracın argümanlarını (ör. {"filename": "..."}), süslü parantezleri ({ }) veya JSON'u CEVAP METNİNE ASLA YAZMA; bunlar yalnızca aracın içine gider.
 
     KRİTİK KURAL 1 — SADECE BAĞLAMDA OLAN DOSYAYI VER:
     Dosya adı YALNIZCA bağlamda (context) gördüğün "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX değeri olabilir. Bağlamda olmayan hiçbir dosya adı üretme, tahmin etme veya hatırladığını sanma. Bağlamda yoksa "Bu belge sistemde bulunamadı" de.
@@ -709,10 +792,10 @@ export function buildSystemPrompt(
     KRİTİK KURAL 3 — DOSYA ADI KOPYALAMA:
     filename değeri olarak MUTLAKA bağlamdaki "--- BELGE BAŞLANGICI: XXX ---" tagındaki XXX değerini HARF HARF aynen kopyala. Asla kısaltma, çeviri, alt çizgi veya tahmin etme. Örnek: "FR-011 Haftalık Ders Programı Formu Veterinerlik Bölümü 1. ŞUBE.pdf"
 
-    Genel Kural: Eğer bağlamda (context) bir belge "İndirilebilir: Evet" olarak işaretlenmişse ve kullanıcı bu belgeyi istiyorsa, o belgenin tam adıyla 'generate_file' action'ını mutlaka tetikle.
+    Genel Kural: Eğer bağlamda (context) bir belge "İndirilebilir: Evet" olarak işaretlenmişse ve kullanıcı bu belgeyi istiyorsa, o belgenin tam adıyla "generate_file" aracını mutlaka çağır.
 
     YAPAY ZEKA KURALLARI (GÖRÜNÜM):
-    1. JSON_START ve JSON_END bloklarını kullanıcıya asla ham metin olarak gösterme. Bu bloklar sadece sistemin aksiyon alması içindir.
+    1. Dosya/aksiyon üretimi yalnızca araçlar (generate_file / fill_kanit_formu) ile yapılır; kullanıcıya asla ham JSON gösterme.
     2. Cevabını temiz ve kurumsal bir dille yaz.
 
     KRİTİK GÖRSEL BİÇİMLENDİRME VE KART KURALLARI (v1.6 - PREMİUM):
@@ -826,13 +909,9 @@ export function buildSystemPrompt(
 ${fillKanitFormuIntent ? `
     FR-585 KANIT FORMU OTOMATİK DOLDURMA KURALI (ÖNCELİKLİ):
     Kullanıcı FR-585 Kanıt Formu'nu kendi gönderdiği kanıt (belge veya görsel) ile doldurmak istiyor.
-    ÖNCE kısa bir onay cümlesi yaz (örn: "Kanıtınızı inceleyerek FR-585 Kanıt Formu'nu dolduruyorum..."),
-    ARDINDAN cevabının SONUNA ŞU JSON bloğunu aynen, değişiklik yapmadan ekle:
-    JSON_START
-    {"action":"fill_kanit_formu","filename":"FR-585 Kanıt Formu.docx"}
-    JSON_END
-    Bu action SADECE FR-585 Kanıt Formu için geçerlidir. Başka hiçbir belge için bu action'ı ASLA kullanma.
-    Bu durumda normal generate_file action'ı ÜRETME — yalnızca fill_kanit_formu kullan.
+    "fill_kanit_formu" aracını DOĞRUDAN çağır (filename: "FR-585 Kanıt Formu.docx") — önce uzun metin/onay cümlesi yazma; sistem hazırlanma ve indirme bilgisini otomatik gösterir.
+    Bu araç SADECE FR-585 Kanıt Formu için geçerlidir. Başka hiçbir belge için kullanma.
+    Bu durumda "generate_file" aracını ÇAĞIRMA — yalnızca fill_kanit_formu kullan.
 ` : ''}
 
     BAĞLAM:

@@ -18,7 +18,21 @@ import { useToast } from '@/components/ui/Toast';
 
 // Robust regex for stripping technical JSON action blocks from the UI
 const JSON_CLEAN_REGEX = /(?:```(?:json)?\s*)?JSON_START\s*[\s\S]*?JSON_END(?:\s*```)?/gi;
-const stripJsonBlock = (content: string) => content.replace(JSON_CLEAN_REGEX, '').trim();
+// Güvenlik ağı: model bazen tool argümanlarını ({ "filename": ... }) metne sızdırır — onları da temizle.
+const ACTION_JSON_REGEX = /\{[\s\S]*?"(?:filename|file_name|action)"[\s\S]*?\}/gi;
+const stripJsonBlock = (content: string) =>
+  content.replace(JSON_CLEAN_REGEX, '').replace(ACTION_JSON_REGEX, '').trim();
+
+// Canlı akış için: tamamlanmış bloklara ek olarak, HENÜZ kapanmamış (yarım) bir
+// action JSON'u veya JSON_START'ı da gizle — kullanıcı yazılırken görmesin.
+const cleanStreamingContent = (content: string) => {
+  let out = stripJsonBlock(content);
+  const partialObj = out.search(/\{[^}]*"(?:filename|file_name|action)"/i);
+  if (partialObj !== -1) out = out.slice(0, partialObj);
+  const js = out.indexOf('JSON_START');
+  if (js !== -1) out = out.slice(0, js);
+  return out.trimEnd();
+};
 
 // --- v1.6 & v1.7 İnteraktif Markdown, Akıllı Kartlar & 3D Flashcard Geliştirmeleri ---
 
@@ -1134,6 +1148,7 @@ export default function Home() {
       let fullReply = '';
       let createdNewConvo = false;
       let streamError: string | null = null;
+      let pendingAction: any = null;
 
       if (!response.body) {
         throw new Error('Yanıt akışı alınamadı.');
@@ -1168,11 +1183,11 @@ export default function Home() {
             }
           } else if (payload.type === 'delta') {
             fullReply += payload.text;
-            // JSON_START bloğunu canlı görünümden gizle (tamamlanınca işlenecek).
-            const display = fullReply.includes('JSON_START')
-              ? fullReply.split('JSON_START')[0].trimEnd()
-              : fullReply;
-            setStreamingText(display);
+            // Teknik aksiyon JSON'unu (tam/yarım) canlı görünümden gizle.
+            setStreamingText(cleanStreamingContent(fullReply));
+          } else if (payload.type === 'action') {
+            // Yapısal tool_call (Faz 2) — dosya/FR-585 akışını tetikler.
+            pendingAction = { action: payload.action, filename: payload.filename, data: payload.data };
           } else if (payload.type === 'error') {
             streamError = payload.error || 'Yanıt üretilemedi.';
           }
@@ -1188,22 +1203,25 @@ export default function Home() {
         return;
       }
 
-      let botContent = fullReply || 'Cevap alınamadı.';
+      let botContent = fullReply || (pendingAction ? '' : 'Cevap alınamadı.');
       let fileAttachment: string | null = null;
 
-      // Check for JSON block (PDF Generation Trigger)
-      const jsonMatch = botContent.match(JSON_CLEAN_REGEX);
-      if (jsonMatch) {
-        try {
+      // Aksiyon çözümle: önce yapısal tool_call (Faz 2), yoksa geriye dönük JSON bloğu (fallback).
+      let actionData: any = pendingAction;
+      if (!actionData) {
+        const jsonMatch = botContent.match(JSON_CLEAN_REGEX);
+        if (jsonMatch) {
           const lastMatch = jsonMatch[jsonMatch.length - 1];
           const jsonInside = lastMatch.match(/JSON_START\s*([\s\S]*?)\s*JSON_END/i);
-          
           if (jsonInside) {
-            const jsonStr = jsonInside[1].trim();
-            const actionData = JSON.parse(jsonStr);
-            const targetFilename = actionData.filename || actionData.file_name;
-            
-            botContent = stripJsonBlock(botContent);
+            try { actionData = JSON.parse(jsonInside[1].trim()); } catch {}
+          }
+        }
+      }
+      if (actionData) {
+        try {
+          const targetFilename = actionData.filename || actionData.file_name;
+          botContent = stripJsonBlock(botContent);
 
             if (actionData.action === 'fill_kanit_formu') {
               // FR-585 Kanıt Formu — kullanıcının yüklediği kanıtla otomatik doldurma
@@ -1304,14 +1322,13 @@ export default function Home() {
                 botContent += `\n\n❌ ${errMsg}`;
               }
             }
-          }
         } catch (e) {
-          console.error("JSON Parse Error", e);
+          console.error("Action execution error", e);
         }
       }
 
-      // Stream tamamlandı — canlı mesajı nihai içerikle (JSON bloğu temizlenmiş) güncelle.
-      const finalContent = stripJsonBlock(botContent);
+      // Stream tamamlandı — canlı mesajı nihai içerikle (teknik JSON temizlenmiş) güncelle.
+      const finalContent = cleanStreamingContent(botContent);
       setStreamingId(null);
       setStreamingText('');
       setMessages((prev) => prev.map((m) =>
