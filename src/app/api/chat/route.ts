@@ -13,17 +13,22 @@ function sseLine(obj: unknown): string {
 
 export async function POST(req: Request) {
     try {
-        // Rate limiting
         const ip = getClientIP(req);
-        const rateCheck = await checkRateLimit(`chat:${ip}`, RATE_LIMITS.chat);
+        const { message: rawMessage, history, user, weather, conversationId, attachmentImage } = await req.json();
+
+        const role = user?.role || 'student';
+        const userEmail = user?.email;
+
+        // Rate limiting — kullanıcı varsa e-posta bazlı (üniversitede paylaşımlı NAT IP'sinin
+        // tüm öğrencileri haksız engellemesini önler ve kişi bazında spam'i sınırlar); yoksa IP.
+        const rlKey = userEmail ? `chat:user:${userEmail}` : `chat:ip:${ip}`;
+        const rateCheck = await checkRateLimit(rlKey, RATE_LIMITS.chat);
         if (!rateCheck.allowed) {
             return NextResponse.json(
                 { error: `Çok fazla mesaj gönderildi. ${rateCheck.resetIn} saniye sonra tekrar deneyin.` },
                 { status: 429 }
             );
         }
-
-        const { message: rawMessage, history, user, weather, conversationId, attachmentImage } = await req.json();
 
         // Input validation & sanitization
         if (!rawMessage || typeof rawMessage !== 'string') {
@@ -33,9 +38,6 @@ export async function POST(req: Request) {
         if (message.length === 0) {
             return NextResponse.json({ error: 'Mesaj boş olamaz.' }, { status: 400 });
         }
-
-        const role = user?.role || 'student';
-        const userEmail = user?.email;
 
         let remainingQuota: number | null = null;
 

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter';
+import { hashToken } from '@/lib/tokens';
 
 export async function POST(request: Request) {
     try {
@@ -33,10 +34,10 @@ export async function POST(request: Request) {
         // Token expires in 1 hour
         const expiryDate = new Date(Date.now() + 3600000);
 
-        // 3. Save Token to Database
+        // 3. Save Token to Database (ham token e-postaya gider, DB'ye hash'i yazılır)
         await sql`
-            UPDATE users 
-            SET reset_token = ${resetToken}, reset_token_expiry = ${expiryDate.toISOString()}
+            UPDATE users
+            SET reset_token = ${hashToken(resetToken)}, reset_token_expiry = ${expiryDate.toISOString()}
             WHERE email = ${email}
         `;
 

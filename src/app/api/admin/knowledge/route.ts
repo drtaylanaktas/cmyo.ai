@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getSession } from '@/lib/auth';
 import { storeDocumentEmbedding } from '@/lib/embeddings';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 
 export async function GET(request: Request) {
     try {
@@ -10,6 +11,9 @@ export async function GET(request: Request) {
         if (!session || session.role !== 'admin') {
             return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 403 });
         }
+
+        const rl = await checkRateLimit(`admin:${session.email}`, RATE_LIMITS.admin);
+        if (!rl.allowed) return NextResponse.json({ error: `Çok fazla istek. ${rl.resetIn} sn sonra deneyin.` }, { status: 429 });
 
         const { searchParams } = new URL(request.url);
         const search = searchParams.get('search') || '';

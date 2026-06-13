@@ -1,6 +1,7 @@
 import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { hashToken } from '@/lib/tokens';
 
 export async function POST(request: Request) {
     try {
@@ -15,8 +16,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Şifre en az 8 karakter olmalıdır.' }, { status: 400 });
         }
 
-        // Find user by token
-        const userResult = await sql`SELECT id, email, reset_token_expiry FROM users WHERE reset_token = ${token}`;
+        // Token hash'i ile bul; eski (ham saklanan) kayıtlar için geriye dönük OR.
+        const userResult = await sql`
+            SELECT id, email, reset_token_expiry FROM users
+            WHERE reset_token = ${hashToken(token)} OR reset_token = ${token}
+        `;
 
         if (userResult.rows.length === 0) {
             return NextResponse.json({ error: 'Geçersiz veya süresi dolmuş bağlantı.' }, { status: 400 });

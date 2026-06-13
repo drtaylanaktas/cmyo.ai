@@ -115,4 +115,5 @@ export const RATE_LIMITS = {
     chat: { maxRequests: 30, windowSeconds: 60 } as RateLimitConfig,
     telegramCode: { maxRequests: 3, windowSeconds: 10 * 60 } as RateLimitConfig,
     changePassword: { maxRequests: 5, windowSeconds: 60 * 60 } as RateLimitConfig,
+    admin: { maxRequests: 120, windowSeconds: 60 } as RateLimitConfig,
 };

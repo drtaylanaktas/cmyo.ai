@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getSession } from '@/lib/auth';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 
 async function requireAdmin() {
     const session = await getSession();
@@ -11,6 +12,9 @@ async function requireAdmin() {
 export async function GET(req: Request) {
     const session = await requireAdmin();
     if (!session) return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
+
+    const rl = await checkRateLimit(`admin:${session.email}`, RATE_LIMITS.admin);
+    if (!rl.allowed) return NextResponse.json({ error: `Çok fazla istek. ${rl.resetIn} sn sonra deneyin.` }, { status: 429 });
 
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get('limit') || '20');

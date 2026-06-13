@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { sendVerificationEmail } from '@/lib/email';
 import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limiter';
+import { hashToken } from '@/lib/tokens';
 
 export async function POST(request: Request) {
     try {
@@ -72,13 +73,13 @@ export async function POST(request: Request) {
         // Hash password (12 rounds for better security)
         const hashedPassword = await bcrypt.hash(password, 12);
 
-        // Generate verification token
+        // Generate verification token (ham e-postaya gider, DB'ye hash'i yazılır)
         const verificationToken = crypto.randomBytes(32).toString('hex');
 
         // Insert user
         await sql`
             INSERT INTO users (name, surname, email, password, role, title, academic_unit, avatar, verification_token, email_verified, terms_accepted, terms_accepted_at)
-            VALUES (${name}, ${surname}, ${email}, ${hashedPassword}, ${role}, ${title || null}, ${academicUnit || null}, ${avatar || null}, ${verificationToken}, FALSE, TRUE, ${termsAcceptedAt || new Date().toISOString()})
+            VALUES (${name}, ${surname}, ${email}, ${hashedPassword}, ${role}, ${title || null}, ${academicUnit || null}, ${avatar || null}, ${hashToken(verificationToken)}, FALSE, TRUE, ${termsAcceptedAt || new Date().toISOString()})
         `;
 
         // Send verification email
