@@ -11,6 +11,7 @@
 
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
+import { storeDocumentEmbedding } from '@/lib/embeddings';
 
 export const maxDuration = 60;
 
@@ -169,9 +170,14 @@ export async function GET(request: Request) {
                 category   = EXCLUDED.category,
                 priority   = EXCLUDED.priority,
                 updated_at = CURRENT_TIMESTAMP
-            RETURNING (xmax = 0) AS is_insert
+            RETURNING id, (xmax = 0) AS is_insert
         `;
         const isNew = upsertResult.rows[0]?.is_insert;
+
+        // İçerik (günlük haber listesi) değişti — embedding'i tazele.
+        if (upsertResult.rows[0]?.id) {
+            await storeDocumentEmbedding(upsertResult.rows[0].id, FILENAME, content);
+        }
 
         let persisted = 0;
         for (const item of items) {

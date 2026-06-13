@@ -19,6 +19,7 @@
 
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
+import { storeDocumentEmbedding } from '@/lib/embeddings';
 
 export const maxDuration = 60;
 
@@ -193,15 +194,21 @@ async function scrapeNews(): Promise<{ count: number; saved: boolean; persisted:
         lines.join('\n'),
     ].join('\n').replace(/\0/g, '');
 
-    await sql`
+    const newsUpsert = await sql`
         INSERT INTO knowledge_documents (filename, content, category, priority)
         VALUES (${NEWS_FILENAME}, ${content}, ${NEWS_CATEGORY}, ${NEWS_PRIORITY})
         ON CONFLICT (filename) DO UPDATE
         SET content    = EXCLUDED.content,
             category   = EXCLUDED.category,
             priority   = EXCLUDED.priority,
-            updated_at = CURRENT_TIMESTAMP;
+            updated_at = CURRENT_TIMESTAMP
+        RETURNING id;
     `;
+
+    // İçerik (günlük haber listesi) değişti — embedding'i tazele.
+    if (newsUpsert.rows[0]?.id) {
+        await storeDocumentEmbedding(newsUpsert.rows[0].id, NEWS_FILENAME, content);
+    }
 
     let persisted = 0;
     for (const item of items) {

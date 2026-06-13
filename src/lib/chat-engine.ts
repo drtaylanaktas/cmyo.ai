@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { sql } from '@vercel/postgres';
+import { embedText, toVectorLiteral } from './embeddings';
 
 // Define Document interface
 export interface Document {
@@ -60,6 +61,28 @@ export async function getKnowledgeBase(): Promise<Document[]> {
     } catch (error) {
         console.error('Error fetching knowledge base from DB:', error);
         return globalKnowledgeCache;
+    }
+}
+
+/**
+ * Vektör (semantik) arama — sorgu embedding'i ile en yakın belgeleri pgvector'dan getirir.
+ * Hata/erişim sorununda boş döner ki keyword araması tek başına çalışsın (graceful degrade).
+ */
+async function vectorSearchIds(query: string, limit: number): Promise<{ id: number; similarity: number }[]> {
+    try {
+        const emb = await embedText(query);
+        const literal = toVectorLiteral(emb);
+        const { rows } = await sql`
+            SELECT id, 1 - (embedding <=> ${literal}::vector) AS similarity
+            FROM knowledge_documents
+            WHERE embedding IS NOT NULL
+            ORDER BY embedding <=> ${literal}::vector
+            LIMIT ${limit}
+        `;
+        return rows.map((r: any) => ({ id: Number(r.id), similarity: Number(r.similarity) }));
+    } catch (e) {
+        console.error('vectorSearch error:', e);
+        return [];
     }
 }
 
@@ -427,7 +450,9 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         return [...injectedDocs, ...normalScores];
     }
 
-    // BLOK 11: Genel Skorlama (fallback) — web-akademik/bolum kategorilerine +3 bonus
+    // BLOK 11: HİBRİT Genel Skorlama (fallback) — keyword + vektör (semantik) füzyonu.
+    // Yüksek-isabetli özel bloklar (form, ders programı, staj, haber, takvim, bölüm)
+    // yukarıda zaten ele alındı; burası paraphrase/eş anlamlı serbest soruları yakalar.
     if (!query || knowledgeBase.length === 0) return [];
 
     const terms = queryLower.split(' ').filter((t: string) => t.length > 2);
@@ -451,11 +476,37 @@ export async function findRelevantDocuments(query: string): Promise<Document[]> 
         return { doc, score };
     });
 
-    return scores
+    const keywordRanked = scores
         .filter((s: { score: number }) => s.score > 0)
-        .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+        .sort((a: { score: number }, b: { score: number }) => b.score - a.score);
+
+    // Vektör (semantik) sonuçlar — keyword eşleşmesi olmasa bile anlamca yakın belgeleri getirir.
+    const vectorResults = await vectorSearchIds(query, 20);
+
+    // Hata/sonuç yoksa eski davranış: yalnızca keyword.
+    if (vectorResults.length === 0) {
+        return keywordRanked.slice(0, 12).map((s) => s.doc);
+    }
+
+    // RECIPROCAL RANK FUSION (RRF): iki sıralamadaki konumdan ölçek-bağımsız füzyon.
+    const RRF_K = 60;
+    const byId = new Map<number, Document>();
+    for (const d of knowledgeBase) if (d.id != null) byId.set(d.id, d);
+
+    const fused = new Map<number, number>();
+    keywordRanked.forEach((s, rank) => {
+        if (s.doc.id == null) return;
+        fused.set(s.doc.id, (fused.get(s.doc.id) || 0) + 1 / (RRF_K + rank));
+    });
+    vectorResults.forEach((v, rank) => {
+        fused.set(v.id, (fused.get(v.id) || 0) + 1 / (RRF_K + rank));
+    });
+
+    return [...fused.entries()]
+        .sort((a, b) => b[1] - a[1])
         .slice(0, 12)
-        .map((s: { doc: Document }) => s.doc);
+        .map(([id]) => byId.get(id))
+        .filter((d): d is Document => !!d);
 }
 
 // Prompt injection saldırılarına karşı mesajı temizler

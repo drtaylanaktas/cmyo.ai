@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getSession } from '@/lib/auth';
+import { storeDocumentEmbedding } from '@/lib/embeddings';
 
 export async function GET(
     request: Request,
@@ -74,6 +75,9 @@ export async function PUT(
         if (result.rows.length === 0) {
             return NextResponse.json({ error: 'Güncellenecek belge bulunamadı' }, { status: 404 });
         }
+
+        // İçerik değişti — embedding'i yeniden üret.
+        await storeDocumentEmbedding(result.rows[0].id, filename, content);
 
         // Signal cache invalidation
         (global as any).knowledgeCacheInvalidated = true;

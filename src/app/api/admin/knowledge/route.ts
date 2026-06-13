@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { getSession } from '@/lib/auth';
+import { storeDocumentEmbedding } from '@/lib/embeddings';
 
 export async function GET(request: Request) {
     try {
@@ -82,6 +83,9 @@ export async function POST(request: Request) {
             VALUES (${filename}, ${content}, ${category || 'genel'}, ${priority || 0}, ${file_url || null})
             RETURNING id, filename, category, priority, file_url, updated_at
         `;
+
+        // Yeni belge için embedding üret (hibrit aramada görünür olsun).
+        await storeDocumentEmbedding(result.rows[0].id, filename, content);
 
         // Signal to invalidate the in-memory cache
         (global as any).knowledgeCacheInvalidated = true;
