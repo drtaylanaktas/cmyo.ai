@@ -1,8 +1,28 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, Users, MessageCircle, User, Bot, Clock, Mail, Building, Calendar, ArrowLeft, Search } from 'lucide-react';
+import { Loader2, Users, MessageCircle, User, Bot, Clock, Mail, Building, Calendar, ArrowLeft, Search, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+/** Bir export endpoint'inden blob'u indirir; dosya adını Content-Disposition'dan alır. */
+async function downloadDocx(url: string, fallbackName: string): Promise<string | null> {
+    const res = await fetch(url);
+    if (!res.ok) {
+        let msg = 'İndirme başarısız.';
+        try { msg = (await res.json()).error || msg; } catch {}
+        return msg;
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const m = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^;"'\n]+)/i);
+    const name = m ? decodeURIComponent(m[1].trim()) : fallbackName;
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(objUrl);
+    return null;
+}
 
 interface UserRecord {
     id: number;
@@ -54,6 +74,18 @@ export default function UsersPage() {
     const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [msgsLoading, setMsgsLoading] = useState(false);
+    const [exportingAll, setExportingAll] = useState(false);
+
+    const handleExportAll = async () => {
+        if (!selectedUser) return;
+        setExportingAll(true);
+        const err = await downloadDocx(
+            `/api/admin/users/conversations/export?email=${encodeURIComponent(selectedUser.email)}`,
+            'sohbet_gecmisi.docx'
+        );
+        if (err) alert(err);
+        setExportingAll(false);
+    };
 
     // Debounce search
     useEffect(() => {
@@ -310,9 +342,20 @@ export default function UsersPage() {
 
                         <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-800/40">
                             <h4 className="text-sm font-semibold text-neutral-300">Sohbet Geçmişi</h4>
-                            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                                {conversations.length} sohbet
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                                    {conversations.length} sohbet
+                                </span>
+                                <button
+                                    onClick={handleExportAll}
+                                    disabled={exportingAll || conversations.length === 0}
+                                    title="Bu kullanıcının tüm sohbetlerini Word olarak indir"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    {exportingAll ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                                    Tümünü İndir
+                                </button>
+                            </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar">

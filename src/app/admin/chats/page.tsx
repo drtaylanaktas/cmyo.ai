@@ -1,8 +1,28 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, MessageCircle, User, Bot, Clock } from 'lucide-react';
+import { Loader2, MessageCircle, User, Bot, Clock, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+/** Bir export endpoint'inden blob'u indirir; dosya adını Content-Disposition'dan alır. */
+async function downloadDocx(url: string, fallbackName: string): Promise<string | null> {
+    const res = await fetch(url);
+    if (!res.ok) {
+        let msg = 'İndirme başarısız.';
+        try { msg = (await res.json()).error || msg; } catch {}
+        return msg;
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const m = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^;"'\n]+)/i);
+    const name = m ? decodeURIComponent(m[1].trim()) : fallbackName;
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(objUrl);
+    return null;
+}
 
 interface Conversation {
     id: string;
@@ -30,6 +50,15 @@ export default function ChatsPage() {
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [messagesLoading, setMessagesLoading] = useState(false);
+    const [exporting, setExporting] = useState(false);
+
+    const handleExport = async () => {
+        if (!selectedChatId) return;
+        setExporting(true);
+        const err = await downloadDocx(`/api/admin/chats/${selectedChatId}/export`, 'sohbet.docx');
+        if (err) alert(err);
+        setExporting(false);
+    };
 
     const fetchConversations = async (resetPage = false) => {
         setLoading(true);
@@ -166,6 +195,15 @@ export default function ChatsPage() {
                                     <span>{new Date(conversations.find(c => c.id === selectedChatId)?.created_at || '').toLocaleString('tr-TR')}</span>
                                 </div>
                             </div>
+                            <button
+                                onClick={handleExport}
+                                disabled={exporting || messages.length === 0}
+                                title="Bu sohbeti Word olarak indir"
+                                className="ml-auto shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                {exporting ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                                Word İndir
+                            </button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-neutral-950/30">

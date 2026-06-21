@@ -64,14 +64,17 @@ const nextConfig: NextConfig = {
     },
 };
 
-// Sentry ile sar — kaynak harita yükleme (authToken) opsiyonel; runtime hata
-// yakalama authToken olmadan da çalışır. silent: gereksiz build log'unu kapatır.
-export default withSentryConfig(nextConfig, {
-    silent: !process.env.CI,
-    // Kaynak harita yükleme yalnızca SENTRY_AUTH_TOKEN + org/project ile yapılır;
-    // tanımlı değilse otomatik atlanır (hata yakalama yine çalışır).
-    org: process.env.SENTRY_ORG,
-    project: process.env.SENTRY_PROJECT,
-    widenClientFileUpload: true,
-    disableLogger: true,
-});
+// Sentry yalnızca PRODUCTION build'inde sarılır. Lokal `next dev` (development),
+// Sentry'nin webpack tabanlı işlemesini yüklemez → Turbopack dev'i hızlı kalır.
+// Production'da hata izleme + kaynak harita (org/project/authToken tanımlıysa) tam çalışır.
+const withSentry = (cfg: NextConfig): NextConfig =>
+    process.env.NODE_ENV === 'production'
+        ? (withSentryConfig(cfg, {
+              silent: !process.env.CI,
+              org: process.env.SENTRY_ORG,
+              project: process.env.SENTRY_PROJECT,
+              widenClientFileUpload: true,
+          }) as NextConfig)
+        : cfg;
+
+export default withSentry(nextConfig);
