@@ -1,7 +1,8 @@
-// Next.js instrumentation — sunucu/edge başlangıcında Sentry'yi yükler.
-import * as Sentry from '@sentry/nextjs';
+// Next.js instrumentation — Sentry yalnızca PRODUCTION'da yüklenir.
+// Lokal dev'de @sentry/nextjs hiç import edilmez → derleme hızlı kalır.
 
 export async function register() {
+    if (process.env.NODE_ENV !== 'production') return;
     if (process.env.NEXT_RUNTIME === 'nodejs') {
         await import('./sentry.server.config');
     }
@@ -10,5 +11,9 @@ export async function register() {
     }
 }
 
-// Sunucu tarafı (RSC/route) hatalarını Sentry'ye iletir.
-export const onRequestError = Sentry.captureRequestError;
+// Sunucu tarafı (RSC/route) hatalarını Sentry'ye iletir (yalnızca production).
+export async function onRequestError(...args: unknown[]) {
+    if (process.env.NODE_ENV !== 'production') return;
+    const Sentry = await import('@sentry/nextjs');
+    return (Sentry.captureRequestError as (...a: unknown[]) => unknown)(...args);
+}
