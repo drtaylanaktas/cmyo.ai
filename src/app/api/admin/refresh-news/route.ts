@@ -28,16 +28,16 @@ export async function POST(request: Request) {
 
     logger.audit('ADMIN_NEWS_REFRESH', { admin: session.email, sources });
 
-    const results = [];
-    for (const source of sources) {
-        try {
-            results.push(await runNewsScrape(source));
-        } catch (err) {
-            console.error(`[refresh-news] ${source} hata:`, err);
-            Sentry.captureException(err, { tags: { area: 'admin-refresh-news', source } });
-            results.push({ source, ok: false, count: 0, persisted: 0, method: 'none', message: String(err) });
-        }
-    }
+    // Kaynakları PARALEL çalıştır → toplam süre en yavaş kaynak kadar (60s bütçesini aşmaz).
+    const results = await Promise.all(
+        sources.map((source) =>
+            runNewsScrape(source).catch((err) => {
+                console.error(`[refresh-news] ${source} hata:`, err);
+                Sentry.captureException(err, { tags: { area: 'admin-refresh-news', source } });
+                return { source, ok: false, count: 0, persisted: 0, method: 'none' as const, message: String(err) };
+            })
+        )
+    );
 
     return NextResponse.json({ results });
 }

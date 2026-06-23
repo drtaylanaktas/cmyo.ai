@@ -46,8 +46,9 @@ const SOURCES: Record<NewsSource, SourceConfig> = {
         label: 'Çiçekdağı MYO',
     },
     ahievran: {
-        // category=8 = haberler; tüm arşivi tek sayfada verir, biz tarihe göre sıralarız.
-        listUrl: 'https://ahievran.edu.tr/index.php?option=com_content&view=category&id=8',
+        // category=8 = haberler (tarihe göre azalan). &limit=40 ile sadece en yeni 40 →
+        // 67KB/~1.5s (limitsiz hali 1.2MB/~18s olup fonksiyon timeout'una yol açıyordu).
+        listUrl: 'https://ahievran.edu.tr/index.php?option=com_content&view=category&id=8&limit=40',
         baseUrl: 'https://ahievran.edu.tr',
         filename: 'WEB_HABER_AHIEVRAN-ANASAYFA.txt',
         label: 'Ahi Evran Üniversitesi',
@@ -147,7 +148,7 @@ function parseJinaMarkdown(markdown: string, hrefPattern: RegExp, limit = MAX_IT
 }
 
 // ── Fetch (retry + timeout) ───────────────────────────────────────────────────
-async function fetchText(url: string, { retries = 2, timeoutMs = 20000 } = {}): Promise<string | null> {
+async function fetchText(url: string, { retries = 1, timeoutMs = 12000 } = {}): Promise<string | null> {
     for (let attempt = 0; attempt <= retries; attempt++) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -175,8 +176,8 @@ async function fetchNewsItems(cfg: SourceConfig): Promise<{ items: NewsItem[]; m
         const items = parseJoomlaNewsList(html, cfg.baseUrl);
         if (items.length > 0) return { items, method: 'direct' };
     }
-    // Yedek: Jina
-    const md = await fetchText(`${JINA_PREFIX}${cfg.listUrl}`);
+    // Yedek: Jina (tek deneme, bütçeyi korumak için)
+    const md = await fetchText(`${JINA_PREFIX}${cfg.listUrl}`, { retries: 0, timeoutMs: 15000 });
     if (md) {
         const items = parseJinaMarkdown(md, /\/arsiv-haberler\//);
         if (items.length > 0) return { items, method: 'jina' };
