@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit2, Trash2, FileText, Loader2, RefreshCw, Link as LinkIcon } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, FileText, Loader2, RefreshCw, Link as LinkIcon, Newspaper } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUploadThing } from '@/lib/uploadthing';
 
@@ -30,6 +30,7 @@ export default function AdminDashboard() {
     const [uploadingFile, setUploadingFile] = useState(false);
     const [syncLoading, setSyncLoading] = useState(false);
     const [syncResult, setSyncResult] = useState<string>('');
+    const [newsLoading, setNewsLoading] = useState(false);
     const [error, setError] = useState('');
     
     // Form state
@@ -159,6 +160,29 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleRefreshNews = async () => {
+        setNewsLoading(true);
+        setSyncResult('');
+        try {
+            const res = await fetch('/api/admin/refresh-news', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok && Array.isArray(data.results)) {
+                const parts = data.results.map((r: any) => {
+                    const label = r.source === 'cmyo' ? 'ÇMYO' : 'Ahi Evran';
+                    return r.ok ? `${label}: ${r.count} haber` : `${label}: çekilemedi`;
+                });
+                const allOk = data.results.every((r: any) => r.ok);
+                setSyncResult(`${allOk ? '✅' : '⚠️'} Haberler güncellendi — ${parts.join(', ')}`);
+            } else {
+                setSyncResult(`❌ Hata: ${data.error || 'bilinmeyen hata'}`);
+            }
+        } catch {
+            setSyncResult('❌ Sunucu bağlantı hatası.');
+        } finally {
+            setNewsLoading(false);
+        }
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -235,6 +259,15 @@ export default function AdminDashboard() {
                     >
                         <RefreshCw size={16} className={syncLoading ? 'animate-spin' : ''} />
                         <span>{syncLoading ? 'Senkronize ediliyor...' : 'Disk Senkronize Et'}</span>
+                    </button>
+                    <button
+                        onClick={handleRefreshNews}
+                        disabled={newsLoading}
+                        title="Haber kaynaklarını şimdi çek (ÇMYO + Ahi Evran)"
+                        className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-200 px-4 py-2.5 rounded-xl font-medium transition-all hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center disabled:opacity-50"
+                    >
+                        <Newspaper size={16} className={newsLoading ? 'animate-pulse' : ''} />
+                        <span>{newsLoading ? 'Haberler çekiliyor...' : 'Haberleri Güncelle'}</span>
                     </button>
                     <button
                         onClick={() => {
