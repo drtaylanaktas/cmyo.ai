@@ -15,6 +15,7 @@ import remarkGfm from 'remark-gfm';
 import { HistorySkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 // Teknik aksiyon artığı temizleme — paylaşılan (test edilebilir) lib'den.
 import { JSON_CLEAN_REGEX, stripJsonBlock, cleanStreamingContent } from '@/lib/content-clean';
@@ -1388,7 +1389,7 @@ export default function Home() {
 
   return (
     <>
-      <div className="fixed inset-0 flex w-full overflow-hidden bg-[#050a14] text-white h-screen max-h-screen">
+      <div className="fixed inset-0 flex w-full overflow-hidden bg-app text-ink h-screen max-h-screen">
       {/* Premium Arka Plan Nebula Glow Küreleri */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 select-none">
         <div className="nebula-glow bg-blue-600/20 top-[-10%] left-[-15%]" />
@@ -1398,8 +1399,8 @@ export default function Home() {
 
       {/* Sidebar - Desktop (Permanent) & Mobile (Drawer) */}
       <aside className={`
-        fixed inset-y-0 z-50 w-72 bg-[#050a14]/95 backdrop-blur-xl border-r border-blue-500/20 transition-all duration-300 ease-in-out
-        md:relative md:left-0 md:bg-transparent md:backdrop-blur-none
+        fixed inset-y-0 z-50 w-72 bg-[#0a1120]/95 backdrop-blur-xl border-r border-blue-500/20 transition-all duration-300 ease-in-out
+        md:relative md:left-0 md:bg-[#0a1120]/40
         ${showHistory ? 'left-0 shadow-[20px_0_50px_rgba(0,0,0,0.5)]' : '-left-[100%] md:left-0'}
       `}>
         <div className="flex flex-col h-full p-4">
@@ -1494,7 +1495,7 @@ export default function Home() {
                           animate={{ opacity: 1, scale: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.95, y: -6 }}
                           transition={{ duration: 0.12 }}
-                          className="absolute right-0 top-full mt-1.5 w-44 bg-[#0d1424] border border-slate-700/60 rounded-xl shadow-2xl z-50 overflow-hidden py-1"
+                          className="absolute right-0 top-full mt-1.5 w-44 bg-surface-raised border border-line rounded-xl shadow-2xl z-50 overflow-hidden py-1"
                         >
                           <button
                             onClick={(e) => startRenaming(e, chat)}
@@ -1610,7 +1611,7 @@ export default function Home() {
         </div>
 
         {/* Header (Simplified) */}
-        <header className="h-16 flex items-center justify-between px-4 md:px-8 border-b border-white/5 bg-[#050a14]/50 backdrop-blur-sm z-10 shrink-0">
+        <header className="h-16 flex items-center justify-between px-4 md:px-8 border-b border-line bg-app/50 backdrop-blur-sm z-10 shrink-0">
           <div className="flex items-center gap-2">
             {/* Mobile Menu Toggle */}
             <button
@@ -1659,6 +1660,7 @@ export default function Home() {
                 </span>
               </button>
             )}
+            <ThemeToggle />
             <button
               onClick={handleLogout}
               className="p-2 text-slate-400 hover:text-red-400 transition-colors"
@@ -1768,8 +1770,8 @@ export default function Home() {
                     className="object-contain drop-shadow-[0_0_25px_rgba(0,128,255,0.3)]"
                   />
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">ÇMYO.AI Asistan</h2>
-                <p className="text-slate-400 max-w-md mb-6 text-sm">
+                <h2 className="text-2xl font-bold text-ink mb-2">ÇMYO.AI Asistan</h2>
+                <p className="text-ink-muted max-w-md mb-6 text-sm">
                   Çiçekdağı MYO hakkında merak ettiklerinizi sorabilir, akademik ve idari süreçler hakkında yardım alabilirsiniz.
                 </p>
 
@@ -1782,7 +1784,7 @@ export default function Home() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.1 }}
                       onClick={() => { setInput(s.query); }}
-                      className="flex items-center gap-3 p-3 premium-border-hover rounded-xl text-left text-sm text-slate-300 hover:text-white transition-all group cursor-pointer"
+                      className="flex items-center gap-3 p-3 premium-border-hover rounded-xl text-left text-sm text-ink-soft hover:text-ink transition-all group cursor-pointer"
                     >
                       <span className="text-lg">{s.icon}</span>
                       <span className="group-hover:text-blue-300 transition-colors">{s.text}</span>
@@ -1999,7 +2001,7 @@ export default function Home() {
         </div>
 
         {/* Input Area */}
-        <div className="mt-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] w-full bg-[#050a14] border-t border-white/5 shrink-0 z-20">
+        <div className="mt-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] w-full bg-app border-t border-line shrink-0 z-20">
           <div className="max-w-3xl mx-auto w-full relative flex gap-2 sm:gap-3 items-end">
             {/* Hidden File Input */}
             <input

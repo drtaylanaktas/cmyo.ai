@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import NeuralBackground from '@/components/NeuralBackground';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Save, User, Shield, AlertCircle, CheckCircle, Lock } from 'lucide-react';
 import Image from 'next/image';
@@ -130,8 +131,9 @@ export default function ProfilePage() {
     if (!user) return null;
 
     return (
-        <main className="relative w-full h-screen flex items-center justify-center overflow-hidden bg-[#050a14]">
+        <main className="relative w-full h-screen flex items-center justify-center overflow-hidden bg-app">
             <NeuralBackground />
+            <ThemeToggle className="fixed top-4 right-4 z-20 bg-surface/70 backdrop-blur-sm" />
 
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}

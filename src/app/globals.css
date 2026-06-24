@@ -3,12 +3,35 @@
 @theme {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Semantik renk token'ları → Tailwind utility'leri (bg-app, bg-surface,
+     text-ink, border-line, ...). Değerler runtime CSS değişkenlerine bağlı,
+     böylece açık/koyu tema arasında otomatik döner. */
+  --color-app: var(--bg-app);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-ink: var(--text-primary);
+  --color-ink-soft: var(--text-secondary);
+  --color-ink-muted: var(--text-muted);
+  --color-line: var(--border-subtle);
+  --color-line-strong: var(--border-strong);
+  --color-accent: var(--neon-blue);
 }
 
 :root {
-  --background: #050a14;
+  --background: var(--bg-app);
+  --foreground: var(--text-primary);
+
+  /* KOYU TEMA (varsayılan) — kabuk token'ları */
+  --bg-app: #050a14;
   /* Deep Dark Blue */
-  --foreground: #f8fafc;
+  --surface-sunken: rgba(5, 10, 20, 0.55);
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  /* slate-300 */
+  --text-muted: #64748b;
+  /* slate-500 */
 
   /* ÇMYO Inspired Neon Colors */
   --ahi-blue: #0047AB;
@@ -40,6 +63,115 @@
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(0, 128, 255, 0.30);
   --ring: rgba(0, 128, 255, 0.55);
+
+  /* NeuralBackground parçacık renkleri (canvas JS bunları okur) */
+  --neural-dot: #0080ff;
+  --neural-line-rgb: 0, 128, 255;
+}
+
+/* AÇIK TEMA — "yumuşak açık": kabuk token'ları açık değerlere döner,
+   mavi-neon aksan korunur (açıkta biraz daha doygun/koyu mavi). */
+[data-theme="light"] {
+  --bg-app: #eef2f8;
+  /* Soft blue-gray canvas */
+  --surface: rgba(255, 255, 255, 0.92);
+  --surface-raised: #ffffff;
+  --surface-sunken: rgba(226, 232, 240, 0.6);
+  --text-primary: #0f172a;
+  /* slate-900 */
+  --text-secondary: #334155;
+  /* slate-700 */
+  --text-muted: #64748b;
+  /* slate-500 */
+  --border-subtle: rgba(15, 23, 42, 0.10);
+  --border-strong: rgba(0, 90, 200, 0.35);
+  --ring: rgba(0, 90, 200, 0.45);
+
+  /* Aksan: beyaz üzerinde kontrast için biraz koyulaştırılmış mavi */
+  --neon-blue: #0066d6;
+  --primary: #0066d6;
+  --color-primary: #0066d6;
+  --secondary: #e2e8f0;
+
+  /* Açık temada parçacıklar daha doygun/soft mavi */
+  --neural-dot: #5a9be8;
+  --neural-line-rgb: 90, 155, 232;
+}
+
+/* Açık temada cam/neon efektlerini yumuşat (beyaz zeminde taşmasın) */
+[data-theme="light"] .glass {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 90, 200, 0.15);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="light"] .glass-card {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .glass-card:hover {
+  border-color: rgba(0, 90, 200, 0.25);
+  box-shadow: 0 8px 28px rgba(0, 90, 200, 0.10);
+}
+
+[data-theme="light"] .neon-border {
+  box-shadow: 0 0 0 1px rgba(0, 90, 200, 0.25);
+}
+
+[data-theme="light"] .premium-border-hover {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(15, 23, 42, 0.10);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="light"] .premium-border-hover:hover {
+  background: #ffffff;
+  border-color: rgba(0, 90, 200, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 90, 200, 0.10);
+}
+
+[data-theme="light"] .premium-border-hover::before {
+  background: linear-gradient(90deg, rgba(0, 90, 200, 0) 0%, rgba(0, 90, 200, 0.06) 50%, rgba(0, 90, 200, 0) 100%);
+}
+
+[data-theme="light"] .neon-text-blue {
+  text-shadow: none;
+  color: #0066d6;
+}
+
+[data-theme="light"] .nebula-glow {
+  opacity: 0.10;
+  mix-blend-mode: multiply;
+}
+
+/* Açık temada özel scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-track {
+  background: #e2e8f0;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #0066d6;
+}
+
+/* Tema geçişini yumuşat (renk değişimleri) */
+body,
+.glass,
+.glass-card {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .glass,
+  .glass-card {
+    transition: none;
+  }
 }
 
 /* Marka renkli, tutarlı odak halkası — klavye erişilebilirliği */

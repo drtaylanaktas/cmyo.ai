@@ -65,7 +65,7 @@ export default function NeuralBackground() {
 
             draw() {
                 if (!ctx) return;
-                ctx.fillStyle = '#0080ff'; // Blue dots
+                // fillStyle, animate() içinde kare başına bir kez (tema rengiyle) ayarlanır
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fill();
@@ -82,6 +82,12 @@ export default function NeuralBackground() {
             if (!ctx || !canvas) return;
             ctx.clearRect(0, 0, width, height);
 
+            // Tema renklerini kare başına bir kez oku (açık/koyu otomatik döner)
+            const cs = getComputedStyle(document.documentElement);
+            const dot = cs.getPropertyValue('--neural-dot').trim() || '#0080ff';
+            const lineRgb = cs.getPropertyValue('--neural-line-rgb').trim() || '0, 128, 255';
+            ctx.fillStyle = dot;
+
             for (let i = 0; i < particles.length; i++) {
                 particles[i].update();
                 particles[i].draw();
@@ -93,7 +99,7 @@ export default function NeuralBackground() {
 
                     if (distance < connectionDistance) {
                         ctx.beginPath();
-                        ctx.strokeStyle = `rgba(0, 128, 255, ${1 - distance / connectionDistance})`; // Fade out blue lines
+                        ctx.strokeStyle = `rgba(${lineRgb}, ${1 - distance / connectionDistance})`; // Tema rengiyle çizgiler
                         ctx.lineWidth = 1;
                         ctx.moveTo(particles[i].x, particles[i].y);
                         ctx.lineTo(particles[j].x, particles[j].y);
@@ -129,7 +135,7 @@ export default function NeuralBackground() {
     return (
         <canvas
             ref={canvasRef}
-            className="fixed top-0 left-0 w-full h-full -z-10 bg-[#02040a]"
+            className="fixed top-0 left-0 w-full h-full -z-10 bg-app"
         />
     );
 }

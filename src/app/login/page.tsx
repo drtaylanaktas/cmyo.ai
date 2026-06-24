@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import NeuralBackground from '@/components/NeuralBackground';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, CheckCircle, AlertCircle, Briefcase } from 'lucide-react';
 
@@ -204,6 +205,7 @@ export default function LoginPage() {
     return (
         <main className="relative w-full h-screen flex items-center justify-center overflow-hidden">
             <NeuralBackground />
+            <ThemeToggle className="fixed top-4 right-4 z-20 bg-surface/70 backdrop-blur-sm" />
 
             <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}

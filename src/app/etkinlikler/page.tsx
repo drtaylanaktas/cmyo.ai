@@ -2,6 +2,7 @@ import { sql } from '@vercel/postgres';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import EventCalendar, { NewsItem, NewsSource } from '@/components/EventCalendar';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export const revalidate = 3600;
 export const dynamic = 'force-dynamic';
@@ -79,27 +80,30 @@ export default async function EtkinliklerPage() {
     });
 
     return (
-        <main className="min-h-screen bg-[#020510] text-white">
-            <header className="h-16 flex items-center justify-between px-4 md:px-8 border-b border-white/5 bg-[#050a14]/50 backdrop-blur-sm">
-                <Link href="/" className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white transition-colors">
+        <main className="min-h-screen bg-app text-ink">
+            <header className="h-16 flex items-center justify-between px-4 md:px-8 border-b border-line bg-app/50 backdrop-blur-sm">
+                <Link href="/" className="inline-flex items-center gap-2 text-sm text-ink-soft hover:text-ink transition-colors">
                     <ArrowLeft className="w-4 h-4" />
                     Ana Sayfa
                 </Link>
-                <div className="font-bold tracking-tight">ÇMYO.AI</div>
+                <div className="flex items-center gap-3">
+                    <div className="font-bold tracking-tight">ÇMYO.AI</div>
+                    <ThemeToggle />
+                </div>
             </header>
 
             <section className="px-4 md:px-8 py-8 md:py-12">
                 <div className="max-w-5xl mx-auto mb-6 text-center md:text-left">
-                    <h1 className="text-2xl md:text-3xl font-bold text-white">Haber Takvimi</h1>
-                    <p className="text-sm text-slate-400 mt-1">
+                    <h1 className="text-2xl md:text-3xl font-bold text-ink">Haber Takvimi</h1>
+                    <p className="text-sm text-ink-muted mt-1">
                         Bu ayki Çiçekdağı MYO ve Ahi Evran Üniversitesi haberleri — yayın gününe göre renk kodlu.
                     </p>
                 </div>
 
                 {totalCount === 0 ? (
                     <div className="max-w-md mx-auto text-center mt-16">
-                        <h2 className="text-xl font-semibold mb-2 capitalize">{monthLabel}</h2>
-                        <p className="text-slate-400 text-sm">
+                        <h2 className="text-xl font-semibold mb-2 capitalize text-ink">{monthLabel}</h2>
+                        <p className="text-ink-muted text-sm">
                             Bu ay için henüz haber bulunmuyor. Veriler her gün otomatik güncellenir.
                         </p>
                     </div>
