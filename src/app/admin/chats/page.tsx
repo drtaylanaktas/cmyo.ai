@@ -105,22 +105,22 @@ export default function ChatsPage() {
     return (
         <div className="flex h-[calc(100vh-140px)] gap-6 animate-in fade-in duration-500">
             {/* Left Sidebar: Conversatons List */}
-            <div className="w-1/3 bg-neutral-900/40 border border-neutral-800/60 rounded-2xl overflow-hidden backdrop-blur-xl shadow-2xl flex flex-col">
-                <div className="p-4 border-b border-neutral-800/60 bg-neutral-900/50 flex justify-between items-center">
-                    <h3 className="font-semibold text-neutral-200">Kullanıcı Sohbetleri</h3>
-                    <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md">
+            <div className="w-1/3 bg-slate-900/40 border border-slate-800/60 rounded-2xl overflow-hidden backdrop-blur-xl shadow-2xl flex flex-col">
+                <div className="p-4 border-b border-slate-800/60 bg-slate-900/50 flex justify-between items-center">
+                    <h3 className="font-semibold text-slate-200">Kullanıcı Sohbetleri</h3>
+                    <span className="text-xs font-medium text-blue-400 bg-blue-500/10 px-2 py-1 rounded-md">
                         {total} Kayıt
                     </span>
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
                     {loading && conversations.length === 0 ? (
-                        <div className="py-20 text-center text-neutral-500">
-                            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-500/50" />
+                        <div className="py-20 text-center text-slate-500">
+                            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500/50" />
                             Yükleniyor...
                         </div>
                     ) : conversations.length === 0 ? (
-                        <div className="py-20 text-center text-neutral-500 text-sm">
+                        <div className="py-20 text-center text-slate-500 text-sm">
                             Kayıtlı sohbet bulunamadı.
                         </div>
                     ) : (
@@ -130,23 +130,23 @@ export default function ChatsPage() {
                                 onClick={() => fetchMessages(conv.id)}
                                 className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${
                                     selectedChatId === conv.id 
-                                    ? 'bg-emerald-500/10 border-emerald-500/30 border' 
-                                    : 'hover:bg-neutral-800/50 border border-transparent'
+                                    ? 'bg-blue-500/10 border-blue-500/30 border' 
+                                    : 'hover:bg-slate-800/50 border border-transparent'
                                 }`}
                             >
                                 <div className="flex justify-between items-start mb-1">
-                                    <span className={`text-sm font-medium truncate pr-2 ${selectedChatId === conv.id ? 'text-emerald-400' : 'text-neutral-200'}`}>
+                                    <span className={`text-sm font-medium truncate pr-2 ${selectedChatId === conv.id ? 'text-blue-400' : 'text-slate-200'}`}>
                                         {conv.user_email}
                                     </span>
-                                    <span className="text-[10px] text-neutral-500 whitespace-nowrap pt-0.5">
+                                    <span className="text-[10px] text-slate-500 whitespace-nowrap pt-0.5">
                                         {new Date(conv.updated_at).toLocaleDateString('tr-TR')}
                                     </span>
                                 </div>
-                                <p className="text-xs text-neutral-400 line-clamp-1 mb-2">
+                                <p className="text-xs text-slate-400 line-clamp-1 mb-2">
                                     {conv.title}
                                 </p>
-                                <div className="flex items-center gap-1.5 text-[10px] text-neutral-500 font-medium">
-                                    <MessageCircle size={12} className="text-neutral-600" />
+                                <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
+                                    <MessageCircle size={12} className="text-slate-600" />
                                     <span>{conv.message_count} Mesaj</span>
                                 </div>
                             </div>
@@ -155,15 +155,15 @@ export default function ChatsPage() {
                 </div>
 
                 {totalPages > 1 && (
-                    <div className="p-3 border-t border-neutral-800/60 bg-neutral-900/50 flex justify-center gap-1">
+                    <div className="p-3 border-t border-slate-800/60 bg-slate-900/50 flex justify-center gap-1">
                         {Array.from({ length: totalPages }).map((_, i) => (
                             <button
                                 key={i}
                                 onClick={() => setPage(i)}
                                 className={`w-7 h-7 rounded flex items-center justify-center text-xs transition-all ${
                                     page === i 
-                                        ? 'bg-emerald-500 text-white font-medium' 
-                                        : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                                        ? 'bg-blue-500 text-white font-medium' 
+                                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                                 }`}
                             >
                                 {i + 1}
@@ -174,23 +174,23 @@ export default function ChatsPage() {
             </div>
 
             {/* Right Side: Chat Messages */}
-            <div className="w-2/3 bg-neutral-900/40 border border-neutral-800/60 rounded-2xl overflow-hidden backdrop-blur-xl shadow-2xl flex flex-col relative">
+            <div className="w-2/3 bg-slate-900/40 border border-slate-800/60 rounded-2xl overflow-hidden backdrop-blur-xl shadow-2xl flex flex-col relative">
                 {!selectedChatId ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-neutral-500 h-full">
-                        <MessageCircle size={48} className="text-neutral-800 mb-4" />
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-500 h-full">
+                        <MessageCircle size={48} className="text-slate-800 mb-4" />
                         <p>Detayını görmek istediğiniz bir sohbeti seçin.</p>
                     </div>
                 ) : (
                     <>
-                        <div className="p-4 border-b border-neutral-800/60 bg-neutral-900/50 flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                        <div className="p-4 border-b border-slate-800/60 bg-slate-900/50 flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
                                 <User size={20} />
                             </div>
                             <div className="overflow-hidden">
-                                <h3 className="font-semibold text-neutral-200 truncate">
+                                <h3 className="font-semibold text-slate-200 truncate">
                                     {conversations.find(c => c.id === selectedChatId)?.user_email}
                                 </h3>
-                                <div className="flex items-center gap-2 text-xs text-neutral-400">
+                                <div className="flex items-center gap-2 text-xs text-slate-400">
                                     <Clock size={12} />
                                     <span>{new Date(conversations.find(c => c.id === selectedChatId)?.created_at || '').toLocaleString('tr-TR')}</span>
                                 </div>
@@ -199,21 +199,21 @@ export default function ChatsPage() {
                                 onClick={handleExport}
                                 disabled={exporting || messages.length === 0}
                                 title="Bu sohbeti Word olarak indir"
-                                className="ml-auto shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="ml-auto shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 {exporting ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
                                 Word İndir
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-neutral-950/30">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-950/30">
                             {messagesLoading ? (
-                                <div className="py-20 text-center text-neutral-500">
-                                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-emerald-500/50" />
+                                <div className="py-20 text-center text-slate-500">
+                                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500/50" />
                                     Mesajlar Yükleniyor...
                                 </div>
                             ) : messages.length === 0 ? (
-                                <div className="text-center text-neutral-500 text-sm py-10">Bu sohbette henüz mesaj yok.</div>
+                                <div className="text-center text-slate-500 text-sm py-10">Bu sohbette henüz mesaj yok.</div>
                             ) : (
                                 <AnimatePresence initial={false}>
                                     {messages.map((msg, idx) => (
@@ -226,8 +226,8 @@ export default function ChatsPage() {
                                         >
                                             <div className={`w-8 h-8 rounded-full flex flex-shrink-0 items-center justify-center ${
                                                 msg.role === 'user' 
-                                                ? 'bg-neutral-800 text-neutral-400' 
-                                                : 'bg-emerald-500/20 text-emerald-400'
+                                                ? 'bg-slate-800 text-slate-400' 
+                                                : 'bg-blue-500/20 text-blue-400'
                                             }`}>
                                                 {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                                             </div>
@@ -235,12 +235,12 @@ export default function ChatsPage() {
                                             <div className={`flex flex-col max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                                 <div className={`px-4 py-3 rounded-2xl text-[15px] leading-relaxed relative ${
                                                     msg.role === 'user'
-                                                    ? 'bg-neutral-800 text-neutral-200 rounded-tr-sm'
-                                                    : 'bg-emerald-900/30 border border-emerald-500/20 text-emerald-50 rounded-tl-sm shadow-[0_0_15px_rgba(16,185,129,0.05)]'
+                                                    ? 'bg-blue-600/90 border border-blue-500/20 text-white rounded-tr-sm'
+                                                    : 'bg-slate-800/85 border border-white/10 text-blue-50 rounded-tl-sm'
                                                 }`}>
                                                     <span className="whitespace-pre-wrap word-break">{msg.content}</span>
                                                 </div>
-                                                <span className="text-[10px] text-neutral-500 mt-1.5 px-1">
+                                                <span className="text-[10px] text-slate-500 mt-1.5 px-1">
                                                     {new Date(msg.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute:'2-digit' })}
                                                 </span>
                                             </div>
