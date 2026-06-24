@@ -61,7 +61,7 @@ export default function DeletionsPage() {
             </span>
         );
         if (status === 'approved') return (
-            <span className="flex items-center gap-1 text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 text-xs px-2 py-0.5 rounded-full">
+            <span className="flex items-center gap-1 text-green-400 bg-green-400/10 border border-green-400/20 text-xs px-2 py-0.5 rounded-full">
                 <CheckCircle size={11} /> Onaylandı
             </span>
         );
@@ -81,23 +81,23 @@ export default function DeletionsPage() {
                     </div>
                     <div>
                         <h1 className="text-xl font-bold text-white">Hesap Silme İstekleri</h1>
-                        <p className="text-sm text-neutral-400">
+                        <p className="text-sm text-slate-400">
                             {pending.length} bekleyen istek
                         </p>
                     </div>
                 </div>
                 <button
                     onClick={fetchRequests}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
                 >
                     <RefreshCw size={14} /> Yenile
                 </button>
             </div>
 
             {loading ? (
-                <div className="text-center py-16 text-neutral-500">Yükleniyor...</div>
+                <div className="text-center py-16 text-slate-500">Yükleniyor...</div>
             ) : requests.length === 0 ? (
-                <div className="text-center py-16 text-neutral-500">
+                <div className="text-center py-16 text-slate-500">
                     <UserX size={40} className="mx-auto mb-3 opacity-30" />
                     <p>Henüz hesap silme isteği yok.</p>
                 </div>
@@ -106,9 +106,9 @@ export default function DeletionsPage() {
                     {pending.length > 0 && (
                         <section>
                             <h2 className="text-sm font-semibold text-yellow-400 uppercase tracking-wider mb-3">Bekleyen İstekler</h2>
-                            <div className="border border-neutral-800 rounded-xl overflow-hidden">
+                            <div className="border border-slate-800 rounded-xl overflow-hidden">
                                 <table className="w-full text-sm">
-                                    <thead className="bg-neutral-900 text-neutral-400 text-xs uppercase tracking-wider">
+                                    <thead className="bg-slate-900 text-slate-400 text-xs uppercase tracking-wider">
                                         <tr>
                                             <th className="px-4 py-3 text-left">Kullanıcı</th>
                                             <th className="px-4 py-3 text-left">Rol</th>
@@ -117,18 +117,18 @@ export default function DeletionsPage() {
                                             <th className="px-4 py-3 text-right">İşlem</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-neutral-800">
+                                    <tbody className="divide-y divide-slate-800">
                                         {pending.map(r => (
-                                            <tr key={r.id} className="bg-neutral-950 hover:bg-neutral-900 transition-colors">
+                                            <tr key={r.id} className="bg-slate-950 hover:bg-slate-900 transition-colors">
                                                 <td className="px-4 py-3">
                                                     <p className="font-medium text-white">{r.user_name || '—'}</p>
-                                                    <p className="text-neutral-400 text-xs">{r.user_email}</p>
+                                                    <p className="text-slate-400 text-xs">{r.user_email}</p>
                                                 </td>
-                                                <td className="px-4 py-3 text-neutral-300">
+                                                <td className="px-4 py-3 text-slate-300">
                                                     {r.role === 'academic' ? 'Akademisyen' : r.role === 'student' ? 'Öğrenci' : r.role || '—'}
-                                                    {r.academic_unit && <p className="text-xs text-neutral-500">{r.academic_unit}</p>}
+                                                    {r.academic_unit && <p className="text-xs text-slate-500">{r.academic_unit}</p>}
                                                 </td>
-                                                <td className="px-4 py-3 text-neutral-400 text-xs">
+                                                <td className="px-4 py-3 text-slate-400 text-xs">
                                                     {new Date(r.requested_at).toLocaleString('tr-TR')}
                                                 </td>
                                                 <td className="px-4 py-3">
@@ -139,7 +139,7 @@ export default function DeletionsPage() {
                                                         <button
                                                             onClick={() => handleAction(r.id, 'approve')}
                                                             disabled={actionLoading === r.id}
-                                                            className="px-3 py-1 text-xs font-medium text-emerald-400 hover:text-white hover:bg-emerald-500 border border-emerald-500/30 rounded-lg transition-colors disabled:opacity-40"
+                                                            className="px-3 py-1 text-xs font-medium text-green-400 hover:text-white hover:bg-green-500 border border-green-500/30 rounded-lg transition-colors disabled:opacity-40"
                                                         >
                                                             {actionLoading === r.id ? '...' : 'Onayla'}
                                                         </button>
@@ -162,10 +162,10 @@ export default function DeletionsPage() {
 
                     {reviewed.length > 0 && (
                         <section>
-                            <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Geçmiş İstekler</h2>
-                            <div className="border border-neutral-800 rounded-xl overflow-hidden">
+                            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Geçmiş İstekler</h2>
+                            <div className="border border-slate-800 rounded-xl overflow-hidden">
                                 <table className="w-full text-sm">
-                                    <thead className="bg-neutral-900 text-neutral-400 text-xs uppercase tracking-wider">
+                                    <thead className="bg-slate-900 text-slate-400 text-xs uppercase tracking-wider">
                                         <tr>
                                             <th className="px-4 py-3 text-left">Kullanıcı</th>
                                             <th className="px-4 py-3 text-left">Talep Tarihi</th>
@@ -173,20 +173,20 @@ export default function DeletionsPage() {
                                             <th className="px-4 py-3 text-left">İşlem Tarihi</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-neutral-800">
+                                    <tbody className="divide-y divide-slate-800">
                                         {reviewed.map(r => (
-                                            <tr key={r.id} className="bg-neutral-950 opacity-70">
+                                            <tr key={r.id} className="bg-slate-950 opacity-70">
                                                 <td className="px-4 py-3">
-                                                    <p className="font-medium text-neutral-300">{r.user_name || '—'}</p>
-                                                    <p className="text-neutral-500 text-xs">{r.user_email}</p>
+                                                    <p className="font-medium text-slate-300">{r.user_name || '—'}</p>
+                                                    <p className="text-slate-500 text-xs">{r.user_email}</p>
                                                 </td>
-                                                <td className="px-4 py-3 text-neutral-500 text-xs">
+                                                <td className="px-4 py-3 text-slate-500 text-xs">
                                                     {new Date(r.requested_at).toLocaleString('tr-TR')}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <StatusBadge status={r.status} />
                                                 </td>
-                                                <td className="px-4 py-3 text-neutral-500 text-xs">
+                                                <td className="px-4 py-3 text-slate-500 text-xs">
                                                     {r.reviewed_at ? new Date(r.reviewed_at).toLocaleString('tr-TR') : '—'}
                                                 </td>
                                             </tr>

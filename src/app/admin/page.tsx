@@ -240,13 +240,13 @@ export default function AdminDashboard() {
             {/* Header Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="relative w-full sm:w-96 group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 group-focus-within:text-emerald-400 transition-colors" size={18} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={18} />
                     <input 
                         type="text" 
                         placeholder="Belge adı veya içerik ara..." 
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-neutral-900/50 border border-neutral-800 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 rounded-xl py-2.5 pl-10 pr-4 text-sm text-neutral-200 placeholder:text-neutral-600 transition-all outline-none backdrop-blur-sm"
+                        className="w-full bg-slate-900/50 border border-slate-800 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder:text-slate-600 transition-all outline-none backdrop-blur-sm"
                     />
                 </div>
                 
@@ -255,7 +255,7 @@ export default function AdminDashboard() {
                         onClick={handleSyncDiskFiles}
                         disabled={syncLoading}
                         title="src/data/ klasöründeki tüm dosyaları veritabanına ekle"
-                        className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-200 px-4 py-2.5 rounded-xl font-medium transition-all hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center disabled:opacity-50"
+                        className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2.5 rounded-xl font-medium transition-all hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center disabled:opacity-50"
                     >
                         <RefreshCw size={16} className={syncLoading ? 'animate-spin' : ''} />
                         <span>{syncLoading ? 'Senkronize ediliyor...' : 'Disk Senkronize Et'}</span>
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
                         onClick={handleRefreshNews}
                         disabled={newsLoading}
                         title="Haber kaynaklarını şimdi çek (ÇMYO + Ahi Evran)"
-                        className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-200 px-4 py-2.5 rounded-xl font-medium transition-all hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center disabled:opacity-50"
+                        className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2.5 rounded-xl font-medium transition-all hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center disabled:opacity-50"
                     >
                         <Newspaper size={16} className={newsLoading ? 'animate-pulse' : ''} />
                         <span>{newsLoading ? 'Haberler çekiliyor...' : 'Haberleri Güncelle'}</span>
@@ -275,7 +275,7 @@ export default function AdminDashboard() {
                             setModalMode('create');
                             setError('');
                         }}
-                        className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center"
+                        className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-blue-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center"
                     >
                         <Plus size={18} />
                         <span>Yeni Ekle</span>
@@ -283,17 +283,17 @@ export default function AdminDashboard() {
                 </div>
             </div>
             {syncResult && (
-                <div className={`text-sm px-4 py-2 rounded-xl border ${syncResult.startsWith('✅') ? 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300' : 'bg-red-900/30 border-red-700/50 text-red-300'}`}>
+                <div className={`text-sm px-4 py-2 rounded-xl border ${syncResult.startsWith('✅') ? 'bg-green-900/30 border-green-700/50 text-green-300' : 'bg-red-900/30 border-red-700/50 text-red-300'}`}>
                     {syncResult}
                 </div>
             )}
 
             {/* Data Table */}
-            <div className="bg-neutral-900/40 border border-neutral-800/60 rounded-2xl overflow-hidden backdrop-blur-xl shadow-2xl">
+            <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl overflow-hidden backdrop-blur-xl shadow-2xl">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-neutral-800/50 border-b border-neutral-800 text-sm font-medium text-neutral-400 uppercase tracking-wider">
+                            <tr className="bg-slate-800/50 border-b border-slate-800 text-sm font-medium text-slate-400 uppercase tracking-wider">
                                 <th className="p-4 pl-6">Dosya Adı</th>
                                 <th className="p-4 w-32">Kategori</th>
                                 <th className="p-4 w-24 text-center">Öncelik</th>
@@ -301,17 +301,17 @@ export default function AdminDashboard() {
                                 <th className="p-4 w-24 text-right pr-6">İşlem</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-neutral-800/50 text-sm">
+                        <tbody className="divide-y divide-slate-800/50 text-sm">
                             {loading && documents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-12 text-center text-neutral-500 py-24">
-                                        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-emerald-500/50" />
+                                    <td colSpan={5} className="p-12 text-center text-slate-500 py-24">
+                                        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500/50" />
                                         Yükleniyor...
                                     </td>
                                 </tr>
                             ) : documents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-12 text-center text-neutral-500 py-24">
+                                    <td colSpan={5} className="p-12 text-center text-slate-500 py-24">
                                         Sonuç bulunamadı
                                     </td>
                                 </tr>
@@ -322,39 +322,39 @@ export default function AdminDashboard() {
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: idx * 0.05 }}
                                         key={doc.id} 
-                                        className="hover:bg-neutral-800/30 transition-colors group"
+                                        className="hover:bg-slate-800/30 transition-colors group"
                                     >
-                                        <td className="p-4 pl-6 font-medium text-neutral-200 break-all flex items-center gap-3">
-                                            <FileText className="text-neutral-500 group-hover:text-emerald-400 transition-colors shrink-0" size={16} />
+                                        <td className="p-4 pl-6 font-medium text-slate-200 break-all flex items-center gap-3">
+                                            <FileText className="text-slate-500 group-hover:text-blue-400 transition-colors shrink-0" size={16} />
                                             {doc.filename}
                                         </td>
                                         <td className="p-4">
-                                            <span className="px-2.5 py-1 bg-neutral-800 text-neutral-300 rounded-md text-xs font-medium border border-neutral-700/50">
+                                            <span className="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-md text-xs font-medium border border-slate-700/50">
                                                 {doc.category}
                                             </span>
                                         </td>
                                         <td className="p-4 text-center">
                                             {doc.priority >= 100 ? (
-                                                <span className="text-emerald-400 font-bold">{doc.priority}</span>
+                                                <span className="text-blue-400 font-bold">{doc.priority}</span>
                                             ) : (
-                                                <span className="text-neutral-500">{doc.priority}</span>
+                                                <span className="text-slate-500">{doc.priority}</span>
                                             )}
                                         </td>
-                                        <td className="p-4 text-neutral-500 text-xs">
+                                        <td className="p-4 text-slate-500 text-xs">
                                             {new Date(doc.updated_at).toLocaleString('tr-TR')}
                                         </td>
                                         <td className="p-4 pr-6 text-right">
                                             <div className="flex items-center justify-end gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button 
                                                     onClick={() => handleEdit(doc)}
-                                                    className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-emerald-400 transition-colors"
+                                                    className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-blue-400 transition-colors"
                                                     title="Düzenle"
                                                 >
                                                     <Edit2 size={16} />
                                                 </button>
                                                 <button 
                                                     onClick={() => handleDelete(doc.id)}
-                                                    className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-rose-400 transition-colors"
+                                                    className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-rose-400 transition-colors"
                                                     title="Sil"
                                                 >
                                                     <Trash2 size={16} />
@@ -370,9 +370,9 @@ export default function AdminDashboard() {
                 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="p-4 border-t border-neutral-800/60 bg-neutral-900/50 flex items-center justify-between text-sm">
-                        <span className="text-neutral-500">
-                            Toplam <span className="text-neutral-300 font-medium">{total}</span> belge
+                    <div className="p-4 border-t border-slate-800/60 bg-slate-900/50 flex items-center justify-between text-sm">
+                        <span className="text-slate-500">
+                            Toplam <span className="text-slate-300 font-medium">{total}</span> belge
                         </span>
                         <div className="flex gap-1">
                             {Array.from({ length: totalPages }).map((_, i) => (
@@ -381,8 +381,8 @@ export default function AdminDashboard() {
                                     onClick={() => setPage(i)}
                                     className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
                                         page === i 
-                                            ? 'bg-emerald-500 text-white font-medium' 
-                                            : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                                            ? 'bg-blue-500 text-white font-medium' 
+                                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                                     }`}
                                 >
                                     {i + 1}
@@ -408,13 +408,13 @@ export default function AdminDashboard() {
                             initial={{ scale: 0.95, opacity: 0, y: 10 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 10 }}
-                            className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]"
+                            className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]"
                         >
-                            <div className="p-6 border-b border-neutral-800 bg-neutral-900/50">
+                            <div className="p-6 border-b border-slate-800 bg-slate-900/50">
                                 <h3 className="text-xl font-bold">
                                     {modalMode === 'create' ? 'Yeni Bilgi Ekle' : 'Bilgiyi Düzenle'}
                                 </h3>
-                                <p className="text-sm text-neutral-400 mt-1">
+                                <p className="text-sm text-slate-400 mt-1">
                                     Yapay zeka asistanının okuyabileceği formattaki içeriği girin.
                                 </p>
                             </div>
@@ -427,55 +427,55 @@ export default function AdminDashboard() {
                                 )}
                                 
                                 <div>
-                                    <label className="block text-sm font-medium text-neutral-300 mb-1.5">Dosya / Bilgi Adı</label>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Dosya / Bilgi Adı</label>
                                     <input 
                                         type="text" 
                                         required
                                         value={currentDoc.filename}
                                         onChange={e => setCurrentDoc({...currentDoc, filename: e.target.value})}
                                         placeholder="Örn: CMYO_Akademik_Takvim.txt"
-                                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-white focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none transition-all"
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 outline-none transition-all"
                                     />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-neutral-300 mb-1.5">Kategori</label>
+                                        <label className="block text-sm font-medium text-slate-300 mb-1.5">Kategori</label>
                                         <input 
                                             type="text" 
                                             value={currentDoc.category}
                                             onChange={e => setCurrentDoc({...currentDoc, category: e.target.value})}
                                             placeholder="kurumsal, duyuru vb."
-                                            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-white focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none transition-all"
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 outline-none transition-all"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-neutral-300 mb-1.5">Öncelik (1-100)</label>
+                                        <label className="block text-sm font-medium text-slate-300 mb-1.5">Öncelik (1-100)</label>
                                         <input 
                                             type="number" 
                                             value={currentDoc.priority}
                                             onChange={e => setCurrentDoc({...currentDoc, priority: parseInt(e.target.value) || 0})}
-                                            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-white focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none transition-all"
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 outline-none transition-all"
                                         />
                                     </div>
                                 </div>
                                 
                                 <div>
-                                    <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-1.5">
-                                        <LinkIcon size={14} className="text-emerald-400" /> Orijinal Dosya Linki (İsteğe Bağlı)
+                                    <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-1.5">
+                                        <LinkIcon size={14} className="text-blue-400" /> Orijinal Dosya Linki (İsteğe Bağlı)
                                     </label>
                                     <input 
                                         type="url" 
                                         value={currentDoc.file_url || ''}
                                         onChange={e => setCurrentDoc({...currentDoc, file_url: e.target.value})}
                                         placeholder="Dosyadan Aktar denildiğinde otomatik dolar..."
-                                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-white focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none transition-all text-sm font-mono"
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 outline-none transition-all text-sm font-mono"
                                     />
                                 </div>
 
                                 <div>
                                     <div className="flex items-center justify-between mb-1.5">
-                                        <label className="block text-sm font-medium text-neutral-300">Ham İçerik</label>
+                                        <label className="block text-sm font-medium text-slate-300">Ham İçerik</label>
                                         <div className="relative">
                                             <input 
                                                 type="file" 
@@ -489,8 +489,8 @@ export default function AdminDashboard() {
                                                 htmlFor="file-upload" 
                                                 className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
                                                     uploadingFile 
-                                                    ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' 
-                                                    : 'border-neutral-700 text-neutral-400 hover:text-emerald-400 hover:border-emerald-500/50 bg-neutral-900'
+                                                    ? 'border-blue-500/30 text-blue-400 bg-blue-500/10' 
+                                                    : 'border-slate-700 text-slate-400 hover:text-blue-400 hover:border-blue-500/50 bg-slate-900'
                                                 }`}
                                             >
                                                 {uploadingFile ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
@@ -503,22 +503,22 @@ export default function AdminDashboard() {
                                         value={currentDoc.content}
                                         onChange={e => setCurrentDoc({...currentDoc, content: e.target.value})}
                                         placeholder="Yapay zekanın okuyacağı bilgileri buraya girin..."
-                                        className="w-full h-64 bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none transition-all font-mono text-sm leading-relaxed whitespace-pre-wrap"
+                                        className="w-full h-64 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 outline-none transition-all font-mono text-sm leading-relaxed whitespace-pre-wrap"
                                     />
                                 </div>
                                 
-                                <div className="pt-4 flex justify-end gap-3 border-t border-neutral-800">
+                                <div className="pt-4 flex justify-end gap-3 border-t border-slate-800">
                                     <button 
                                         type="button" 
                                         onClick={() => setModalMode(null)}
-                                        className="px-5 py-2.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-xl font-medium transition-colors"
+                                        className="px-5 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl font-medium transition-colors"
                                     >
                                         İptal
                                     </button>
                                     <button 
                                         type="submit" 
                                         disabled={submitLoading}
-                                        className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="flex items-center gap-2 bg-blue-500 hover:bg-blue-400 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {submitLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : null}
                                         {modalMode === 'create' ? 'Oluştur ve Kaydet' : 'Değişiklikleri Kaydet'}
