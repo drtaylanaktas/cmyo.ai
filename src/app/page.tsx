@@ -530,6 +530,7 @@ export default function Home() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showTelegramBanner, setShowTelegramBanner] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const [showFr585Demo, setShowFr585Demo] = useState(false);
 
   // Akademik Humanizer & AI Analizörü Eyaletleri
   const [showAcademicPanel, setShowAcademicPanel] = useState(false);
@@ -650,10 +651,13 @@ export default function Home() {
     if (!bannerDismissed) {
       setShowTelegramBanner(true);
     }
-    // v1.6 "Yenilikler" modal'ı — her kullanıcıya bir kez göster
+    // v1.6 "Yenilikler" modal'ı — her kullanıcıya bir kez göster.
+    // FR-585 kullanım demosu, modal çakışmasını önlemek için Yenilikler'den SONRA gösterilir.
     const whatsNewSeen = localStorage.getItem('cmyo_whats_new_v1.6.1');
     if (!whatsNewSeen) {
       setShowWhatsNew(true);
+    } else if (!localStorage.getItem('cmyo_fr585_demo_seen_v1')) {
+      setShowFr585Demo(true);
     }
   }, []);
 
@@ -665,6 +669,27 @@ export default function Home() {
   const dismissWhatsNew = () => {
     setShowWhatsNew(false);
     localStorage.setItem('cmyo_whats_new_v1.6.1', 'true');
+    // Yenilikler kapanınca, görülmediyse FR-585 demosunu sırayla göster
+    if (!localStorage.getItem('cmyo_fr585_demo_seen_v1')) {
+      setShowFr585Demo(true);
+    }
+  };
+
+  const dismissFr585Demo = () => {
+    setShowFr585Demo(false);
+    localStorage.setItem('cmyo_fr585_demo_seen_v1', 'true');
+  };
+
+  // "?" ile her an yeniden açılır (anahtarı sıfırlamaz)
+  const openFr585Demo = () => setShowFr585Demo(true);
+
+  // "Örneği dene": örnek komutu input'a yazar, demoyu kapatır, input'a odaklanır
+  const tryFr585Example = () => {
+    setInput(
+      'Eklediğim kanıtla FR-585 Kanıt Formunu doldur. Bağlam: [ne yapıldı], [tarih], [sorumlu birim], [sonuç/çıktı].'
+    );
+    dismissFr585Demo();
+    setTimeout(() => chatInputRef.current?.focus(), 120);
   };
 
   // Auth check useEffect
@@ -1231,32 +1256,42 @@ export default function Home() {
               });
 
               if (fillRes.ok) {
-                const blob = await fillRes.blob();
-                const url = window.URL.createObjectURL(blob);
-                fileAttachment = url;
+                const fillData = await fillRes.json() as {
+                  previewMarkdown?: string;
+                  docxBase64?: string;
+                  filename?: string;
+                  missing?: string[];
+                };
 
-                const disposition = fillRes.headers.get('Content-Disposition') || '';
-                const nameMatch = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^;"'\n]+)["']?/i);
-                const serverFilename = nameMatch
-                  ? decodeURIComponent(nameMatch[1].trim())
-                  : 'FR-585 Kanit Formu (dolu).docx';
+                const serverFilename = fillData.filename || 'FR-585 Kanit Formu (dolu).docx';
 
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = serverFilename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
+                // base64 → Blob → indir (+ mesaja indirme linki için fileAttachment)
+                if (fillData.docxBase64) {
+                  const byteChars = atob(fillData.docxBase64);
+                  const bytes = new Uint8Array(byteChars.length);
+                  for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+                  const blob = new Blob([bytes], {
+                    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                  });
+                  const url = window.URL.createObjectURL(blob);
+                  fileAttachment = url;
 
-                botContent += `\n\n✅ Doldurulmuş FR-585 Kanıt Formu hazırlandı ve indirildi.`;
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = serverFilename;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                }
 
-                const warn = fillRes.headers.get('X-Fill-Warning');
-                if (warn) {
-                  try {
-                    botContent += `\n\n⚠️ ${decodeURIComponent(warn)}`;
-                  } catch {
-                    botContent += `\n\n⚠️ ${warn}`;
-                  }
+                // Sohbette dolu formun önizlemesini göster
+                if (fillData.previewMarkdown) {
+                  botContent += `\n\n${fillData.previewMarkdown}`;
+                }
+                botContent += `\n\n✅ Doldurulmuş FR-585 Kanıt Formu hazırlandı ve **Word dosyası indirildi**.`;
+
+                if (fillData.missing && fillData.missing.length > 0) {
+                  botContent += `\n\n⚠️ Şu alanları kanıttan kesin olarak çıkaramadım, lütfen kontrol edip elle tamamlayın: ${fillData.missing.join(', ')}.`;
                 }
               } else {
                 let errMsg = 'Form otomatik doldurulamadı.';
@@ -1659,6 +1694,14 @@ export default function Home() {
                 </span>
               </button>
             )}
+            <button
+              onClick={openFr585Demo}
+              className="p-2 text-slate-400 hover:text-blue-400 transition-colors"
+              title="FR-585 Kanıt Formu nasıl doldurulur?"
+              aria-label="FR-585 nasıl doldurulur"
+            >
+              <Info className="w-5 h-5" />
+            </button>
             <button
               onClick={handleLogout}
               className="p-2 text-slate-400 hover:text-red-400 transition-colors"
@@ -2226,6 +2269,107 @@ export default function Home() {
                 >
                   Anlad{"\u0131"}m, Ke{"\u015F"}fetmeye Ba{"\u015F"}la
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* FR-585 Kullanım Demosu — animasyonlu adım adım modal */}
+        {showFr585Demo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={dismissFr585Demo} />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 24 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-slate-900 border border-white/10 rounded-2xl shadow-2xl shadow-blue-500/10 pointer-events-auto"
+            >
+              <div className="h-1 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500" />
+
+              <div className="p-6 sm:p-8">
+                {/* Başlık */}
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">FR-585 Kanıt Formu — Nasıl Doldurulur?</h2>
+                    <p className="text-xs text-slate-400">Yapay zeka kanıtını akademik ve profesyonel dille doldurur</p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-slate-300 mt-4 mb-5 leading-relaxed">
+                  Kanıtını yükle, gerisini ÇMYO.AI halletsin. 4 basit adımda dolu, imzaya hazır bir FR-585:
+                </p>
+
+                {/* Adımlar */}
+                <div className="space-y-3">
+                  {[
+                    { icon: <Paperclip className="w-4 h-4 text-blue-400" />, title: 'Kanıtını yükle', desc: 'Faaliyet raporu, fotoğraf, yazışma veya belgeyi 📎 ile ekle (Word, PDF veya görsel).' },
+                    { icon: <MessageSquare className="w-4 h-4 text-cyan-400" />, title: 'Formu iste + kısa bağlam ver', desc: '"FR-585 Kanıt Formunu doldur" yaz ve kısaca belirt: ne yapıldı, tarih, sorumlu birim, sonuç.' },
+                    { icon: <Sparkles className="w-4 h-4 text-blue-400" />, title: 'AI akademik dille doldurur', desc: 'Kanıtın analiz edilir; içerik, sonuç ve değerlendirme alanları resmî-akademik dille zenginleştirilir. Sohbette önizlemesini görürsün.' },
+                    { icon: <Send className="w-4 h-4 text-cyan-400" />, title: 'Word dosyası iner', desc: 'Doldurulmuş FR-585 otomatik indirilir. Kontrol edip imzalaman yeterli.' },
+                  ].map((step, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.15 + i * 0.12, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                      className="flex gap-3 items-start"
+                    >
+                      <div className="relative shrink-0">
+                        <div className="w-9 h-9 rounded-xl bg-slate-800 border border-blue-500/20 flex items-center justify-center">
+                          {step.icon}
+                        </div>
+                        <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-[10px] font-bold flex items-center justify-center shadow">
+                          {i + 1}
+                        </span>
+                      </div>
+                      <div className="flex-1 pt-0.5">
+                        <h3 className="text-sm font-semibold text-white">{step.title}</h3>
+                        <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{step.desc}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* İpucu */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.7 }}
+                  className="mt-5 flex items-start gap-2.5 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3"
+                >
+                  <Lightbulb className="w-4 h-4 text-blue-300 shrink-0 mt-0.5" />
+                  <p className="text-xs text-blue-200/90 leading-relaxed">
+                    <span className="font-semibold">İpucu:</span> Ne kadar çok bağlam verirsen (amaç, kapsam, sonuç), form o kadar dolu ve doğru olur. Tarih ve birim gibi bilgileri net yazarsan AI bunları uydurmaz, doğru yerleştirir.
+                  </p>
+                </motion.div>
+
+                {/* CTA */}
+                <div className="flex flex-col sm:flex-row gap-2 mt-6">
+                  <button
+                    onClick={tryFr585Example}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Örneği Dene
+                  </button>
+                  <button
+                    onClick={dismissFr585Demo}
+                    className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-semibold rounded-xl transition-all"
+                  >
+                    Anladım
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

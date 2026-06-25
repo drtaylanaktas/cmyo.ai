@@ -95,6 +95,62 @@ export function formatTrDate(iso: string | null | undefined): string {
 }
 
 /**
+ * Dolu FR-585 verisini sohbette gösterilecek **premium markdown önizleme**ye çevirir.
+ * Sohbetin mevcut markdown render'ı (tablo + callout) bunu güzelce gösterir; ayrı
+ * bileşen gerekmez. Boş alanlar "—" ile, checkbox'lar ☒/☐ ile gösterilir.
+ */
+export function buildFr585PreviewMarkdown(data: Fr585Data): string {
+    const nz = (v: string | null | undefined) => (v && v.trim() ? v.trim() : '—');
+
+    const turu = [
+        `${checkbox(data.kanitTuru.faaliyet)} Faaliyet`,
+        `${checkbox(data.kanitTuru.surec)} Süreç`,
+        `${checkbox(data.kanitTuru.risk)} Risk`,
+        `${checkbox(data.kanitTuru.iyilestirmeDIF)} İyileştirme/DİF`,
+        `${checkbox(data.kanitTuru.mys)} MYS`,
+        `${checkbox(data.kanitTuru.diger)} Diğer${
+            data.kanitTuru.diger && data.kanitTuru.digerAciklama
+                ? ` (${data.kanitTuru.digerAciklama.trim()})`
+                : ''
+        }`,
+    ].join(' · ');
+
+    const durum = [
+        `${checkbox(data.gerceklesmeDurumu.tamamlandi)} Tamamlandı`,
+        `${checkbox(data.gerceklesmeDurumu.ertelendi)} Ertelendi`,
+        `${checkbox(data.gerceklesmeDurumu.iptal)} İptal`,
+    ].join(' · ');
+
+    // Markdown tablo hücrelerinde satır sonu/pipe sorun çıkarmasın diye temizle.
+    const cell = (v: string | null | undefined) =>
+        nz(v).replace(/\|/g, '\\|').replace(/\n+/g, ' ');
+
+    return [
+        '> [!NOTE] **FR-585 Kanıt Formu — Önizleme**',
+        '> Aşağıdaki alanlar kanıtınız esas alınarak dolduruldu. Word dosyası indirildi; kontrol edip imzalayabilirsiniz.',
+        '',
+        '| Alan | İçerik |',
+        '| --- | --- |',
+        `| **Sorumlu Birim/Kişi** | ${cell(data.sorumluBirim)} |`,
+        `| **Kanıtın Adı** | ${cell(data.kanitAdi)} |`,
+        `| **Kanıtın Türü** | ${turu} |`,
+        `| **Gerçekleşme Durumu** | ${durum} |`,
+        `| **Gerçekleşme Tarihi** | ${formatTrDate(data.gerceklesmeTarihi) || '—'} |`,
+        '',
+        '**Kanıt İçeriği**',
+        '',
+        nz(data.kanitIcerigi),
+        '',
+        '**Sonuçlar ve Değerlendirme**',
+        '',
+        nz(data.sonuclarVeDegerlendirme),
+        ...(data.gerekce && data.gerekce.trim()
+            ? ['', '**Ertelenme/İptal Gerekçesi**', '', data.gerekce.trim()]
+            : []),
+    ].join('\n');
+}
+
+/**
  * Flat placeholder dictionary — docxtemplater default parser için (dot-path yerine).
  */
 function toFlatPlaceholders(data: Fr585Data): Record<string, string> {
