@@ -7,13 +7,14 @@
  * Akış:
  *   1. Kullanıcı mesajı + (attachmentText | attachmentImage) alınır
  *   2. GPT-4o multimodal structured output çağrısı → FR-585 şemasına uyan JSON
- *   3. renderFr585(data) → doldurulmuş DOCX buffer
- *   4. Eksik alanlar X-Fill-Warning header'ında kullanıcıya bildirilir
+ *      (doğrulanabilir alanlar muhafazakâr; anlatı alanları akademik/profesyonel zengin)
+ *   3. renderFr585(data) → doldurulmuş DOCX buffer (base64) + sohbet önizlemesi (markdown)
+ *   4. JSON dön: { data, missing, previewMarkdown, docxBase64, filename }
  */
 
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { renderFr585, type Fr585Data } from '@/lib/fr585-template';
+import { renderFr585, buildFr585PreviewMarkdown, type Fr585Data } from '@/lib/fr585-template';
 
 export const runtime = 'nodejs'; // docxtemplater + pizzip Node gerektiriyor
 
@@ -73,22 +74,50 @@ const FR585_JSON_SCHEMA = {
             },
             gerceklesmeTarihi: {
                 type: ['string', 'null'],
-                description: 'ISO tarih: YYYY-MM-DD',
+                description: 'ISO tarih: YYYY-MM-DD. Kanıtta yoksa null — UYDURMA.',
             },
-            kanitIcerigi: { type: ['string', 'null'] },
-            sonuclarVeDegerlendirme: { type: ['string', 'null'] },
-            gerekce: { type: ['string', 'null'] },
+            kanitIcerigi: {
+                type: ['string', 'null'],
+                description:
+                    'Kanıtın ne olduğunu, amacını, kapsamını ve içeriğini açıklayan DOLU, ' +
+                    'yapılandırılmış, resmî-akademik Türkçe metin (3-6 cümle). Kanıta dayalı zenginleştir; ' +
+                    'sahte rakam/isim/tarih ekleme.',
+            },
+            sonuclarVeDegerlendirme: {
+                type: ['string', 'null'],
+                description:
+                    'Faaliyetin/sürecin sonuçları, kurumsal katkısı ve kalite yönetimi açısından ' +
+                    'değerlendirmesi — dolu, profesyonel akademik üslup (2-5 cümle). Niteliksel; sahte veri yok.',
+            },
+            gerekce: {
+                type: ['string', 'null'],
+                description:
+                    'Yalnız ertelendi/iptal ise doldur: ertelenme veya iptal gerekçesi (kurumsal üslup). ' +
+                    'Tamamlandıysa null.',
+            },
         },
     },
 } as const;
 
 const SYSTEM_PROMPT =
-    "Sen FR-585 Kanıt Formu'nun alanlarını dolduran bir yardımcısın. " +
-    'Kullanıcının mesajı ve eklediği kanıt (metin ve/veya görsel) üzerinden JSON şemasına göre cevap ver. ' +
-    'EMİN OLMADIĞIN alanları null bırak; asla uydurma. ' +
-    'Tarihleri ISO formatında (YYYY-MM-DD) yaz. ' +
-    'Checkbox alanları için yalnızca kanıtta AÇIKÇA desteklenen kutuyu true yap, diğerlerini false yap. ' +
-    'Dil: Türkçe.';
+    "Sen Kırşehir Ahi Evran Üniversitesi Çiçekdağı MYO'nun kalite yönetim sisteminde " +
+    "FR-585 Kanıt Formu'nu dolduran uzman bir kalite koordinasyon asistanısın. " +
+    'Kullanıcının mesajı ve eklediği kanıt (metin ve/veya görsel) üzerinden JSON şemasına göre cevap ver.\n\n' +
+    'İKİ TÜR ALAN VARDIR, FARKLI DAVRAN:\n' +
+    '1) DOĞRULANABİLİR ALANLAR (sorumluBirim, kanitAdi, gerceklesmeTarihi, kanitTuru kutuları, ' +
+    'gerceklesmeDurumu): Yalnızca kanıtta AÇIKÇA desteklenen değeri yaz. Tarih/isim/birim/sayı ' +
+    'kanıtta yoksa null (veya checkbox için false) bırak — ASLA UYDURMA. Checkbox için yalnız ' +
+    'kanıtta açıkça desteklenen kutuyu true yap.\n' +
+    '2) ANLATI ALANLARI (kanitIcerigi, sonuclarVeDegerlendirme, gerekce): Burada PROFESYONEL ve ' +
+    "AKADEMİK biçimde ZENGİNLEŞTİR. Kullanıcının kısa/yetersiz açıklamasını, kanıta dayanarak " +
+    'bağlam, amaç, kapsam, yöntem, kurumsal katkı ve sonuç bakımından EKSİKSİZ, akıcı, resmî ' +
+    'kurumsal Türkçe ile DOLU bir kalite kanıt metnine genişlet (çok cümleli paragraflar). ' +
+    'Boş/tek cümlelik bırakma. Niteliksel zenginleştirme serbesttir; ANCAK somut sahte veri ' +
+    '(uydurma rakam, oran, kişi/birim adı, tarih, mevzuat numarası) EKLEME.\n\n' +
+    'Üslup örneği (kanitIcerigi): "Söz konusu kanıt, ... faaliyetine ilişkin olup; faaliyetin ' +
+    'planlanması, yürütülmesi ve raporlanması süreçlerini belgelemektedir. Kapsamında ... yer ' +
+    'almakta ve kurumun kalite hedefleriyle uyumlu biçimde ... amaçlanmıştır."\n\n' +
+    'Tarihleri ISO (YYYY-MM-DD) yaz. Dil: Türkçe.';
 
 interface FillRequestBody {
     userMessage?: string;
@@ -171,8 +200,8 @@ export async function POST(req: Request) {
 
         const completion = await openai.chat.completions.create({
             model: 'gpt-4o',
-            temperature: 0.2,
-            max_tokens: 1500,
+            temperature: 0.5, // anlatı alanları için zengin/akıcı dil (doğrulanabilir alanlar prompt ile sıkı tutulur)
+            max_tokens: 3000, // dolu akademik paragraflar için bütçe
             response_format: {
                 type: 'json_schema',
                 json_schema: FR585_JSON_SCHEMA,
@@ -199,13 +228,13 @@ export async function POST(req: Request) {
             );
         }
 
-        // --- Eksik alanları topla (kullanıcıya uyarı notu için) ---
+        // --- Eksik DOĞRULANABİLİR alanları topla (kullanıcıya uyarı notu için) ---
+        // Anlatı alanları (kanitIcerigi/sonuclar) artık zenginleştirilerek dolacağı için
+        // uyarı listesine girmez; yalnız uydurulamayacak somut veriler kontrol edilir.
         const missing: string[] = [];
         if (!extracted.sorumluBirim) missing.push('Sorumlu Birim/Kişi');
         if (!extracted.kanitAdi) missing.push('Kanıtın Adı');
         if (!extracted.gerceklesmeTarihi) missing.push('Gerçekleşme Tarihi');
-        if (!extracted.kanitIcerigi) missing.push('Kanıt İçeriği');
-        if (!extracted.sonuclarVeDegerlendirme) missing.push('Sonuçlar ve Değerlendirme');
 
         const anyTuru = Object.entries(extracted.kanitTuru)
             .filter(([k]) => k !== 'digerAciklama')
@@ -216,21 +245,19 @@ export async function POST(req: Request) {
         if (!anyTuru) missing.push('Kanıtın Türü (checkbox)');
         if (!anyDurum) missing.push('Gerçekleşme Durumu (checkbox)');
 
-        // --- DOCX render ---
+        // --- DOCX render (base64) + sohbet önizlemesi (markdown) ---
         const buf = await renderFr585(extracted);
+        const docxBase64 = Buffer.from(buf).toString('base64');
+        const previewMarkdown = buildFr585PreviewMarkdown(extracted);
+        const filename = 'FR-585 Kanit Formu (dolu).docx';
 
-        const outFilename = 'FR-585 Kanit Formu (dolu).docx';
-        const headers = new Headers({
-            'Content-Type':
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(outFilename)}`,
+        return NextResponse.json({
+            data: extracted,
+            missing,
+            previewMarkdown,
+            docxBase64,
+            filename,
         });
-        if (missing.length > 0) {
-            const warn = `Şu alanları otomatik tamamlayamadım, lütfen elle doldurun: ${missing.join(', ')}.`;
-            headers.set('X-Fill-Warning', encodeURIComponent(warn));
-        }
-
-        return new NextResponse(buf as any, { status: 200, headers });
     } catch (err: any) {
         console.error('[fill-kanit-formu] error:', err);
         return NextResponse.json(
