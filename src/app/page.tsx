@@ -1658,6 +1658,16 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
+            <a
+              href="/api/sso/fit"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-300 hover:text-white hover:border-blue-500/50 transition-colors"
+              title="ÇMYO.AI FİT — kişiselleştirilmiş sağlık & antrenman (aynı hesapla geçiş)"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">ÇMYO.AI FİT</span>
+            </a>
             <Link
               href="/etkinlikler"
               className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
