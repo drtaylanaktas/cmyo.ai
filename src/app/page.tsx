@@ -529,6 +529,7 @@ export default function Home() {
   const router = useRouter();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showTelegramBanner, setShowTelegramBanner] = useState(false);
+  const [showFitBanner, setShowFitBanner] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [showFr585Demo, setShowFr585Demo] = useState(false);
 
@@ -651,6 +652,10 @@ export default function Home() {
     if (!bannerDismissed) {
       setShowTelegramBanner(true);
     }
+    // ÇMYO.AI FİT tanıtım banner'ı — kapatılana dek göster
+    if (!localStorage.getItem('cmyo_fit_banner_dismissed')) {
+      setShowFitBanner(true);
+    }
     // v1.6 "Yenilikler" modal'ı — her kullanıcıya bir kez göster.
     // FR-585 kullanım demosu, modal çakışmasını önlemek için Yenilikler'den SONRA gösterilir.
     const whatsNewSeen = localStorage.getItem('cmyo_whats_new_v1.6.1');
@@ -664,6 +669,11 @@ export default function Home() {
   const dismissTelegramBanner = () => {
     setShowTelegramBanner(false);
     localStorage.setItem('telegram_banner_dismissed', 'true');
+  };
+
+  const dismissFitBanner = () => {
+    setShowFitBanner(false);
+    localStorage.setItem('cmyo_fit_banner_dismissed', 'true');
   };
 
   const dismissWhatsNew = () => {
@@ -1464,6 +1474,25 @@ export default function Home() {
             <span className="font-medium">Yeni Sohbet</span>
           </button>
 
+          {/* ÇMYO.AI FİT — ekosistem geçişi (SSO, aynı hesap) */}
+          <a
+            href="/api/sso/fit"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 w-full p-3 mb-4 rounded-xl bg-gradient-to-r from-blue-600/90 to-purple-600/90 hover:from-blue-500 hover:to-purple-500 text-white transition-all shadow-lg shadow-purple-500/20 border border-white/10 group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div className="flex flex-col items-start leading-tight">
+              <span className="font-semibold text-sm flex items-center gap-1.5">
+                ÇMYO.AI FİT
+                <span className="text-[9px] font-bold bg-white/25 px-1.5 py-0.5 rounded-full uppercase tracking-wider">Yeni</span>
+              </span>
+              <span className="text-[11px] text-blue-100/80">Sağlık &amp; Antrenman</span>
+            </div>
+          </a>
+
           {/* History List */}
           <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Geçmiş</h3>
@@ -1662,11 +1691,13 @@ export default function Home() {
               href="/api/sso/fit"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-300 hover:text-white hover:border-blue-500/50 transition-colors"
+              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border border-white/15 shadow-lg shadow-purple-500/25 transition-all hover:scale-[1.03]"
               title="ÇMYO.AI FİT — kişiselleştirilmiş sağlık & antrenman (aynı hesapla geçiş)"
             >
               <Activity className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">ÇMYO.AI FİT</span>
+              <span>ÇMYO.AI FİT</span>
+              <span className="text-[8px] font-bold bg-white/25 px-1 py-0.5 rounded-full uppercase tracking-wider hidden sm:inline">Yeni</span>
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             </a>
             <Link
               href="/etkinlikler"
@@ -1722,6 +1753,48 @@ export default function Home() {
             </button>
           </div>
         </header>
+
+        {/* ÇMYO.AI FİT Tanıtım Banner'ı */}
+        <AnimatePresence>
+          {showFitBanner && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -20, height: 0 }}
+              className="relative z-20 w-full bg-gradient-to-r from-blue-900/50 via-purple-900/40 to-blue-900/50 border-b border-purple-500/20 backdrop-blur-md overflow-hidden"
+            >
+              <div className="max-w-4xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-white/10 flex items-center justify-center shrink-0">
+                    <Activity className="w-4 h-4 text-blue-300" />
+                  </div>
+                  <p className="text-xs sm:text-sm text-blue-100 truncate">
+                    <span className="font-semibold text-white">ÇMYO.AI FİT yayında!</span>{' '}
+                    <span className="hidden sm:inline">Kişiye özel sağlık &amp; antrenman planın — aynı hesabınla, ekstra kayıt yok.</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href="/api/sso/fit"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs font-semibold rounded-lg transition-all shadow-lg shadow-purple-500/20 whitespace-nowrap"
+                  >
+                    Hemen Geç →
+                  </a>
+                  <button
+                    onClick={dismissFitBanner}
+                    className="p-1.5 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700/50 rounded-lg transition-colors"
+                    title="Kapat"
+                    aria-label="Kapat"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Telegram Announcement Banner */}
         <AnimatePresence>
@@ -1842,6 +1915,33 @@ export default function Home() {
                     </motion.button>
                   ))}
                 </div>
+
+                {/* ÇMYO.AI FİT — ekosistem hero kartı */}
+                <motion.a
+                  href="/api/sso/fit"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="group mt-4 w-full max-w-lg relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 shadow-lg shadow-purple-500/15"
+                >
+                  <div className="flex items-center gap-4 rounded-2xl bg-slate-900/90 p-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-white/10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Activity className="w-6 h-6 text-blue-300" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-white">ÇMYO.AI FİT</h3>
+                        <span className="text-[9px] font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white px-2 py-0.5 rounded-full uppercase tracking-wider">Yeni</span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">Kişiye özel sağlık, beslenme &amp; antrenman planı — aynı hesabınla.</p>
+                    </div>
+                    <span className="flex items-center gap-1 text-blue-300 text-sm font-semibold shrink-0 group-hover:translate-x-0.5 transition-transform">
+                      Geç →
+                    </span>
+                  </div>
+                </motion.a>
               </div>
 
               {/* Sağ: Haber Takvimi */}
