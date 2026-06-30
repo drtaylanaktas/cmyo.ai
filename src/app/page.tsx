@@ -2316,13 +2316,13 @@ export default function Home() {
                     <Image src="/logo.png" alt="CMYO.AI" width={40} height={40} className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-white">\u00C7MYO.AI v2.0</h2>
-                    <p className="text-xs text-slate-400">Ekosistem S\u00FCr\u00FCm\u00FC \u00B7 Haziran 2026</p>
+                    <h2 className="text-lg font-bold text-white">ÇMYO.AI v2.0</h2>
+                    <p className="text-xs text-slate-400">Ekosistem Sürümü · Haziran 2026</p>
                   </div>
                 </div>
 
                 <p className="text-sm text-slate-300 mt-4 mb-5 leading-relaxed">
-                  \u00C7MYO.AI art\u0131k sadece bir asistan de\u011Fil \u2014 bir <span className="text-white font-semibold">ekosistem</span>! Yeni \u00C7MYO.AI F\u0130T uygulamas\u0131 ve premium akademik ara\u00E7larla kar\u015F\u0131n\u0131zday\u0131z.
+                  ÇMYO.AI artık sadece bir asistan değil — bir <span className="text-white font-semibold">ekosistem</span>! Yeni ÇMYO.AI FİT uygulaması ve premium akademik araçlarla karşınızdayız.
                 </p>
 
                 {/* ★ HERO FEATURE: ÇMYO.AI FİT — gradient-bordered premium card */}
