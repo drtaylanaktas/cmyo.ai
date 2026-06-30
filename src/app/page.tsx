@@ -663,7 +663,7 @@ export default function Home() {
     }
     // v1.6 "Yenilikler" modal'ı — her kullanıcıya bir kez göster.
     // FR-585 kullanım demosu, modal çakışmasını önlemek için Yenilikler'den SONRA gösterilir.
-    const whatsNewSeen = localStorage.getItem('cmyo_whats_new_v1.6.1');
+    const whatsNewSeen = localStorage.getItem('cmyo_whats_new_v2.0');
     if (!whatsNewSeen) {
       setShowWhatsNew(true);
     } else if (!localStorage.getItem('cmyo_fr585_demo_seen_v1')) {
@@ -683,7 +683,7 @@ export default function Home() {
 
   const dismissWhatsNew = () => {
     setShowWhatsNew(false);
-    localStorage.setItem('cmyo_whats_new_v1.6.1', 'true');
+    localStorage.setItem('cmyo_whats_new_v2.0', 'true');
     // Yenilikler kapanınca, görülmediyse FR-585 demosunu sırayla göster
     if (!localStorage.getItem('cmyo_fr585_demo_seen_v1')) {
       setShowFr585Demo(true);
@@ -2316,34 +2316,33 @@ export default function Home() {
                     <Image src="/logo.png" alt="CMYO.AI" width={40} height={40} className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-white">{"\u00C7"}MYO.AI v1.6.1</h2>
-                    <p className="text-xs text-slate-400">Haziran 2026</p>
+                    <h2 className="text-lg font-bold text-white">\u00C7MYO.AI v2.0</h2>
+                    <p className="text-xs text-slate-400">Ekosistem S\u00FCr\u00FCm\u00FC \u00B7 Haziran 2026</p>
                   </div>
                 </div>
 
                 <p className="text-sm text-slate-300 mt-4 mb-5 leading-relaxed">
-                  Yeni nesil akademik asistan {"\u00F6"}zellikleri ve premium tasar{"\u0131"}m g{"\u00FC"}ncellemeleriyle kar{"\u015F"}{"\u0131"}n{"\u0131"}zday{"\u0131"}z!
+                  \u00C7MYO.AI art\u0131k sadece bir asistan de\u011Fil \u2014 bir <span className="text-white font-semibold">ekosistem</span>! Yeni \u00C7MYO.AI F\u0130T uygulamas\u0131 ve premium akademik ara\u00E7larla kar\u015F\u0131n\u0131zday\u0131z.
                 </p>
 
-                {/* ★ HERO FEATURE: Humanizer — gradient-bordered premium card */}
-                <div className="relative mb-4 rounded-xl p-[1px] bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500">
+                {/* ★ HERO FEATURE: ÇMYO.AI FİT — gradient-bordered premium card */}
+                                <div className="relative mb-4 rounded-xl p-[1px] bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500">
                   <div className="bg-slate-900 rounded-[11px] p-4">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center shrink-0">
-                        <ShieldCheck className="w-5 h-5 text-blue-400" />
+                        <Activity className="w-5 h-5 text-blue-400" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-sm font-bold text-white">Akademik AI Humanizer</h3>
-                          <span className="text-[9px] font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white px-2 py-0.5 rounded-full uppercase tracking-wider">T{"\u00FC"}rkiye{"\u2019"}de {"\u0130"}lk</span>
+                          <h3 className="text-sm font-bold text-white">ÇMYO.AI FİT — yeni uygulama</h3>
+                          <span className="text-[9px] font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white px-2 py-0.5 rounded-full uppercase tracking-wider">Yeni</span>
                         </div>
                         <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                          Turnitin ve GPTZero uyumlu {"\u00E7"}ok a{"\u015F"}amal{"\u0131"} insans{"\u0131"}la{"\u015F"}t{"\u0131"}rma motoru. 26 AI yaz{"\u0131"}m kal{"\u0131"}b{"\u0131"}n{"\u0131"} tespit eder, Blader Playbook ile metninizi do{"\u011F"}al akademik dile d{"\u00F6"}n{"\u00FC"}{"\u015F"}t{"\u00FC"}r{"\u00FC"}r. Ses kalibrasyonu, audit denetimi ve T{"\u00FC"}rk{"\u00E7"}e AI kal{"\u0131"}p tespiti dahil.
+                          Kişiye özel sağlık, beslenme ve antrenman planı. Ayrı kayıt yok — ÇMYO.AI hesabınla tek tıkla geçersin. Üstteki <span className="text-blue-300 font-medium">ÇMYO.AI FİT</span> butonundan dene.
                         </p>
                         <div className="flex items-center gap-3 mt-2">
-                          <span className="text-[10px] text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md font-medium">Multi-Pass Engine</span>
-                          <span className="text-[10px] text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-md font-medium">Audit Loop</span>
-                          <span className="text-[10px] text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md font-medium">TR + EN</span>
+                          <span className="text-[10px] text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md font-medium">Aynı hesap (SSO)</span>
+                          <span className="text-[10px] text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-md font-medium">Sağlık &amp; Antrenman</span>
                         </div>
                       </div>
                     </div>
@@ -2357,8 +2356,8 @@ export default function Home() {
                       <Sparkles className="w-4 h-4 text-emerald-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">3D D{"\u00F6"}nebilen Flashcard Kartlar{"\u0131"}</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Kelime, terim ve konular{"\u0131"} ezberlerken kullanabilece{"\u011F"}iniz, canl{"\u0131"} y{"\u00FC"}kleme barl{"\u0131"} 3D interaktif kartlar.</p>
+                      <h3 className="text-sm font-semibold text-white">FR-585 Kanıt Formu — Akademik Zenginleştirme</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Kanıtını yükle; yapay zeka formu profesyonel akademik dille DOLU doldursun. Önce sohbette önizler, sonra Word olarak iner.</p>
                     </div>
                   </div>
 
@@ -2367,8 +2366,8 @@ export default function Home() {
                       <Zap className="w-4 h-4 text-blue-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">G{"\u00F6"}rsel Ak{"\u0131"}ll{"\u0131"} Yan{"\u0131"}t Kartlar{"\u0131"}</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Callout kutular{"\u0131"}, interaktif akordeon a{"\u00E7"}{"\u0131"}l{"\u0131"}r-kapan{"\u0131"}r men{"\u00FC"}ler, premium tablolar ve g{"\u00F6"}rev listeleri.</p>
+                      <h3 className="text-sm font-semibold text-white">Premium Arayüz</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Tutarlı mavi-neon kimlik; daha akıcı, profesyonel bir sohbet deneyimi.</p>
                     </div>
                   </div>
 
@@ -2377,11 +2376,13 @@ export default function Home() {
                       <Lightbulb className="w-4 h-4 text-purple-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">Mobil Deste{"\u011F"}i ve H{"\u0131"}zl{"\u0131"} Altyap{"\u0131"}</h3>
-                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Geli{"\u015F"}mi{"\u015F"} veritaban{"\u0131"} caching sistemi ve mobil WebView / Android tam uyumlulu{"\u011F"}u.</p>
+                      <h3 className="text-sm font-semibold text-white">Güncel Haber Takvimi</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Çiçekdağı MYO ve Ahi Evran Üniversitesi haberleri, renk kodlu takvimle her gün otomatik güncel.</p>
                     </div>
                   </div>
                 </div>
+
+
 
                 {/* CTA */}
                 <button
@@ -2533,7 +2534,7 @@ export default function Home() {
                   <div>
                     <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                       Akademik Asistan Paneli
-                      <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">v1.6.1 Premium</span>
+                      <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">v2.0 Ekosistem</span>
                     </h2>
                     <p className="text-xs text-slate-400">Tez, makale ve ödevler için Turnitin/GPTZero uyumlu AI Analizi &amp; İnsansılaştırma</p>
                   </div>

@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ÇMYO.AI | Yapay Zeka Asistanı",
-  description: "Kırşehir Ahi Evran Üniversitesi Çiçekdağı MYO Yapay Zeka Asistanı",
+  title: "ÇMYO.AI | Yapay Zeka Ekosistemi",
+  description: "Kırşehir Ahi Evran Üniversitesi Çiçekdağı MYO yapay zeka ekosistemi — asistan, ÇMYO.AI FİT ve akademik araçlar.",
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",
