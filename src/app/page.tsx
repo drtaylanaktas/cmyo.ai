@@ -530,6 +530,7 @@ export default function Home() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showTelegramBanner, setShowTelegramBanner] = useState(false);
   const [showFitBanner, setShowFitBanner] = useState(false);
+  const [showFitCard, setShowFitCard] = useState(true);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [showFr585Demo, setShowFr585Demo] = useState(false);
 
@@ -655,6 +656,10 @@ export default function Home() {
     // ÇMYO.AI FİT tanıtım banner'ı — kapatılana dek göster
     if (!localStorage.getItem('cmyo_fit_banner_dismissed')) {
       setShowFitBanner(true);
+    }
+    // Karşılama ekranı FİT hero kartı — bir kez tıklanınca kalıcı gizlenir
+    if (localStorage.getItem('cmyo_fit_card_clicked')) {
+      setShowFitCard(false);
     }
     // v1.6 "Yenilikler" modal'ı — her kullanıcıya bir kez göster.
     // FR-585 kullanım demosu, modal çakışmasını önlemek için Yenilikler'den SONRA gösterilir.
@@ -1916,11 +1921,16 @@ export default function Home() {
                   ))}
                 </div>
 
-                {/* ÇMYO.AI FİT — ekosistem hero kartı */}
+                {/* ÇMYO.AI FİT — ekosistem hero kartı (bir kez tıklanınca kalıcı gizlenir) */}
+                {showFitCard && (
                 <motion.a
                   href="/api/sso/fit"
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => {
+                    localStorage.setItem('cmyo_fit_card_clicked', 'true');
+                    setShowFitCard(false);
+                  }}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
@@ -1942,6 +1952,7 @@ export default function Home() {
                     </span>
                   </div>
                 </motion.a>
+                )}
               </div>
 
               {/* Sağ: Haber Takvimi */}
