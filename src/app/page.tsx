@@ -1899,9 +1899,9 @@ export default function Home() {
                     className="object-contain drop-shadow-[0_0_25px_rgba(0,128,255,0.3)]"
                   />
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">ÇMYO.AI Asistan</h2>
+                <h2 className="text-2xl font-bold text-white mb-2">ÇMYO.AI</h2>
                 <p className="text-slate-400 max-w-md mb-6 text-sm">
-                  Çiçekdağı MYO hakkında merak ettiklerinizi sorabilir, akademik ve idari süreçler hakkında yardım alabilirsiniz.
+                  Sıradan bir asistan değil — size özel, sürekli büyüyen bir yapay zeka <span className="text-blue-300 font-medium">ekosistemi</span>. Sorun, üretin, keşfedin.
                 </p>
 
                 {/* Quick Start Cards */}
