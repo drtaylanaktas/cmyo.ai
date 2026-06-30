@@ -29,12 +29,28 @@ export default function LoginPage() {
     const [resendLoading, setResendLoading] = useState(false);
     const router = useRouter();
 
+    // Giriş sonrası güvenli yönlendirme hedefi (?next=). Yalnız iç yollar (/ ile başlayan).
+    // SSO geçişi gibi API yollarına tam sayfa navigasyonu gerekir.
+    const resolveNext = (): string => {
+        try {
+            const n = new URLSearchParams(window.location.search).get('next');
+            if (n && n.startsWith('/')) return n;
+        } catch { /* yoksay */ }
+        return '/';
+    };
+    const goNext = () => {
+        const dest = resolveNext();
+        if (dest === '/') router.push('/');
+        else window.location.href = dest;
+    };
+
     useEffect(() => {
         // Check if already logged in
         const user = localStorage.getItem('cmyo_user');
         if (user) {
-            router.push('/');
+            goNext();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [router]);
 
     const handleResend = async () => {
@@ -126,7 +142,7 @@ export default function LoginPage() {
                 localStorage.setItem('cmyo_user', JSON.stringify(data.user));
                 setIsSuccessAnimation(true);
                 setTimeout(() => {
-                    router.push('/');
+                    goNext();
                 }, 2800); // 2.8s wait for the majestic slow animation before navigating
             } catch (err) {
                 setError('Bir hata oluştu. Lütfen tekrar deneyin.');
