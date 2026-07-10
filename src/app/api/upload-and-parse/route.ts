@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { parseDocument } from '@/lib/file-parser';
+import { getSession } from '@/lib/auth';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 
 const DOCUMENT_MIMES = new Set([
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
@@ -40,6 +42,14 @@ function isValidImage(buffer: Buffer, mime: string): boolean {
 }
 
 export async function POST(request: Request) {
+    const session = await getSession();
+    if (!session) {
+        return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 401 });
+    }
+    const rl = await checkRateLimit(`upload-parse:${session.email}`, RATE_LIMITS.chat);
+    if (!rl.allowed) {
+        return NextResponse.json({ error: `Çok fazla istek. ${rl.resetIn} sn sonra deneyin.` }, { status: 429 });
+    }
     try {
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
