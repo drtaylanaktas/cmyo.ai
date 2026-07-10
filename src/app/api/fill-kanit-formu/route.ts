@@ -15,6 +15,8 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { renderFr585, buildFr585PreviewMarkdown, type Fr585Data } from '@/lib/fr585-template';
+import { getSession } from '@/lib/auth';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 
 export const runtime = 'nodejs'; // docxtemplater + pizzip Node gerektiriyor
 
@@ -129,6 +131,15 @@ interface FillRequestBody {
 }
 
 export async function POST(req: Request) {
+    // Yetki + hız sınırı: yetkisiz OpenAI maliyet istismarını önle
+    const session = await getSession();
+    if (!session) {
+        return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 401 });
+    }
+    const rl = await checkRateLimit(`fill-kanit:${session.email}`, RATE_LIMITS.chat);
+    if (!rl.allowed) {
+        return NextResponse.json({ error: `Çok fazla istek. ${rl.resetIn} sn sonra deneyin.` }, { status: 429 });
+    }
     try {
         const body = (await req.json()) as FillRequestBody;
         const userMessage = (body.userMessage || '').trim();

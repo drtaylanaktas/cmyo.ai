@@ -4,6 +4,14 @@ const TELEGRAM_API = (token: string) => `https://api.telegram.org/bot${token}`;
 
 export async function GET(req: Request) {
     try {
+        // Yetki: yalnız CRON_SECRET bilen (admin/operatör) çağırabilir.
+        // Aksi hâlde Host-başlığı manipülasyonuyla webhook başka yere yönlendirilebilir.
+        const url = new URL(req.url);
+        const provided = url.searchParams.get('secret') || req.headers.get('x-internal-secret') || '';
+        if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
+            return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 403 });
+        }
+
         const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
         if (!TELEGRAM_BOT_TOKEN) {
             return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN ortam değişkeni tanımlı değil.' }, { status: 500 });
@@ -14,8 +22,9 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'TELEGRAM_WEBHOOK_SECRET ortam değişkeni tanımlı değil.' }, { status: 500 });
         }
 
-        const url = new URL(req.url);
-        const webhookUrl = `${url.protocol}//${url.host}/api/telegram/webhook`;
+        // Webhook URL'sini istek Host'undan DEĞİL, sabit yapılandırmadan kur.
+        const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://cmyoai.com').replace(/\/$/, '');
+        const webhookUrl = `${siteUrl}/api/telegram/webhook`;
         const api = TELEGRAM_API(TELEGRAM_BOT_TOKEN);
 
         // Set webhook with secret token
