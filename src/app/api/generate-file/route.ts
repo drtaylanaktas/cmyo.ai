@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType } from 'docx';
 import fs from 'fs';
 import path from 'path';
+import { getSession } from '@/lib/auth';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 
 // Helper to write debug logs
 // Helper to write debug logs (Console only for Vercel)
@@ -11,6 +13,14 @@ function logDebug(message: string) {
 }
 
 export async function POST(req: Request) {
+    const session = await getSession();
+    if (!session) {
+        return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 401 });
+    }
+    const rl = await checkRateLimit(`generate-file:${session.email}`, RATE_LIMITS.chat);
+    if (!rl.allowed) {
+        return NextResponse.json({ error: `Çok fazla istek. ${rl.resetIn} sn sonra deneyin.` }, { status: 429 });
+    }
     try {
         const { filename: rawFilename, data } = await req.json();
 

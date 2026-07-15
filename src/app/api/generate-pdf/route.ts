@@ -2,8 +2,18 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import { NextResponse } from 'next/server';
 // @ts-ignore
 import fontkit from '@pdf-lib/fontkit';
+import { getSession } from '@/lib/auth';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 
 export async function POST(req: Request) {
+    const session = await getSession();
+    if (!session) {
+        return NextResponse.json({ error: 'Yetkisiz erişim' }, { status: 401 });
+    }
+    const rl = await checkRateLimit(`generate-pdf:${session.email}`, RATE_LIMITS.chat);
+    if (!rl.allowed) {
+        return NextResponse.json({ error: `Çok fazla istek. ${rl.resetIn} sn sonra deneyin.` }, { status: 429 });
+    }
     try {
         const { filename, data } = await req.json();
 
