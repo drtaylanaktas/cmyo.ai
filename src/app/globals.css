@@ -81,6 +81,13 @@ body {
   font-family: var(--font-sans), sans-serif;
 }
 
+/* "Ecosystems" marka kelimesi — premium el yazısı (Great Vibes) */
+.font-ecosystems {
+  font-family: var(--font-ecosystems), "Segoe Script", cursive;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
 /* Glassmorphism & Neon Effects */
 .glass {
   background: rgba(10, 20, 40, 0.7);

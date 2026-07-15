@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, CheckCircle, AlertCircle, Briefcase } from 'lucide-react';
 
 import Image from 'next/image';
+import { EcosystemsBrand } from '@/components/EcosystemsBrand';
 
 export default function LoginPage() {
     const [isLogin, setIsLogin] = useState(true);
@@ -247,7 +248,7 @@ export default function LoginPage() {
                     <h1
                         className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-green-400 to-blue-400 tracking-tight"
                     >
-                        ÇMYO.AI v1.6.1
+                        <EcosystemsBrand scriptClassName="text-3xl" suffix="v2.0" />
                     </h1>
                 </div>
 

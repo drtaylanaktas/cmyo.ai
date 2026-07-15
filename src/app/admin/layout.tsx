@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import Link from 'next/link';
 import { LayoutDashboard, Database, LogOut, ArrowLeft, MessageCircle, UserX, Users } from 'lucide-react';
+import { EcosystemsBrand } from '@/components/EcosystemsBrand';
 
 export default async function AdminLayout({
     children,
@@ -66,7 +67,7 @@ export default async function AdminLayout({
                     <header className="mb-8 hidden sm:flex justify-between items-center">
                         <div>
                             <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-sky-400">
-                                ÇMYO.AI Yönetim
+                                <EcosystemsBrand scriptClassName="text-3xl" suffix="Yönetim" />
                             </h2>
                             <p className="text-sm text-slate-400 mt-1">Yapay zeka asistanının veritabanı kontrolü.</p>
                         </div>
