@@ -574,6 +574,34 @@ export default function Home() {
     }
   };
 
+  // Kayıtlı yazım profili — YALNIZ tarayıcıda (localStorage) tutulur; sunucuya/DB'ye
+  // asla gönderilmez. Böylece "Humanizer metinleri saklanmaz" gizlilik taahhüdü korunur.
+  const [styleSavedFlash, setStyleSavedFlash] = useState(false);
+  const [academicAddAiNote, setAcademicAddAiNote] = useState(false);
+
+  useEffect(() => {
+    if (showAcademicPanel && currentUser?.email) {
+      const saved = localStorage.getItem(`cmyo_writing_style_${currentUser.email}`);
+      if (saved && !academicVoiceSample) {
+        setAcademicVoiceSample(saved);
+        setShowAcademicVoiceInput(true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAcademicPanel, currentUser?.email]);
+
+  const saveWritingStyle = () => {
+    if (!currentUser?.email) return;
+    localStorage.setItem(`cmyo_writing_style_${currentUser.email}`, academicVoiceSample.trim());
+    setStyleSavedFlash(true);
+    setTimeout(() => setStyleSavedFlash(false), 2000);
+  };
+
+  const clearWritingStyle = () => {
+    if (currentUser?.email) localStorage.removeItem(`cmyo_writing_style_${currentUser.email}`);
+    setAcademicVoiceSample('');
+  };
+
   const handleAcademicProcess = async (action: 'detect' | 'humanize') => {
     if (!academicInput.trim()) {
       setAcademicError('Lütfen analiz edilecek veya dönüştürülecek bir metin girin.');
@@ -592,14 +620,14 @@ export default function Home() {
     const detectPhases = [
       'Metin morfolojisi ve 26 AI kalıbı taranıyor...',
       'Perplexity ve burstiness metrikleri hesaplanıyor...',
-      'GPTZero/Turnitin akademik AI modelleri simüle ediliyor...'
+      'Yazım kalitesi değerlendirmesi hazırlanıyor...'
     ];
     const humanizePhases = [
       'Metin morfolojisi ve 26 AI kalıbı taranıyor...',
-      'İlk insansılaştırma geçişi uygulanıyor (Blader Playbook)...',
-      'Audit denetimi: robotik kalıntılar aranıyor...',
-      'İkinci geçiş: kalan AI izleri temizleniyor...',
-      'Final AI skor kontrolü yapılıyor...',
+      'İlk iyileştirme geçişi uygulanıyor (üslup kalibrasyonu)...',
+      'Denetim: robotik/klişe kalıntılar aranıyor...',
+      'İkinci geçiş: kalan yapay kalıplar sadeleştiriliyor...',
+      'Final doğallık değerlendirmesi yapılıyor...',
       'Sonuçlar hazırlanıyor...'
     ];
     const phases = action === 'detect' ? detectPhases : humanizePhases;
@@ -621,8 +649,7 @@ export default function Home() {
           action,
           text: academicInput,
           voiceSample: academicVoiceSample || undefined,
-          targetLanguage: action === 'humanize' ? academicLanguage : undefined,
-          email: currentUser?.email
+          targetLanguage: action === 'humanize' ? academicLanguage : undefined
         })
       });
 
@@ -2537,7 +2564,7 @@ export default function Home() {
                       Akademik Asistan Paneli
                       <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">v2.0 Ekosistem</span>
                     </h2>
-                    <p className="text-xs text-slate-400">Tez, makale ve ödevler için Turnitin/GPTZero uyumlu AI Analizi &amp; İnsansılaştırma</p>
+                    <p className="text-xs text-slate-400">Tez, makale ve raporlarınızı daha akıcı, doğal ve kendi üslubunuza uygun hâle getirin</p>
                   </div>
                 </div>
                 <button
@@ -2620,10 +2647,10 @@ export default function Home() {
                           </div>
                           <h3 className="text-base font-bold text-white mb-2">{"\u0130"}{"\u015F"}lemi Se{"\u00E7"}in</h3>
                           <p className="text-sm text-slate-400 leading-relaxed">
-                            <strong className="text-blue-300">{"\u201C"}AI Analiz Et{"\u201D"}</strong> — Metindeki yapay zeka kal{"\u0131"}plar{"\u0131"}n{"\u0131"} ve Turnitin risk skorunu g{"\u00F6"}r{"\u00FC"}n.
+                            <strong className="text-blue-300">{"\u201C"}AI Analiz Et{"\u201D"}</strong> — Metindeki yapay zeka kal{"\u0131"}plar{"\u0131"}n{"\u0131"} ve do{"\u011F"}all{"\u0131"}k de{"\u011F"}erlendirmesini g{"\u00F6"}r{"\u00FC"}n.
                           </p>
                           <p className="text-sm text-slate-400 leading-relaxed mt-2">
-                            <strong className="text-purple-300">{"\u201C"}Metni {"\u0130"}nsans{"\u0131"}la{"\u015F"}t{"\u0131"}r{"\u201D"}</strong> — {"\u00C7"}ok a{"\u015F"}amal{"\u0131"} Blader Playbook motoru ile metni do{"\u011F"}al akademik dile d{"\u00F6"}n{"\u00FC"}{"\u015F"}t{"\u00FC"}r{"\u00FC"}n.
+                            <strong className="text-purple-300">{"\u201C"}Metni {"\u0130"}nsans{"\u0131"}la{"\u015F"}t{"\u0131"}r{"\u201D"}</strong> — {"\u00C7"}ok a{"\u015F"}amal{"\u0131"} iyile{"\u015F"}tirme motoruyla metni do{"\u011F"}al akademik dile d{"\u00F6"}n{"\u00FC"}{"\u015F"}t{"\u00FC"}r{"\u00FC"}n.
                           </p>
                         </div>
                       )}
@@ -2689,7 +2716,7 @@ export default function Home() {
                     <textarea
                       value={academicInput}
                       onChange={(e) => setAcademicInput(e.target.value)}
-                      placeholder="Analiz edilmesini veya Turnitin dedektörlerinden geçmesi için insansılaştırılmasını istediğiniz akademik metni buraya yapıştırın (Makale özeti, tez bölümleri, raporlar vb.)..."
+                      placeholder="Daha akıcı, doğal ve kendi üslubunuza uygun hâle getirmek istediğiniz akademik metni buraya yapıştırın (Makale özeti, tez bölümleri, raporlar vb.)..."
                       className="w-full flex-1 min-h-[180px] bg-slate-950/60 border border-white/5 rounded-xl p-4 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm leading-relaxed resize-none"
                     />
 
@@ -2709,7 +2736,7 @@ export default function Home() {
                       {showAcademicVoiceInput && (
                         <div className="px-4 pb-3 border-t border-white/5 bg-slate-950/20">
                           <p className="text-[11px] text-slate-400 mb-2 leading-relaxed pt-2">
-                            Kendi yazdığınız 1-2 akademik paragraf ekleyin. Sistem sizin tarzınızı taklit eder.
+                            Kendi yazdığınız 1-2 akademik paragraf ekleyin. İyileştirme, metni sizin üslubunuza yaklaştırır.
                           </p>
                           <textarea
                             value={academicVoiceSample}
@@ -2717,6 +2744,24 @@ export default function Home() {
                             placeholder="Kendi yazım tarzınızdan örnek paragraflar yapıştırın..."
                             className="w-full h-20 bg-slate-950/80 border border-white/5 rounded-lg p-3 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
                           />
+                          <div className="flex items-center justify-between gap-2 mt-2">
+                            <p className="text-[10px] text-slate-500 leading-snug flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
+                              Yalnız bu tarayıcıda saklanır — sunucuya gönderilmez.
+                            </p>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {academicVoiceSample.trim() && (
+                                <button type="button" onClick={clearWritingStyle}
+                                  className="text-[10px] text-slate-400 hover:text-rose-300 px-2 py-1 rounded-md hover:bg-white/5 transition-all">
+                                  Temizle
+                                </button>
+                              )}
+                              <button type="button" onClick={saveWritingStyle} disabled={!academicVoiceSample.trim()}
+                                className="text-[10px] font-semibold text-purple-200 bg-purple-500/20 border border-purple-500/30 px-2.5 py-1 rounded-md hover:bg-purple-500/30 disabled:opacity-40 transition-all flex items-center gap-1">
+                                {styleSavedFlash ? (<><Check className="w-3 h-3" />Kaydedildi</>) : 'Tarzımı kaydet'}
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2833,6 +2878,14 @@ export default function Home() {
                           </div>
                         </div>
 
+                        <div className="flex items-start gap-1.5">
+                          <Info className="w-3 h-3 text-slate-500 mt-0.5 shrink-0" />
+                          <p className="text-[10px] text-slate-500 leading-snug">
+                            Bu skor dahilî bir yazım-kalitesi sezgiselidir; Turnitin, GPTZero gibi araçların
+                            sonucunu tahmin etmez veya garanti vermez. Amaç, metni daha doğal ve akıcı yazmanıza yardımcı olmaktır.
+                          </p>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
                           <div className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-center">
                             <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Perplexity</span>
@@ -2902,7 +2955,7 @@ export default function Home() {
                                 <span className="text-[10px] font-bold text-purple-300">{academicResult.passCount === 1 ? '1-Pass ✅' : '2-Pass ✅✅'}</span>
                               </div>
                             )}
-                            {/* AI Score Badge */}
+                            {/* Doğallık Değerlendirmesi Rozeti (dahilî sezgisel — Turnitin değil) */}
                             <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 ${
                               (academicResult.finalAiScore ?? academicResult.aiScoreAfter ?? 50) <= 20
                                 ? 'bg-emerald-500/10 border border-emerald-500/20'
@@ -2910,12 +2963,20 @@ export default function Home() {
                                   ? 'bg-yellow-500/10 border border-yellow-500/20'
                                   : 'bg-rose-500/10 border border-rose-500/20'
                             }`}>
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <Activity className="w-3.5 h-3.5 text-emerald-400" />
                               <span className={`text-[10px] font-bold ${
                                 (academicResult.finalAiScore ?? academicResult.aiScoreAfter ?? 50) <= 20 ? 'text-emerald-300' : (academicResult.finalAiScore ?? academicResult.aiScoreAfter ?? 50) <= 40 ? 'text-yellow-300' : 'text-rose-300'
-                              }`}>AI Skor: {academicResult.originalAiScore ?? '?'}% → {academicResult.finalAiScore ?? academicResult.aiScoreAfter ?? '?'}%</span>
+                              }`}>Doğallık: {100 - (academicResult.originalAiScore ?? 50)}% → {100 - (academicResult.finalAiScore ?? academicResult.aiScoreAfter ?? 50)}%</span>
                             </div>
                           </div>
+                        </div>
+                        {/* Dürüstlük uyarısı — iç sezgisel skorun ne OLMADIĞI */}
+                        <div className="flex items-start gap-1.5 -mt-1 mb-1 shrink-0">
+                          <Info className="w-3 h-3 text-slate-500 mt-0.5 shrink-0" />
+                          <p className="text-[10px] text-slate-500 leading-snug">
+                            Bu değerlendirme dahilî bir yazım-kalitesi sezgiselidir; Turnitin, GPTZero gibi
+                            araçların sonucunu tahmin etmez veya garanti vermez.
+                          </p>
                         </div>
 
                         {/* Text Display */}
@@ -2930,7 +2991,7 @@ export default function Home() {
                         {/* Audit Log — Improvements List */}
                         {academicResult.auditLog && academicResult.auditLog.length > 0 && (
                           <div className="p-3 bg-slate-900/30 border border-white/5 rounded-xl shrink-0 max-h-[160px] overflow-y-auto">
-                            <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-2">Blader Playbook — Yapılan İyileştirmeler ({academicResult.auditLog.length})</span>
+                            <span className="block text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-2">Yapılan İyileştirmeler ({academicResult.auditLog.length})</span>
                             <ul className="space-y-1 text-[11px]">
                               {academicResult.auditLog.map((log: string, idx: number) => (
                                 <li key={idx} className="flex items-start gap-1.5 leading-relaxed text-slate-300">
@@ -2942,17 +3003,31 @@ export default function Home() {
                           </div>
                         )}
 
+                        {/* Şeffaflık: opsiyonel AI-destek notu */}
+                        <label className="flex items-start gap-2 shrink-0 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={academicAddAiNote}
+                            onChange={(e) => setAcademicAddAiNote(e.target.checked)}
+                            className="mt-0.5 accent-blue-500 cursor-pointer"
+                          />
+                          <span className="text-[11px] text-slate-400 leading-snug group-hover:text-slate-300 transition-colors">
+                            Metnin sonuna <span className="text-slate-300 font-medium">“Yapay zekâ desteğiyle düzenlenmiştir.”</span> notunu ekle
+                            <span className="block text-[10px] text-slate-500">Akademik dürüstlük ve şeffaf kullanım için önerilir.</span>
+                          </span>
+                        </label>
+
                         {/* Action Buttons */}
                         <div className="grid grid-cols-2 gap-3 shrink-0">
                           <button
-                            onClick={() => { navigator.clipboard.writeText(academicResult.humanizedText); alert('İnsansılaştırılmış metin panoya kopyalandı.'); }}
+                            onClick={() => { navigator.clipboard.writeText(academicResult.humanizedText + (academicAddAiNote ? '\n\nYapay zekâ desteğiyle düzenlenmiştir.' : '')); alert('İyileştirilmiş metin panoya kopyalandı.'); }}
                             className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs sm:text-sm font-bold border border-white/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <Copy className="w-4 h-4 text-slate-400" />
                             <span>Metni Kopyala</span>
                           </button>
                           <button
-                            onClick={() => { setInput(academicResult.humanizedText); setShowAcademicPanel(false); }}
+                            onClick={() => { setInput(academicResult.humanizedText + (academicAddAiNote ? '\n\nYapay zekâ desteğiyle düzenlenmiştir.' : '')); setShowAcademicPanel(false); }}
                             className="py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-blue-500/10 hover:from-blue-500 hover:to-cyan-500 border border-white/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <Share2 className="w-4 h-4 text-white" />
