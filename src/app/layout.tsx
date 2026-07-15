@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Great_Vibes } from "next/font/google";
 import "./globals.css";
 import "@uploadthing/react/styles.css";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -12,6 +12,15 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// "Ecosystems" marka kelimesi için premium el yazısı fontu.
+// next/font build sırasında self-host eder → CSP güvenli, dış istek yok.
+const greatVibes = Great_Vibes({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-ecosystems",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -40,7 +49,7 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-[100dvh] flex flex-col overflow-x-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} ${greatVibes.variable} antialiased min-h-[100dvh] flex flex-col overflow-x-hidden`}
       >
         <ToastProvider>
           {children}

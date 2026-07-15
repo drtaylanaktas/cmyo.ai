@@ -15,6 +15,7 @@ import remarkGfm from 'remark-gfm';
 import { HistorySkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
+import { EcosystemsBrand } from '@/components/EcosystemsBrand';
 
 // Teknik aksiyon artığı temizleme — paylaşılan (test edilebilir) lib'den.
 import { JSON_CLEAN_REGEX, stripJsonBlock, cleanStreamingContent } from '@/lib/content-clean';
@@ -1458,7 +1459,7 @@ export default function Home() {
             <div className="w-10 h-10 relative">
               <Image src="/logo.png" alt="Logo" fill className="object-contain" />
             </div>
-            <span className="font-bold text-lg tracking-tight">ÇMYO.AI</span>
+            <EcosystemsBrand className="font-bold text-lg tracking-tight" scriptClassName="text-blue-400 text-xl" />
             <button
               onClick={() => setShowHistory(false)}
               className="md:hidden ml-auto text-slate-400"
@@ -1688,7 +1689,7 @@ export default function Home() {
             >
               <History className="w-6 h-6" />
             </button>
-            <div className="md:hidden font-bold">ÇMYO.AI</div>
+            <div className="md:hidden font-bold"><EcosystemsBrand scriptClassName="text-blue-400 text-lg" /></div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -1899,7 +1900,7 @@ export default function Home() {
                     className="object-contain drop-shadow-[0_0_25px_rgba(0,128,255,0.3)]"
                   />
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">ÇMYO.AI</h2>
+                <h2 className="text-2xl font-bold text-white mb-2"><EcosystemsBrand scriptClassName="text-blue-400 text-3xl align-baseline" /></h2>
                 <p className="text-slate-400 max-w-md mb-6 text-sm">
                   Sıradan bir asistan değil — size özel, sürekli büyüyen bir yapay zeka <span className="text-blue-300 font-medium">ekosistemi</span>. Sorun, üretin, keşfedin.
                 </p>
@@ -2316,7 +2317,7 @@ export default function Home() {
                     <Image src="/logo.png" alt="CMYO.AI" width={40} height={40} className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-white">ÇMYO.AI v2.0</h2>
+                    <h2 className="text-lg font-bold text-white"><EcosystemsBrand scriptClassName="text-blue-400 text-xl" suffix="v2.0" /></h2>
                     <p className="text-xs text-slate-400">Ekosistem Sürümü · Haziran 2026</p>
                   </div>
                 </div>
