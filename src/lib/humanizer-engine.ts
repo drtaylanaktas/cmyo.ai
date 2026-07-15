@@ -133,7 +133,7 @@ const AI_PATTERNS_KNOWLEDGE = `
 export async function detectAI(text: string): Promise<AIDetectionResult> {
     const openai = getOpenAIClient();
 
-    const systemPrompt = `You are a strict, world-class academic AI writing detector, comparable to Turnitin, GPTZero, and Copyleaks. Your detection methodology is based on Wikipedia's comprehensive "Signs of AI writing" guide (WikiProject AI Cleanup), which identifies 26 specific patterns of AI-generated text.
+    const systemPrompt = `You are a strict academic writing-quality reviewer. You apply an INTERNAL heuristic based on Wikipedia's comprehensive "Signs of AI writing" guide (WikiProject AI Cleanup), which identifies 26 specific patterns commonly found in AI-generated text. This is an internal writing-quality signal only — it is NOT a Turnitin, GPTZero, or Copyleaks prediction and must never be presented as a guarantee about any third-party detector.
 
 You must analyze the input text for ALL of the following pattern categories:
 
@@ -233,7 +233,7 @@ ${voiceSample}
 Write in a natural, varied voice. Mix sentence lengths. Have subtle personality. Avoid sterile, press-release-like writing. For academic text, maintain academic rigor but vary rhythm and structure.
 `;
 
-    const systemPrompt = `You are an elite academic editor and writing humanizer. Your mission is to rewrite text so it sounds completely natural, organic, and written by a seasoned human, effectively bypassing Turnitin and GPTZero detection.
+    const systemPrompt = `You are an elite academic editor. Your mission is to rewrite text so it reads naturally, fluently, and in the author's own voice — clear, well-structured, genuinely human academic prose that is free of robotic, formulaic AI-writing patterns. The goal is writing QUALITY and authenticity to the author's style, not evading any detection tool.
 
 ${languageInstruction}
 
@@ -448,7 +448,7 @@ export async function humanizeText(
     }
 
     // ── Phase 2: First Humanization Pass ──
-    onPhase?.('İlk insansılaştırma geçişi uygulanıyor (Blader Playbook)...');
+    onPhase?.('İlk iyileştirme geçişi uygulanıyor (üslup kalibrasyonu)...');
     const pass1 = await humanizePass1(text, voiceSample, lang);
     allImprovements.push(...pass1.improvements);
 
@@ -470,13 +470,20 @@ export async function humanizeText(
         allImprovements.push('✅ Audit geçişi başarılı — ikinci geçiş gerekmedi.');
     }
 
-    // ── Phase 5: Final AI Score ──
-    onPhase?.('Final AI skor kontrolü yapılıyor...');
+    // ── Phase 5: Final doğallık skoru ──
+    // Maliyet/hız için ayrı bir GPT-4o `detectAI` çağrısı YAPMIYORUZ.
+    // İkinci geçiş olmadıysa audit zaten finalDraft üzerinde çalıştı → skoru kullan.
+    // İkinci geçiş olduysa yeni taslağı ucuz audit (gpt-4o-mini) ile yeniden puanla.
     let finalScore: number;
-    try {
-        const finalDetection = await detectAI(finalDraft);
-        finalScore = finalDetection.score;
-    } catch {
+    if (passCount === 2) {
+        onPhase?.('Final doğallık kontrolü yapılıyor...');
+        try {
+            const finalAudit = await auditPass(finalDraft);
+            finalScore = finalAudit.score;
+        } catch {
+            finalScore = audit.score;
+        }
+    } else {
         finalScore = audit.score;
     }
 
